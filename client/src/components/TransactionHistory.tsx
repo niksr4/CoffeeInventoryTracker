@@ -30,8 +30,12 @@ export default function TransactionHistory({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const itemsPerPage = 6;
 
-  // Sort transactions
-  const sortedTransactions = [...transactions].sort((a, b) => {
+  // Filter and sort transactions
+  const filteredTransactions = filterType === 'all' 
+    ? transactions 
+    : transactions.filter(t => t.itemName.toLowerCase() === filterType.toLowerCase());
+    
+  const sortedTransactions = [...filteredTransactions].sort((a, b) => {
     if (sortField === 'timestamp') {
       return sortDirection === 'asc' 
         ? new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
