@@ -22,16 +22,7 @@ export default function Header() {
     <header className="bg-white border-b border-slate-200 py-4">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <div className="flex items-center space-x-1">
-          <img 
-            src="/coffee-bean.svg" 
-            alt="Coffee Bean" 
-            className="h-8 w-8"
-            onError={(e) => {
-              // Fallback if the image doesn't exist
-              e.currentTarget.style.display = 'none';
-            }} 
-          />
-          <span className="text-xl font-semibold text-[#4F772D]">Coffee Inventory</span>
+          <span className="text-xl font-semibold text-[#4F772D]">Inventory System</span>
         </div>
 
         <nav className="hidden md:flex space-x-6">

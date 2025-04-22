@@ -68,7 +68,7 @@ export default function Home() {
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold mb-4 text-gray-800">Inventory Overview</h2>
                 <p className="text-gray-600">
-                  Welcome to the Coffee Production Inventory Management System. You can track and manage inventory items from the panel on the left.
+                  Welcome to the Inventory Management System. You can track and manage inventory items from the panel on the left.
                 </p>
                 <p className="mt-4 text-gray-600">
                   Transaction history is available to administrators only. Please contact your administrator for detailed transaction reports.

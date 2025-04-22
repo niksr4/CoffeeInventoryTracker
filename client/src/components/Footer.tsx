@@ -4,7 +4,7 @@ export default function Footer() {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center justify-between">
           <p className="text-sm text-gray-600">
-            &copy; {new Date().getFullYear()} CoffeeTrak Inventory Management System
+            &copy; {new Date().getFullYear()} Inventory Management System
           </p>
           <div className="flex space-x-4 mt-2 md:mt-0">
             <a href="#" className="text-gray-600 hover:text-[#4F772D] text-sm">Help</a>
