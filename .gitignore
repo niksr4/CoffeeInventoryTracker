@@ -1,6 +1,7 @@
-node_modules
-dist
+
+node_modules/
+dist/
+.env
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+*.log
+generated-icon.png
