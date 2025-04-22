@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import InventoryForm from "@/components/InventoryForm";
 import CurrentInventory from "@/components/CurrentInventory";
@@ -35,8 +34,6 @@ export default function Home() {
   
   return (
     <div className="min-h-screen">
-      <Header />
-      
       <main className="container mx-auto px-4 py-6">
         <div className="lg:flex lg:space-x-6">
           <div className="w-full lg:w-1/3 mb-6 lg:mb-0">

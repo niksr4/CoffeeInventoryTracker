@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useState } from "react";
+import React, { createContext, useContext, ReactNode, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -37,7 +37,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check for current user on component mount
+  useEffect(() => {
+    async function checkCurrentUser() {
+      try {
+        const response = await apiRequest("GET", "/api/user");
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error("Error checking current user:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    checkCurrentUser();
+  }, []);
 
   // Check if user is admin
   const isAdmin = user?.role === "admin";
