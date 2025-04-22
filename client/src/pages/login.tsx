@@ -38,8 +38,7 @@ const registerSchema = z.object({
 });
 
 export default function LoginPage() {
-  const [activeTab, setActiveTab] = useState<string>("login");
-  const { user, login, register, isLoading } = useAuth();
+  const { user, login, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
   // If already logged in, redirect to dashboard
@@ -93,11 +92,7 @@ export default function LoginPage() {
       <div className="flex w-full max-w-5xl">
         {/* Left side - Form */}
         <div className="w-full md:w-1/2 p-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
-            </TabsList>
+          <div className="w-full">
 
             {/* Login Form */}
             <TabsContent value="login">
@@ -181,90 +176,7 @@ export default function LoginPage() {
                 </CardFooter>
               </Card>
             </TabsContent>
-
-            {/* Registration Form */}
-            <TabsContent value="register">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-2xl text-center text-[#4F772D]">
-                    Create Account
-                  </CardTitle>
-                  <CardDescription className="text-center">
-                    Enter your details to create a new account
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...registerForm}>
-                    <form
-                      onSubmit={registerForm.handleSubmit(onRegisterSubmit)}
-                      className="space-y-4"
-                    >
-                      <FormField
-                        control={registerForm.control}
-                        name="username"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Username</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Choose a username"
-                                {...field}
-                                disabled={isLoading}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={registerForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="password"
-                                placeholder="Choose a password"
-                                {...field}
-                                disabled={isLoading}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="submit"
-                        className="w-full bg-[#4F772D] hover:bg-[#31572C] text-white"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Registering...
-                          </>
-                        ) : (
-                          "Register"
-                        )}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-                <CardFooter className="flex justify-center text-sm text-muted-foreground">
-                  <p>
-                    Already have an account?{" "}
-                    <button
-                      className="text-[#4F772D] hover:underline"
-                      onClick={() => setActiveTab("login")}
-                    >
-                      Login
-                    </button>
-                  </p>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          </div>
         </div>
 
         {/* Right side - Hero */}
