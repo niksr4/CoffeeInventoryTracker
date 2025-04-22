@@ -41,15 +41,7 @@ export default function Header() {
             </span>
           </Link>
           
-          {/* Only show transactions link to admin users */}
-          {isAdmin && (
-            <Link href="/transactions">
-              <span className={`text-sm font-medium cursor-pointer ${location === "/transactions" ? "text-[#4F772D]" : "text-slate-600 hover:text-[#4F772D]"}`}>
-                Transactions
-              </span>
-            </Link>
-          )}
-        </nav>
+          </nav>
 
         {user ? (
           <DropdownMenu>
