@@ -59,12 +59,14 @@ export default function TransactionHistory({
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="diesel">Diesel</SelectItem>
-              <SelectItem value="fertilizer">Fertilizer</SelectItem>
-              <SelectItem value="pesticide">Pesticide</SelectItem>
-              <SelectItem value="seeds">Coffee Seeds</SelectItem>
-              <SelectItem value="packaging">Packaging</SelectItem>
-              <SelectItem value="tools">Tools</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="petrol">Petrol</SelectItem>
+              <SelectItem value="urea">Urea</SelectItem>
+              <SelectItem value="MOP">MOP</SelectItem>
+              <SelectItem value="DAP">DAP</SelectItem>
+              <SelectItem value="Glycil">Glycil</SelectItem>
+              <SelectItem value="Tricel">Tricel</SelectItem>
+              <SelectItem value="Contaf">Contaf</SelectItem>
+              <SelectItem value="MgSO4">MgSO4</SelectItem>
             </SelectContent>
           </Select>
           

@@ -50,12 +50,14 @@ export class MemStorage implements IStorage {
   private initializeInventoryItems() {
     const defaultItems = [
       { name: "diesel", currentQuantity: 120, unit: "L" },
-      { name: "fertilizer", currentQuantity: 500, unit: "kg" },
-      { name: "pesticide", currentQuantity: 75, unit: "L" },
-      { name: "seeds", currentQuantity: 200, unit: "kg" },
-      { name: "packaging", currentQuantity: 1000, unit: "units" },
-      { name: "tools", currentQuantity: 35, unit: "units" },
-      { name: "other", currentQuantity: 0, unit: "units" }
+      { name: "petrol", currentQuantity: 90, unit: "L" },
+      { name: "urea", currentQuantity: 500, unit: "kg" },
+      { name: "MOP", currentQuantity: 350, unit: "kg" },
+      { name: "DAP", currentQuantity: 250, unit: "kg" },
+      { name: "Glycil", currentQuantity: 75, unit: "L" },
+      { name: "Tricel", currentQuantity: 50, unit: "L" },
+      { name: "Contaf", currentQuantity: 30, unit: "L" },
+      { name: "MgSO4", currentQuantity: 180, unit: "kg" }
     ];
     
     defaultItems.forEach(item => {
