@@ -26,12 +26,29 @@ export default function TransactionHistory({
 }: TransactionHistoryProps) {
   const exportTransactions = useExportTransactions();
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState<'timestamp' | 'itemName' | 'quantity'>('timestamp');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const itemsPerPage = 6;
+
+  // Sort transactions
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    if (sortField === 'timestamp') {
+      return sortDirection === 'asc' 
+        ? new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        : new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    }
+    if (sortField === 'quantity') {
+      return sortDirection === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity;
+    }
+    return sortDirection === 'asc'
+      ? a[sortField].localeCompare(b[sortField])
+      : b[sortField].localeCompare(a[sortField]);
+  });
   
   // Calculate pagination
-  const totalPages = Math.ceil(transactions.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedTransactions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedTransactions = transactions.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedTransactions = sortedTransactions.slice(startIndex, startIndex + itemsPerPage);
   
   const handleExport = () => {
     exportTransactions.mutate();
@@ -89,9 +106,36 @@ export default function TransactionHistory({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Type</th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+              <th 
+                scope="col" 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => {
+                  setSortDirection(prev => sortField === 'timestamp' ? (prev === 'asc' ? 'desc' : 'asc') : 'desc');
+                  setSortField('timestamp');
+                }}
+              >
+                Date {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th 
+                scope="col" 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => {
+                  setSortDirection(prev => sortField === 'itemName' ? (prev === 'asc' ? 'desc' : 'asc') : 'desc');
+                  setSortField('itemName');
+                }}
+              >
+                Item Type {sortField === 'itemName' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th 
+                scope="col" 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => {
+                  setSortDirection(prev => sortField === 'quantity' ? (prev === 'asc' ? 'desc' : 'asc') : 'desc');
+                  setSortField('quantity');
+                }}
+              >
+                Quantity {sortField === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction</th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
