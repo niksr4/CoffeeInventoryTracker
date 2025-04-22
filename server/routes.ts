@@ -27,8 +27,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize default users
   await initializeUsers();
-  // Get all inventory items
-  app.get("/api/inventory", async (req, res) => {
+  // Get all inventory items (requires authentication)
+  app.get("/api/inventory", isAuthenticated, async (req, res) => {
     try {
       const items = await storage.getInventoryItems();
       res.json(items);
@@ -37,9 +37,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get all transactions
-  app.get("/api/transactions", async (req, res) => {
+  // Get all transactions (admin only)
+  app.get("/api/transactions", isAuthenticated, async (req, res) => {
     try {
+      // Regular users can't access transaction history
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied: Admin role required" });
+      }
+      
       const itemType = req.query.itemType as string;
       
       let transactions;
@@ -60,8 +65,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Create a new transaction
-  app.post("/api/transactions", async (req: Request, res: Response) => {
+  // Create a new transaction (requires authentication)
+  app.post("/api/transactions", isAuthenticated, async (req: Request, res: Response) => {
     try {
       // Extend the schema with additional validation
       const transactionSchema = insertTransactionSchema.extend({
@@ -74,8 +79,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request body
       const validatedData = transactionSchema.parse(req.body);
       
-      // Create transaction
-      const transaction = await storage.createTransaction(validatedData);
+      // Use the logged-in username instead of "System"
+      const transaction = await storage.createTransaction({
+        ...validatedData,
+        userName: req.user.username
+      });
       
       res.status(201).json(transaction);
     } catch (error) {
@@ -94,8 +102,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Export transactions (CSV format)
-  app.get("/api/export", async (req, res) => {
+  // Export transactions (CSV format) (admin only)
+  app.get("/api/export", isAdmin, async (req, res) => {
     try {
       const transactions = await storage.getTransactions();
       
