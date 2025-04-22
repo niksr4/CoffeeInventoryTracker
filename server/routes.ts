@@ -1,10 +1,32 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertTransactionSchema } from "@shared/schema";
+import { setupAuth, initializeUsers } from "./auth";
+
+// Middleware to require authentication
+function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ message: "Not authenticated" });
+}
+
+// Middleware to require admin role
+function isAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated() && req.user.role === "admin") {
+    return next();
+  }
+  res.status(403).json({ message: "Access denied" });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  setupAuth(app);
+  
+  // Initialize default users
+  await initializeUsers();
   // Get all inventory items
   app.get("/api/inventory", async (req, res) => {
     try {
