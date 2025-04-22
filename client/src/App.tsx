@@ -16,7 +16,7 @@ function Router() {
       <Header />
       <main className="flex-grow">
         <Switch>
-          <Route path="/login" component={Login} />
+          <Route path="/auth" component={Login} />
           <ProtectedRoute path="/" component={Home} />
           <Route component={NotFound} />
         </Switch>

@@ -14,7 +14,7 @@ export default function Header() {
   const [location] = useLocation();
 
   // Don't show header on login page
-  if (location === "/login") {
+  if (location === "/auth") {
     return null;
   }
 
@@ -36,17 +36,17 @@ export default function Header() {
 
         <nav className="hidden md:flex space-x-6">
           <Link href="/">
-            <a className={`text-sm font-medium ${location === "/" ? "text-[#4F772D]" : "text-slate-600 hover:text-[#4F772D]"}`}>
+            <span className={`text-sm font-medium cursor-pointer ${location === "/" ? "text-[#4F772D]" : "text-slate-600 hover:text-[#4F772D]"}`}>
               Dashboard
-            </a>
+            </span>
           </Link>
           
           {/* Only show transactions link to admin users */}
           {isAdmin && (
             <Link href="/transactions">
-              <a className={`text-sm font-medium ${location === "/transactions" ? "text-[#4F772D]" : "text-slate-600 hover:text-[#4F772D]"}`}>
+              <span className={`text-sm font-medium cursor-pointer ${location === "/transactions" ? "text-[#4F772D]" : "text-slate-600 hover:text-[#4F772D]"}`}>
                 Transactions
-              </a>
+              </span>
             </Link>
           )}
         </nav>
@@ -71,7 +71,7 @@ export default function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <Link href="/login">
+          <Link href="/auth">
             <Button variant="outline" size="sm">
               Sign in
             </Button>
