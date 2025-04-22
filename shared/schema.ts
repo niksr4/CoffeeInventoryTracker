@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -33,6 +34,10 @@ export const insertInventoryItemSchema = createInsertSchema(inventoryItems).pick
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
 export type InventoryItem = typeof inventoryItems.$inferSelect;
 
+export const inventoryItemsRelations = relations(inventoryItems, ({ many }) => ({
+  transactions: many(transactions)
+}));
+
 // Define transactions schema
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
@@ -54,6 +59,13 @@ export const insertTransactionSchema = createInsertSchema(transactions).pick({
 
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  item: one(inventoryItems, {
+    fields: [transactions.itemId],
+    references: [inventoryItems.id]
+  })
+}));
 
 // Combined transaction data with item info
 export type TransactionWithItem = {

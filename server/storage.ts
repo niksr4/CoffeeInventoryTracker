@@ -192,4 +192,12 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Use DatabaseStorage instead of MemStorage for persistent storage
+import { DatabaseStorage } from "./storage-db";
+
+export const storage = new DatabaseStorage();
+
+// Initialize the database with default items if needed
+storage.initializeDatabase().catch(error => {
+  console.error("Failed to initialize database:", error);
+});
