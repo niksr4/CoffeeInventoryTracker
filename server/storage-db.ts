@@ -78,41 +78,56 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction methods
   async getTransactions(): Promise<TransactionWithItem[]> {
-    const result = await db.query.transactions.findMany({
-      orderBy: [desc(transactions.timestamp)],
-      with: {
-        item: true
+    // First get all transactions
+    const transactionsResult = await db
+      .select()
+      .from(transactions)
+      .orderBy(desc(transactions.timestamp));
+    
+    // Create the combined result
+    const result: TransactionWithItem[] = [];
+    
+    for (const transaction of transactionsResult) {
+      const item = await this.getInventoryItem(transaction.itemId);
+      if (item) {
+        result.push({
+          id: transaction.id,
+          itemId: transaction.itemId,
+          itemName: item.name,
+          quantity: transaction.quantity,
+          unit: item.unit,
+          transactionType: transaction.transactionType,
+          notes: transaction.notes || undefined,
+          userName: transaction.userName,
+          timestamp: transaction.timestamp,
+        });
       }
-    });
-
-    return result.map(transaction => ({
-      id: transaction.id,
-      itemId: transaction.itemId,
-      itemName: transaction.item.name,
-      quantity: transaction.quantity,
-      unit: transaction.item.unit,
-      transactionType: transaction.transactionType,
-      notes: transaction.notes || undefined,
-      userName: transaction.userName,
-      timestamp: transaction.timestamp,
-    }));
+    }
+    
+    return result;
   }
 
   async getTransactionsByItemId(itemId: number): Promise<TransactionWithItem[]> {
-    const result = await db.query.transactions.findMany({
-      where: eq(transactions.itemId, itemId),
-      orderBy: [desc(transactions.timestamp)],
-      with: {
-        item: true
-      }
-    });
-
-    return result.map(transaction => ({
+    // First get all transactions for this item
+    const transactionsResult = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.itemId, itemId))
+      .orderBy(desc(transactions.timestamp));
+    
+    // Get the item
+    const item = await this.getInventoryItem(itemId);
+    if (!item) {
+      return [];
+    }
+    
+    // Map transactions to combined result
+    return transactionsResult.map(transaction => ({
       id: transaction.id,
       itemId: transaction.itemId,
-      itemName: transaction.item.name,
+      itemName: item.name,
       quantity: transaction.quantity,
-      unit: transaction.item.unit,
+      unit: item.unit,
       transactionType: transaction.transactionType,
       notes: transaction.notes || undefined,
       userName: transaction.userName,
