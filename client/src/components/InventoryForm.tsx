@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,6 +37,7 @@ interface InventoryFormProps {
 
 export default function InventoryForm({ inventoryItems, onSuccess, isLoading }: InventoryFormProps) {
   const createTransaction = useCreateTransaction();
+  const [selectedUnit, setSelectedUnit] = useState<string>("");
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,6 +49,19 @@ export default function InventoryForm({ inventoryItems, onSuccess, isLoading }: 
       userName: "System",
     },
   });
+  
+  // Update the selected unit when the item changes
+  useEffect(() => {
+    const watchedItemId = form.watch("itemId");
+    if (watchedItemId) {
+      const selectedItem = inventoryItems.find(item => item.id === watchedItemId);
+      if (selectedItem) {
+        setSelectedUnit(selectedItem.unit);
+      }
+    } else {
+      setSelectedUnit("");
+    }
+  }, [form.watch("itemId"), inventoryItems]);
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -78,26 +92,6 @@ export default function InventoryForm({ inventoryItems, onSuccess, isLoading }: 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="quantity"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Quantity</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    placeholder="Enter quantity" 
-                    {...field} 
-                    onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
-                    disabled={isLoading || createTransaction.isPending}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
             name="itemId"
             render={({ field }) => (
               <FormItem>
@@ -120,6 +114,34 @@ export default function InventoryForm({ inventoryItems, onSuccess, isLoading }: 
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="quantity"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Quantity {selectedUnit && `(${selectedUnit})`}</FormLabel>
+                <div className="relative">
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      placeholder="Enter quantity" 
+                      {...field} 
+                      onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+                      disabled={isLoading || createTransaction.isPending}
+                      className={selectedUnit ? "pr-10" : ""}
+                    />
+                  </FormControl>
+                  {selectedUnit && (
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
+                      {selectedUnit}
+                    </div>
+                  )}
+                </div>
                 <FormMessage />
               </FormItem>
             )}

@@ -21,7 +21,7 @@ export type TransactionFormData = {
   quantity: number;
   itemId: number;
   transactionType: 'depleting' | 'restocking';
-  notes: string;
+  notes?: string;
   userName: string;
 };
 
