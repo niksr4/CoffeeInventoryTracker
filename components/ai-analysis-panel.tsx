@@ -63,6 +63,7 @@ export default function AIAnalysisPanel() {
 
   const handleAnalysis = async () => {
     setLoading(true)
+    console.log("Starting AI analysis...", { analysisType, timeframe })
 
     try {
       const response = await fetch("/api/ai-analysis", {
@@ -76,11 +77,16 @@ export default function AIAnalysisPanel() {
         }),
       })
 
+      console.log("Response status:", response.status)
+
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.status}`)
+        const errorText = await response.text()
+        console.error("API Error:", errorText)
+        throw new Error(`Analysis failed: ${response.status} - ${errorText}`)
       }
 
       const result = await response.json()
+      console.log("Analysis result:", result)
 
       if (!result.success) {
         throw new Error(result.error || "Analysis failed")
@@ -95,9 +101,15 @@ export default function AIAnalysisPanel() {
       })
     } catch (error) {
       console.error("Analysis error:", error)
+
+      let errorMessage = "Failed to generate analysis"
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to generate analysis",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -177,6 +189,13 @@ export default function AIAnalysisPanel() {
               </>
             )}
           </Button>
+
+          {/* Debug info - remove this after fixing */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="text-xs text-gray-500 mt-2">
+              Debug: Type={analysisType}, Timeframe={timeframe}
+            </div>
+          )}
         </CardContent>
       </Card>
 

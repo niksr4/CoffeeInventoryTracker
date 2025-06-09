@@ -8,16 +8,23 @@ const groq = new Groq({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("AI Analysis API called")
+
     if (!process.env.GROQ_API_KEY) {
+      console.error("GROQ_API_KEY not found in environment variables")
       return NextResponse.json({ success: false, error: "Groq API key not configured" }, { status: 500 })
     }
 
     const body = await request.json()
+    console.log("Request body:", body)
     const { analysisType, timeframe = "30" } = body
 
     // Get current inventory and transactions
+    console.log("Fetching inventory and transactions...")
     const inventory = await getAllInventoryItems()
     const transactions = await getAllTransactions()
+
+    console.log(`Found ${inventory.length} inventory items and ${transactions.length} transactions`)
 
     // Filter transactions by timeframe (days)
     const timeframeDays = Number.parseInt(timeframe)
@@ -134,6 +141,8 @@ Focus on practical cost-saving strategies.`
         return NextResponse.json({ success: false, error: "Invalid analysis type" }, { status: 400 })
     }
 
+    console.log("Calling Groq API with prompt length:", analysisPrompt.length)
+
     const completion = await groq.chat.completions.create({
       messages: [
         {
@@ -149,6 +158,8 @@ Focus on practical cost-saving strategies.`
       temperature: 0.3,
       max_tokens: 1000,
     })
+
+    console.log("Groq API response received")
 
     const analysis = completion.choices[0]?.message?.content
 
@@ -168,11 +179,26 @@ Focus on practical cost-saving strategies.`
       },
     })
   } catch (error) {
-    console.error("AI Analysis error:", error)
+    console.error("AI Analysis error details:", error)
+
+    // More specific error handling
+    if (error instanceof Error) {
+      if (error.message.includes("API key")) {
+        return NextResponse.json({ success: false, error: "Invalid or missing Groq API key" }, { status: 401 })
+      }
+      if (error.message.includes("rate limit")) {
+        return NextResponse.json(
+          { success: false, error: "API rate limit exceeded. Please try again later." },
+          { status: 429 },
+        )
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : "Failed to generate analysis",
+        details: process.env.NODE_ENV === "development" ? String(error) : undefined,
       },
       { status: 500 },
     )
