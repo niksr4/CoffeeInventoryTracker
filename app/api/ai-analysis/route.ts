@@ -1,6 +1,31 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getAllTransactions, getAllInventoryItems } from "@/lib/storage"
 
+// Use direct HTTP calls instead of the Groq SDK to avoid browser detection issues
+async function callGroqAPI(messages: any[], model = "llama-3.1-70b-versatile") {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messages,
+      model,
+      temperature: 0.3,
+      max_tokens: 1000,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Groq API error: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  return data.choices[0]?.message?.content
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log("AI Analysis API called")
@@ -59,12 +84,12 @@ export async function POST(request: NextRequest) {
 
     let analysisPrompt = ""
     const systemPrompt =
-      "You are an AI assistant specialized in inventory management and agricultural supply analysis. Provide practical, actionable insights based on the data provided."
+      "You are an AI assistant specialized in inventory management and agricultural supply analysis. Provide practical, actionable insights based on the data provided. Format your response with clear headings and bullet points for easy reading."
 
     switch (analysisType) {
       case "inventory_overview":
         analysisPrompt = `
-Analyze this honey farm inventory data and provide insights:
+Analyze this agricultural inventory data and provide insights:
 
 CURRENT INVENTORY:
 ${inventory.map((item) => `- ${item.name}: ${item.quantity} ${item.unit}`).join("\n")}
@@ -87,7 +112,7 @@ Keep the response concise and actionable.`
 
       case "usage_trends":
         analysisPrompt = `
-Analyze usage trends for this honey farm inventory:
+Analyze usage trends for this agricultural inventory:
 
 RECENT TRANSACTIONS (last ${timeframeDays} days):
 ${recentTransactions.map((t) => `- ${t.date}: ${t.transactionType} ${t.quantity} ${t.unit} of ${t.itemType}`).join("\n")}
@@ -107,7 +132,7 @@ Focus on practical insights for farm management.`
 
       case "reorder_suggestions":
         analysisPrompt = `
-Provide reorder recommendations for this honey farm inventory:
+Provide reorder recommendations for this agricultural inventory:
 
 CURRENT INVENTORY:
 ${inventory.map((item) => `- ${item.name}: ${item.quantity} ${item.unit}`).join("\n")}
@@ -136,7 +161,7 @@ Format as a prioritized action list.`
 
       case "cost_optimization":
         analysisPrompt = `
-Analyze this honey farm inventory for cost optimization opportunities:
+Analyze this agricultural inventory for cost optimization opportunities:
 
 CURRENT INVENTORY:
 ${inventory.map((item) => `- ${item.name}: ${item.quantity} ${item.unit}`).join("\n")}
@@ -160,36 +185,20 @@ Focus on practical cost-saving strategies.`
 
     console.log("Calling Groq API with prompt length:", analysisPrompt.length)
 
-    // Try to import and use Groq SDK with proper server-side configuration
     try {
-      const { default: Groq } = await import("groq-sdk")
-
-      // Create Groq client with server-side configuration
-      const groq = new Groq({
-        apiKey: process.env.GROQ_API_KEY,
-        // Explicitly set this to false since we're on the server
-        dangerouslyAllowBrowser: false,
-      })
-
-      const completion = await groq.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
-          {
-            role: "user",
-            content: analysisPrompt,
-          },
-        ],
-        model: "llama-3.1-70b-versatile",
-        temperature: 0.3,
-        max_tokens: 1000,
-      })
+      // Use direct HTTP call to Groq API
+      const analysis = await callGroqAPI([
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: analysisPrompt,
+        },
+      ])
 
       console.log("Groq API response received")
-
-      const analysis = completion.choices[0]?.message?.content
 
       if (!analysis) {
         throw new Error("No analysis generated")
@@ -209,64 +218,7 @@ Focus on practical cost-saving strategies.`
     } catch (groqError) {
       console.error("Groq API error:", groqError)
 
-      // If it's still a browser environment error, try alternative approach
-      if (groqError instanceof Error && groqError.message.includes("browser-like environment")) {
-        console.log("Detected browser environment error, trying alternative approach...")
-
-        // Try with fetch API directly
-        try {
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              messages: [
-                {
-                  role: "system",
-                  content: systemPrompt,
-                },
-                {
-                  role: "user",
-                  content: analysisPrompt,
-                },
-              ],
-              model: "llama-3.1-70b-versatile",
-              temperature: 0.3,
-              max_tokens: 1000,
-            }),
-          })
-
-          if (!response.ok) {
-            throw new Error(`Groq API error: ${response.status}`)
-          }
-
-          const data = await response.json()
-          const analysis = data.choices[0]?.message?.content
-
-          if (!analysis) {
-            throw new Error("No analysis generated from direct API call")
-          }
-
-          return NextResponse.json({
-            success: true,
-            analysis,
-            analysisType,
-            timeframe: timeframeDays,
-            dataPoints: {
-              inventoryItems: inventory.length,
-              recentTransactions: recentTransactions.length,
-              totalTransactions: transactions.length,
-            },
-            note: "Generated using direct API call",
-          })
-        } catch (fetchError) {
-          console.error("Direct API call also failed:", fetchError)
-        }
-      }
-
-      // Fallback to mock analysis if both Groq approaches fail
+      // Fallback to mock analysis if Groq fails
       const mockAnalysis = generateMockAnalysis(analysisType, inventory, recentTransactions, timeframeDays)
 
       return NextResponse.json({
@@ -309,7 +261,7 @@ Focus on practical cost-saving strategies.`
   }
 }
 
-// Fallback mock analysis function
+// Enhanced fallback mock analysis function
 function generateMockAnalysis(
   analysisType: string,
   inventory: any[],
@@ -318,120 +270,173 @@ function generateMockAnalysis(
 ): string {
   const totalItems = inventory.length
   const totalTransactions = recentTransactions.length
+  const lowStockItems = inventory.filter((item) => {
+    const threshold = item.unit === "kg" ? 100 : item.unit === "L" ? 10 : 5
+    return item.quantity <= threshold
+  })
 
   switch (analysisType) {
     case "inventory_overview":
-      return `## Inventory Overview Analysis
+      return `# Inventory Overview Analysis
 
-**Current Status:**
-- Total unique items in inventory: ${totalItems}
-- Recent transactions (${timeframeDays} days): ${totalTransactions}
+## Current Status
+- **Total unique items in inventory:** ${totalItems}
+- **Recent transactions (${timeframeDays} days):** ${totalTransactions}
+- **Low stock items:** ${lowStockItems.length}
 
-**Key Observations:**
+## Key Observations
 ${
   inventory.length > 0
     ? `
-- Highest stock item: ${inventory.sort((a, b) => b.quantity - a.quantity)[0]?.name} (${inventory[0]?.quantity} ${inventory[0]?.unit})
-- Items requiring attention: ${inventory.filter((item) => item.quantity < 100).length} items below 100 units
+### Stock Levels
+- **Highest stock item:** ${inventory.sort((a, b) => b.quantity - a.quantity)[0]?.name} (${inventory.sort((a, b) => b.quantity - a.quantity)[0]?.quantity} ${inventory.sort((a, b) => b.quantity - a.quantity)[0]?.unit})
+- **Items requiring attention:** ${lowStockItems.length} items below recommended levels
+
+### Low Stock Alert
+${lowStockItems.map((item) => `- **${item.name}:** ${item.quantity} ${item.unit} - Consider reordering`).join("\n")}
 `
-    : "- No inventory data available"
+    : "- No inventory data available for analysis"
 }
 
-**Recommendations:**
-1. Monitor low-stock items regularly
-2. Establish reorder points for critical items
-3. Review usage patterns monthly
-4. Consider bulk purchasing for frequently used items
+## Recommendations
+1. **Monitor low-stock items regularly** - Set up automated alerts
+2. **Establish reorder points** - Define minimum stock levels for critical items
+3. **Review usage patterns monthly** - Track consumption trends
+4. **Consider bulk purchasing** - For frequently used items to reduce costs
 
-*Note: This is a basic analysis. For detailed AI insights, please ensure the AI service is properly configured.*`
+*This analysis is based on your current inventory data. For more detailed AI insights, ensure the AI service is properly configured.*`
 
     case "usage_trends":
-      return `## Usage Trends Analysis
+      const restockingEvents = recentTransactions.filter((t) => t.transactionType === "Restocking")
+      const depletionEvents = recentTransactions.filter((t) => t.transactionType === "Depleting")
 
-**Transaction Activity (${timeframeDays} days):**
-- Total transactions: ${totalTransactions}
-- Restocking events: ${recentTransactions.filter((t) => t.transactionType === "Restocking").length}
-- Depletion events: ${recentTransactions.filter((t) => t.transactionType === "Depleting").length}
+      return `# Usage Trends Analysis
 
-**Trending Items:**
+## Transaction Activity (${timeframeDays} days)
+- **Total transactions:** ${totalTransactions}
+- **Restocking events:** ${restockingEvents.length}
+- **Depletion events:** ${depletionEvents.length}
+
+## Activity Patterns
 ${
   recentTransactions.length > 0
     ? `
-- Most active items based on recent transactions
-- Usage patterns suggest regular consumption cycles
+### Most Active Items
+${Object.entries(
+  recentTransactions.reduce((acc: any, t) => {
+    acc[t.itemType] = (acc[t.itemType] || 0) + 1
+    return acc
+  }, {}),
+)
+  .sort(([, a]: any, [, b]: any) => b - a)
+  .slice(0, 5)
+  .map(([item, count]) => `- **${item}:** ${count} transactions`)
+  .join("\n")}
+
+### Recent Activity
+${recentTransactions
+  .slice(0, 5)
+  .map(
+    (t) => `- ${new Date(t.date).toLocaleDateString()}: ${t.transactionType} ${t.quantity} ${t.unit} of ${t.itemType}`,
+  )
+  .join("\n")}
 `
     : "- Insufficient transaction data for trend analysis"
 }
 
-**Recommendations:**
-1. Track seasonal usage patterns
-2. Implement automated reorder triggers
-3. Monitor consumption rates weekly
-4. Plan inventory based on historical trends
+## Recommendations
+1. **Track seasonal patterns** - Monitor usage variations throughout the year
+2. **Implement automated triggers** - Set up reorder points based on usage rates
+3. **Weekly monitoring** - Review consumption rates regularly
+4. **Historical planning** - Use past trends to predict future needs
 
-*Note: This is a basic analysis. For detailed AI insights, please ensure the AI service is properly configured.*`
+*This analysis is based on your transaction history. For more detailed AI insights, ensure the AI service is properly configured.*`
 
     case "reorder_suggestions":
-      return `## Reorder Recommendations
+      const criticalItems = inventory.filter((item) => item.quantity < 50)
+      const monitorItems = inventory.filter((item) => item.quantity >= 50 && item.quantity < 200)
+      const wellStockedItems = inventory.filter((item) => item.quantity >= 200)
 
-**Immediate Action Required:**
+      return `# Reorder Recommendations
+
+## 🚨 Immediate Action Required
 ${
-  inventory
-    .filter((item) => item.quantity < 50)
-    .map((item) => `- ${item.name}: Current stock ${item.quantity} ${item.unit} - REORDER NOW`)
-    .join("\n") || "- No critical low stock items"
+  criticalItems.length > 0
+    ? criticalItems
+        .map((item) => `- **${item.name}:** Current stock ${item.quantity} ${item.unit} - **REORDER NOW**`)
+        .join("\n")
+    : "- No critical low stock items"
 }
 
-**Monitor Closely:**
+## ⚠️ Monitor Closely
 ${
-  inventory
-    .filter((item) => item.quantity >= 50 && item.quantity < 200)
-    .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} - Monitor usage`)
-    .join("\n") || "- No items requiring close monitoring"
+  monitorItems.length > 0
+    ? monitorItems.map((item) => `- **${item.name}:** ${item.quantity} ${item.unit} - Monitor usage closely`).join("\n")
+    : "- No items requiring close monitoring"
 }
 
-**Well Stocked:**
+## ✅ Well Stocked
 ${
-  inventory
-    .filter((item) => item.quantity >= 200)
-    .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} - Adequate stock`)
-    .join("\n") || "- No well-stocked items"
+  wellStockedItems.length > 0
+    ? wellStockedItems.map((item) => `- **${item.name}:** ${item.quantity} ${item.unit} - Adequate stock`).join("\n")
+    : "- No well-stocked items"
 }
 
-**General Recommendations:**
-1. Set up automatic reorder points
-2. Review supplier lead times
-3. Consider bulk discounts for high-usage items
-4. Maintain safety stock levels
+## General Recommendations
+1. **Set up automatic reorder points** - Define minimum stock levels
+2. **Review supplier lead times** - Factor in delivery schedules
+3. **Consider bulk discounts** - For high-usage items
+4. **Maintain safety stock** - Keep buffer inventory for critical items
 
-*Note: This is a basic analysis. For detailed AI insights, please ensure the AI service is properly configured.*`
+*This analysis is based on current stock levels. For more detailed AI insights, ensure the AI service is properly configured.*`
 
     case "cost_optimization":
-      return `## Cost Optimization Analysis
+      return `# Cost Optimization Analysis
 
-**Current Inventory Value:**
-- Total items tracked: ${totalItems}
-- Recent activity: ${totalTransactions} transactions in ${timeframeDays} days
+## Current Inventory Overview
+- **Total items tracked:** ${totalItems}
+- **Recent activity:** ${totalTransactions} transactions in ${timeframeDays} days
+- **Estimated total value:** $${inventory.reduce((sum, item) => sum + item.quantity * (item.unit === "kg" ? 2 : item.unit === "L" ? 5 : 10), 0).toLocaleString()}
 
-**Optimization Opportunities:**
-1. **Bulk Purchasing:** Consider bulk orders for frequently used items
-2. **Storage Efficiency:** Review storage costs for slow-moving items
-3. **Supplier Negotiation:** Leverage usage data for better pricing
-4. **Waste Reduction:** Monitor expiration dates and usage patterns
+## Optimization Opportunities
 
-**Cost-Saving Strategies:**
-- Implement just-in-time ordering for fast-moving items
-- Negotiate volume discounts with suppliers
-- Reduce carrying costs for excess inventory
-- Optimize order frequencies to minimize shipping costs
+### 1. Bulk Purchasing
+${
+  inventory
+    .filter((item) => item.quantity < 100)
+    .slice(0, 5)
+    .map((item) => `- **${item.name}:** Consider bulk orders to reduce unit costs`)
+    .join("\n") || "- Review frequently used items for bulk purchasing opportunities"
+}
 
-**Next Steps:**
+### 2. Storage Efficiency
+- Review storage costs for slow-moving items
+- Consider just-in-time delivery for bulky items
+- Optimize warehouse space utilization
+
+### 3. Supplier Negotiation
+- Leverage usage data for better pricing
+- Negotiate volume discounts
+- Review contract terms annually
+
+### 4. Waste Reduction
+- Monitor expiration dates closely
+- Implement FIFO (First In, First Out) inventory rotation
+- Track and minimize spoilage
+
+## Cost-Saving Strategies
+1. **Implement just-in-time ordering** - For fast-moving items
+2. **Negotiate volume discounts** - Use historical data as leverage
+3. **Reduce carrying costs** - Optimize inventory levels
+4. **Minimize shipping costs** - Consolidate orders when possible
+
+## Next Steps
 1. Analyze supplier pricing structures
 2. Review storage and handling costs
 3. Implement inventory turnover metrics
 4. Consider alternative suppliers for cost comparison
 
-*Note: This is a basic analysis. For detailed AI insights, please ensure the AI service is properly configured.*`
+*This analysis is based on your inventory data. For more detailed AI insights, ensure the AI service is properly configured.*`
 
     default:
       return "Analysis type not supported in fallback mode."
