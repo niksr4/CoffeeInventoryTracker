@@ -19,6 +19,7 @@ import {
   SortDesc,
   History,
   RotateCw,
+  Brain,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,6 +42,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
 import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+import AIAnalysisPanel from "@/components/ai-analysis-panel"
 
 // Update the itemDefinitions array to remove Diesel
 const itemDefinitions = [
@@ -186,6 +188,8 @@ export default function InventorySystem() {
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isRebuilding, setIsRebuilding] = useState(false)
+
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false)
 
   // Check authentication
   useEffect(() => {
@@ -778,8 +782,24 @@ export default function InventorySystem() {
               <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
               {isSyncing ? "Syncing..." : "Sync Now"}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAIAnalysis(!showAIAnalysis)}
+              className="flex items-center gap-1"
+            >
+              <Brain className={`h-3 w-3`} />
+              {showAIAnalysis ? "Hide AI Analysis" : "AI Analysis"}
+            </Button>
           </div>
         </div>
+
+        {/* AI Analysis Panel */}
+        {showAIAnalysis && (
+          <div className="mb-8">
+            <AIAnalysisPanel />
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
