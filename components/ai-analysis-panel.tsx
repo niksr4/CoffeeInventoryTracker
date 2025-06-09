@@ -25,6 +25,7 @@ export default function AIAnalysisPanel() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [analysisType, setAnalysisType] = useState("inventory_overview")
   const [timeframe, setTimeframe] = useState("30")
+  const [error, setError] = useState<string | null>(null)
 
   const analysisTypes = [
     {
@@ -63,10 +64,12 @@ export default function AIAnalysisPanel() {
 
   const handleAnalysis = async () => {
     setLoading(true)
+    setError(null)
     console.log("Starting AI analysis...", { analysisType, timeframe })
 
     try {
-      const response = await fetch("/api/ai-analysis", {
+      // Use the mock endpoint instead
+      const response = await fetch("/api/ai-analysis-mock", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -106,6 +109,8 @@ export default function AIAnalysisPanel() {
       if (error instanceof Error) {
         errorMessage = error.message
       }
+
+      setError(errorMessage)
 
       toast({
         title: "Analysis Failed",
@@ -190,10 +195,10 @@ export default function AIAnalysisPanel() {
             )}
           </Button>
 
-          {/* Debug info - remove this after fixing */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="text-xs text-gray-500 mt-2">
-              Debug: Type={analysisType}, Timeframe={timeframe}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+              <p className="font-medium">Error:</p>
+              <p>{error}</p>
             </div>
           )}
         </CardContent>

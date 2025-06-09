@@ -9,6 +9,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    serverComponentsExternalPackages: ["groq-sdk"],
+  },
+  // Increase serverless function timeout
+  serverRuntimeConfig: {
+    timeout: 60, // seconds
+  },
 }
 
 export default nextConfig
