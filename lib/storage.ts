@@ -36,6 +36,7 @@ const defaultInventoryItems = [
   { name: "Solubor", quantity: 2, unit: "kg" },
   { name: "H.S.D", quantity: 20, unit: "L" },
   { name: "Petrol", quantity: 25, unit: "L" },
+  { name: "micromin", quantity: 0, unit: "kg" }, // Added micromin with default unit
 ]
 
 // Local storage fallbacks (for server-side)

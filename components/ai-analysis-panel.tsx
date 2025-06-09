@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Brain, TrendingUp, Package, DollarSign, AlertTriangle } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 interface AnalysisResult {
   success: boolean
@@ -21,11 +22,16 @@ interface AnalysisResult {
 }
 
 export default function AIAnalysisPanel() {
+  const { isAdmin, user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [analysisType, setAnalysisType] = useState("inventory_overview")
   const [timeframe, setTimeframe] = useState("30")
-  const [error, setError] = useState<string | null>(null)
+
+  // Don't render anything if user is not admin
+  if (!isAdmin) {
+    return null
+  }
 
   const analysisTypes = [
     {
@@ -64,15 +70,14 @@ export default function AIAnalysisPanel() {
 
   const handleAnalysis = async () => {
     setLoading(true)
-    setError(null)
     console.log("Starting AI analysis...", { analysisType, timeframe })
 
     try {
-      // Use the mock endpoint instead
-      const response = await fetch("/api/ai-analysis-mock", {
+      const response = await fetch("/api/ai-analysis", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer admin-${user?.username}`, // Send admin authorization
         },
         body: JSON.stringify({
           analysisType,
@@ -85,6 +90,11 @@ export default function AIAnalysisPanel() {
       if (!response.ok) {
         const errorText = await response.text()
         console.error("API Error:", errorText)
+
+        if (response.status === 403) {
+          throw new Error("Admin access required for AI analysis")
+        }
+
         throw new Error(`Analysis failed: ${response.status} - ${errorText}`)
       }
 
@@ -110,8 +120,6 @@ export default function AIAnalysisPanel() {
         errorMessage = error.message
       }
 
-      setError(errorMessage)
-
       toast({
         title: "Analysis Failed",
         description: errorMessage,
@@ -132,6 +140,9 @@ export default function AIAnalysisPanel() {
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-blue-600" />
             AI Inventory Analysis
+            <Badge variant="secondary" className="ml-2">
+              Admin Only
+            </Badge>
           </CardTitle>
           <CardDescription>
             Get AI-powered insights about your inventory patterns, usage trends, and optimization opportunities.
@@ -194,13 +205,6 @@ export default function AIAnalysisPanel() {
               </>
             )}
           </Button>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-              <p className="font-medium">Error:</p>
-              <p>{error}</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 

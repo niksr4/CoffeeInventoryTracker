@@ -1,13 +1,16 @@
 "use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
-import { useState } from "react"
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { Brain } from "lucide-react"
+import { Brain, RefreshCw } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { useInventoryData } from "@/hooks/use-inventory-data"
 import AIAnalysisPanel from "./ai-analysis-panel"
 
 const data = [
@@ -20,78 +23,63 @@ const data = [
   { name: "Jul", uv: 3490, pv: 4300, amt: 2100 },
 ]
 
-function generateRandomTransaction() {
-  const items = [
-    "Keyboard",
-    "Mouse",
-    "Monitor",
-    "Headphones",
-    "Webcam",
-    "Microphone",
-    "Speaker",
-    "Laptop",
-    "Tablet",
-    "Printer",
-  ]
-  const quantities = [1, 2, 3, 4, 5]
-  const prices = [25, 50, 75, 100, 125, 150, 175, 200]
-  const types = ["Purchase", "Sale", "Return"]
-
-  const item = items[Math.floor(Math.random() * items.length)]
-  const quantity = quantities[Math.floor(Math.random() * quantities.length)]
-  const price = prices[Math.floor(Math.random() * prices.length)]
-  const type = types[Math.floor(Math.random() * types.length)]
-  const date = new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000) // Last 30 days
-
-  return {
-    item,
-    quantity,
-    price,
-    type,
-    date: date.toLocaleDateString(),
-  }
-}
-
-function generateRandomTransactions(count) {
-  const transactions = []
-  for (let i = 0; i < count; i++) {
-    transactions.push(generateRandomTransaction())
-  }
-  return transactions
-}
-
-const initialTransactions = generateRandomTransactions(10)
-
-const frameworks = [
-  {
-    value: "next.js",
-    label: "Next.js",
-  },
-  {
-    value: "sveltekit",
-    label: "SvelteKit",
-  },
-  {
-    value: "nuxt.js",
-    label: "Nuxt.js",
-  },
-  {
-    value: "remix",
-    label: "Remix",
-  },
-  {
-    value: "astro",
-    label: "Astro",
-  },
-]
-
 export default function InventorySystem() {
   const { toast } = useToast()
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [transactions, setTransactions] = useState(initialTransactions)
-  const [open, setOpen] = useState(false)
-  const [framework, setFramework] = useState<string>("")
+  const { isAdmin } = useAuth()
   const [showAIAnalysis, setShowAIAnalysis] = useState(false)
+
+  // Use real inventory data instead of mock data
+  const { inventory, transactions, loading, error, lastSync, refreshData, redisConnected } = useInventoryData()
+
+  // Calculate inventory statistics
+  const totalValue = inventory.reduce((sum, item) => {
+    // Estimate value based on quantity (you can adjust this logic)
+    const estimatedPrice = item.unit === "kg" ? 2 : item.unit === "L" ? 5 : 10
+    return sum + item.quantity * estimatedPrice
+  }, 0)
+
+  const lowStockItems = inventory.filter((item) => {
+    // Define low stock thresholds based on unit
+    const threshold = item.unit === "kg" ? 100 : item.unit === "L" ? 10 : 5
+    return item.quantity <= threshold
+  })
+
+  // Get recent transactions (last 10)
+  const recentTransactions = transactions.slice(0, 10)
+
+  const handleRefresh = async () => {
+    await refreshData(true)
+    toast({
+      title: "Data Refreshed",
+      description: "Inventory data has been updated.",
+    })
+  }
+
+  if (loading && inventory.length === 0) {
+    return (
+      <div className="container mx-auto py-10">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p>Loading inventory data...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-10">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">{error}</p>
+            <Button onClick={handleRefresh}>Try Again</Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto py-10">
@@ -99,10 +87,10 @@ export default function InventorySystem() {
         <Card>
           <CardHeader>
             <CardTitle>Total Inventory Value</CardTitle>
-            <CardDescription>Current value of all items in stock.</CardDescription>
+            <CardDescription>Estimated value of all items in stock.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$56,789</div>
+            <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -112,7 +100,7 @@ export default function InventorySystem() {
             <CardDescription>Number of unique items currently in stock.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">345</div>
+            <div className="text-2xl font-bold">{inventory.length}</div>
           </CardContent>
         </Card>
 
@@ -122,7 +110,7 @@ export default function InventorySystem() {
             <CardDescription>Items that are running low on stock.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">23</div>
+            <div className="text-2xl font-bold">{lowStockItems.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -161,28 +149,43 @@ export default function InventorySystem() {
           <TableCaption>A list of your recent transactions.</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[100px]">Type</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Item</TableHead>
               <TableHead>Quantity</TableHead>
-              <TableHead>Price</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>User</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((transaction, index) => (
-              <TableRow key={index}>
-                <TableCell>{transaction.type}</TableCell>
-                <TableCell>{transaction.item}</TableCell>
-                <TableCell>{transaction.quantity}</TableCell>
-                <TableCell>${transaction.price}</TableCell>
-                <TableCell>{transaction.date}</TableCell>
+            {recentTransactions.length > 0 ? (
+              recentTransactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell>
+                    <Badge variant={transaction.transactionType === "Restocking" ? "default" : "destructive"}>
+                      {transaction.transactionType}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{transaction.itemType}</TableCell>
+                  <TableCell>
+                    {transaction.quantity} {transaction.unit}
+                  </TableCell>
+                  <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                  <TableCell>{transaction.user}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  No transactions found
+                </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </div>
 
-      {showAIAnalysis && (
+      {/* Only show AI Analysis for admin users */}
+      {isAdmin && showAIAnalysis && (
         <div className="mt-6">
           <AIAnalysisPanel />
         </div>
@@ -192,20 +195,33 @@ export default function InventorySystem() {
 
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-sm text-muted-foreground">Last synced: 2 minutes ago</p>
-          <Badge variant="secondary">Beta</Badge>
+          <p className="text-sm text-muted-foreground">
+            Last synced: {lastSync ? lastSync.toLocaleTimeString() : "Never"}
+          </p>
+          <div className="flex items-center gap-2">
+            <Badge variant={redisConnected ? "default" : "destructive"}>
+              {redisConnected ? "Redis Connected" : "Redis Disconnected"}
+            </Badge>
+            <Badge variant="secondary">Live Data</Badge>
+          </div>
         </div>
         <div className="space-x-2">
-          <Button variant="outline">Sync Inventory</Button>
-          <Button
-            onClick={() => setShowAIAnalysis(!showAIAnalysis)}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Brain className="h-4 w-4" />
-            {showAIAnalysis ? "Hide AI Analysis" : "AI Analysis"}
+          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Sync Inventory
           </Button>
+          {/* Only show AI Analysis button for admin users */}
+          {isAdmin && (
+            <Button
+              onClick={() => setShowAIAnalysis(!showAIAnalysis)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Brain className="h-4 w-4" />
+              {showAIAnalysis ? "Hide AI Analysis" : "AI Analysis"}
+            </Button>
+          )}
         </div>
       </div>
     </div>

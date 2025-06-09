@@ -10,6 +10,12 @@ export async function POST(request: NextRequest) {
   try {
     console.log("AI Analysis API called")
 
+    // Check for admin authorization
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.includes("admin")) {
+      return NextResponse.json({ success: false, error: "Admin access required for AI analysis" }, { status: 403 })
+    }
+
     if (!process.env.GROQ_API_KEY) {
       console.error("GROQ_API_KEY not found in environment variables")
       return NextResponse.json({ success: false, error: "Groq API key not configured" }, { status: 500 })
