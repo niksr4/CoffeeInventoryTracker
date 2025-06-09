@@ -160,12 +160,15 @@ Focus on practical cost-saving strategies.`
 
     console.log("Calling Groq API with prompt length:", analysisPrompt.length)
 
-    // Try to import and use Groq SDK
+    // Try to import and use Groq SDK with proper server-side configuration
     try {
       const { default: Groq } = await import("groq-sdk")
 
+      // Create Groq client with server-side configuration
       const groq = new Groq({
         apiKey: process.env.GROQ_API_KEY,
+        // Explicitly set this to false since we're on the server
+        dangerouslyAllowBrowser: false,
       })
 
       const completion = await groq.chat.completions.create({
@@ -206,7 +209,64 @@ Focus on practical cost-saving strategies.`
     } catch (groqError) {
       console.error("Groq API error:", groqError)
 
-      // Fallback to mock analysis if Groq fails
+      // If it's still a browser environment error, try alternative approach
+      if (groqError instanceof Error && groqError.message.includes("browser-like environment")) {
+        console.log("Detected browser environment error, trying alternative approach...")
+
+        // Try with fetch API directly
+        try {
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              messages: [
+                {
+                  role: "system",
+                  content: systemPrompt,
+                },
+                {
+                  role: "user",
+                  content: analysisPrompt,
+                },
+              ],
+              model: "llama-3.1-70b-versatile",
+              temperature: 0.3,
+              max_tokens: 1000,
+            }),
+          })
+
+          if (!response.ok) {
+            throw new Error(`Groq API error: ${response.status}`)
+          }
+
+          const data = await response.json()
+          const analysis = data.choices[0]?.message?.content
+
+          if (!analysis) {
+            throw new Error("No analysis generated from direct API call")
+          }
+
+          return NextResponse.json({
+            success: true,
+            analysis,
+            analysisType,
+            timeframe: timeframeDays,
+            dataPoints: {
+              inventoryItems: inventory.length,
+              recentTransactions: recentTransactions.length,
+              totalTransactions: transactions.length,
+            },
+            note: "Generated using direct API call",
+          })
+        } catch (fetchError) {
+          console.error("Direct API call also failed:", fetchError)
+        }
+      }
+
+      // Fallback to mock analysis if both Groq approaches fail
       const mockAnalysis = generateMockAnalysis(analysisType, inventory, recentTransactions, timeframeDays)
 
       return NextResponse.json({
