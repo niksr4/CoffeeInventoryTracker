@@ -351,3 +351,33 @@ export async function checkStorageStatus(): Promise<{
     hasExistingData,
   }
 }
+
+// Force initialization function for debugging
+export async function forceInitializeData(): Promise<boolean> {
+  console.log("=== forceInitializeData called ===")
+
+  // Reset the initialization flag
+  hasInitializedData = false
+
+  // Clear existing data
+  localTransactions = []
+
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("inventoryTransactions")
+    localStorage.removeItem("inventoryLastUpdate")
+  }
+
+  // Clear Redis data if available
+  if (redis && getRedisAvailability()) {
+    try {
+      await redis.del(KEYS.TRANSACTIONS)
+      await redis.del(KEYS.LAST_UPDATE)
+      await redis.del(KEYS.INVENTORY_HASH)
+    } catch (error) {
+      console.error("Error clearing Redis data:", error)
+    }
+  }
+
+  // Initialize with default data
+  return initializeDefaultDataIfEmpty()
+}

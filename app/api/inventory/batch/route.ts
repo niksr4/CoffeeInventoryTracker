@@ -18,16 +18,21 @@ let hasCheckedForInitialization = false
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("=== Batch API GET called ===")
+
     // Check Redis connection (just for status info)
     const redisConnected = await checkRedisConnection()
+    console.log("Redis connected:", redisConnected)
 
     // Very important: First check if ANY data exists
     const dataExists = await checkIfDataExists()
+    console.log("Data exists:", dataExists)
 
     // Only try to initialize if no data exists and we haven't checked yet
     if (!dataExists && !hasCheckedForInitialization) {
       console.log("No existing data found. Attempting to initialize with default data.")
-      await initializeDefaultDataIfEmpty()
+      const initResult = await initializeDefaultDataIfEmpty()
+      console.log("Initialization result:", initResult)
       hasCheckedForInitialization = true
     } else if (!hasCheckedForInitialization) {
       console.log("Existing data found. Skipping initialization.")
@@ -35,9 +40,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Get inventory and transactions
+    console.log("Getting inventory and transactions...")
     const inventory = await getAllInventoryItems()
     const transactions = await getAllTransactions()
     const timestamp = await getLastUpdateTimestamp()
+
+    console.log("Final data:", {
+      inventoryCount: inventory.length,
+      transactionsCount: transactions.length,
+      timestamp: new Date(timestamp).toISOString(),
+    })
 
     return NextResponse.json({
       success: true,
@@ -46,6 +58,12 @@ export async function GET(request: NextRequest) {
       transactions,
       timestamp,
       has_existing_data: dataExists,
+      debug: {
+        inventoryCount: inventory.length,
+        transactionsCount: transactions.length,
+        dataExisted: dataExists,
+        hasCheckedInit: hasCheckedForInitialization,
+      },
     })
   } catch (error) {
     console.error("API error:", error)
@@ -78,6 +96,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { operation, data, timestamp } = body
 
+    console.log("=== Batch API POST called ===", { operation, timestamp })
+
     // Get current timestamp
     const currentTimestamp = await getLastUpdateTimestamp()
 
@@ -106,12 +126,18 @@ export async function POST(request: NextRequest) {
     // Handle different operations
     if (operation === "addTransaction" && data.transaction) {
       // Add a single transaction
+      console.log("Adding single transaction:", data.transaction)
       const success = await addTransaction(data.transaction)
 
       if (success) {
         const inventory = await getAllInventoryItems()
         const transactions = await getAllTransactions()
         const newTimestamp = await getLastUpdateTimestamp()
+
+        console.log("Transaction added successfully:", {
+          inventoryCount: inventory.length,
+          transactionsCount: transactions.length,
+        })
 
         return NextResponse.json({
           success: true,
@@ -124,12 +150,18 @@ export async function POST(request: NextRequest) {
       }
     } else if (operation === "batchUpdate" && data.transactions) {
       // Perform batch update
+      console.log("Performing batch update with", data.transactions.length, "transactions")
       const success = await performBatchOperation(data.transactions)
 
       if (success) {
         const inventory = await getAllInventoryItems()
         const transactions = await getAllTransactions()
         const newTimestamp = await getLastUpdateTimestamp()
+
+        console.log("Batch update successful:", {
+          inventoryCount: inventory.length,
+          transactionsCount: transactions.length,
+        })
 
         return NextResponse.json({
           success: true,
