@@ -74,34 +74,47 @@ function saveToLocalStorage<T>(key: string, value: T): void {
 
 // Function to get all transactions
 export async function getAllTransactions(): Promise<Transaction[]> {
+  console.log("=== getAllTransactions called ===")
+
   // Try Redis first if available
   if (redis && getRedisAvailability()) {
     try {
+      console.log("Trying to get transactions from Redis...")
       const transactions = await redis.get<Transaction[]>(KEYS.TRANSACTIONS)
-      if (transactions) {
+      console.log("Redis transactions result:", transactions ? `${transactions.length} transactions` : "null")
+
+      if (transactions && Array.isArray(transactions)) {
         // Update local cache
         localTransactions = transactions
         if (typeof window !== "undefined") {
           saveToLocalStorage("inventoryTransactions", transactions)
         }
+        console.log("Returning Redis transactions:", transactions.length)
         return transactions
       }
     } catch (error) {
       console.error("Error getting transactions from Redis:", error)
       setRedisAvailability(false)
     }
+  } else {
+    console.log("Redis not available, checking local storage...")
   }
 
   // Fallback to localStorage or memory
   if (typeof window !== "undefined") {
-    return getFromLocalStorage("inventoryTransactions", localTransactions)
+    const localData = getFromLocalStorage("inventoryTransactions", localTransactions)
+    console.log("Local storage transactions:", localData.length)
+    return localData
   }
 
+  console.log("Returning memory transactions:", localTransactions.length)
   return localTransactions
 }
 
 // Function to save transactions
 export async function saveTransactions(transactions: Transaction[]): Promise<boolean> {
+  console.log("=== saveTransactions called with", transactions.length, "transactions ===")
+
   // Update local cache first
   localTransactions = transactions
   localLastUpdate = Date.now()
@@ -114,8 +127,10 @@ export async function saveTransactions(transactions: Transaction[]): Promise<boo
   // Try Redis if available
   if (redis && getRedisAvailability()) {
     try {
+      console.log("Saving to Redis...")
       await redis.set(KEYS.TRANSACTIONS, transactions)
       await redis.set(KEYS.LAST_UPDATE, localLastUpdate)
+      console.log("Successfully saved to Redis")
       return true
     } catch (error) {
       console.error("Error saving transactions to Redis:", error)
@@ -124,17 +139,22 @@ export async function saveTransactions(transactions: Transaction[]): Promise<boo
     }
   }
 
+  console.log("Saved to local storage only")
   return true // Return true since we saved to local storage
 }
 
 // Function to get all inventory items
 export async function getAllInventoryItems(): Promise<InventoryItem[]> {
+  console.log("=== getAllInventoryItems called ===")
+
   // Get all transactions
   const transactions = await getAllTransactions()
+  console.log("Processing", transactions.length, "transactions for inventory calculation")
 
   // If no transactions, return empty array (not default items)
   // This ensures we don't reset inventory on every deployment
   if (transactions.length === 0) {
+    console.log("No transactions found, returning empty inventory")
     return []
   }
 
@@ -142,7 +162,10 @@ export async function getAllInventoryItems(): Promise<InventoryItem[]> {
   const inventory: Record<string, InventoryItem> = {}
 
   // Process transactions in chronological order (oldest first)
-  for (const transaction of [...transactions].reverse()) {
+  const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  console.log("Processing transactions in chronological order...")
+
+  for (const transaction of sortedTransactions) {
     const { itemType, quantity, transactionType, unit } = transaction
 
     // Initialize item if it doesn't exist
@@ -167,11 +190,16 @@ export async function getAllInventoryItems(): Promise<InventoryItem[]> {
   }
 
   // Convert to array and filter out items with zero quantity
-  return Object.values(inventory).filter((item) => item.quantity > 0)
+  const result = Object.values(inventory).filter((item) => item.quantity > 0)
+  console.log("Calculated inventory:", result.length, "items")
+
+  return result
 }
 
 // Function to add a transaction
 export async function addTransaction(transaction: Transaction): Promise<boolean> {
+  console.log("=== addTransaction called ===", transaction)
+
   // Get current transactions
   const transactions = await getAllTransactions()
 
@@ -211,6 +239,7 @@ export async function getLastUpdateTimestamp(): Promise<number> {
 
 // Function to perform batch operation
 export async function performBatchOperation(newTransactions: Transaction[]): Promise<boolean> {
+  console.log("=== performBatchOperation called with", newTransactions.length, "transactions ===")
   // Simply save the transactions
   return saveTransactions(newTransactions)
 }
@@ -218,8 +247,11 @@ export async function performBatchOperation(newTransactions: Transaction[]): Pro
 // CRITICAL CHANGE: Only initialize if data doesn't exist in Redis
 // This ensures we don't reset inventory on every deployment
 export async function initializeDefaultDataIfEmpty(): Promise<boolean> {
+  console.log("=== initializeDefaultDataIfEmpty called ===")
+
   // Skip if we've already checked this session
   if (hasInitializedData) {
+    console.log("Already checked for initialization this session")
     return false
   }
 
@@ -228,6 +260,7 @@ export async function initializeDefaultDataIfEmpty(): Promise<boolean> {
     try {
       // Check if transactions exist in Redis
       const redisTransactions = await redis.get<Transaction[]>(KEYS.TRANSACTIONS)
+      console.log("Redis check - transactions found:", redisTransactions ? redisTransactions.length : 0)
 
       // If transactions exist in Redis, DO NOT initialize
       if (redisTransactions && redisTransactions.length > 0) {
@@ -243,6 +276,7 @@ export async function initializeDefaultDataIfEmpty(): Promise<boolean> {
 
   // Check if transactions exist in local storage
   const transactions = await getAllTransactions()
+  console.log("Local check - transactions found:", transactions.length)
 
   // If transactions exist in local storage, DO NOT initialize
   if (transactions.length > 0) {
@@ -264,6 +298,8 @@ export async function initializeDefaultDataIfEmpty(): Promise<boolean> {
     user: "system",
     unit: item.unit,
   }))
+
+  console.log("Creating", initialTransactions.length, "initial transactions")
 
   // Save the initial transactions
   const success = await saveTransactions(initialTransactions)

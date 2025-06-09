@@ -27,6 +27,8 @@ export function useInventoryData() {
 
   // Function to fetch data from the API
   const fetchData = useCallback(async (forceFetch = false) => {
+    console.log("=== fetchData called ===", { forceFetch, isUpdating: isUpdatingRef.current })
+
     // If we're already updating, don't fetch
     if (isUpdatingRef.current) {
       console.log("Skipping fetch because an update is in progress")
@@ -35,6 +37,7 @@ export function useInventoryData() {
 
     try {
       setLoading(true)
+      console.log("Fetching data from /api/inventory/batch...")
 
       // Fetch data from the API
       const response = await fetch("/api/inventory/batch")
@@ -44,6 +47,12 @@ export function useInventoryData() {
       }
 
       const data = await response.json()
+      console.log("API response:", {
+        success: data.success,
+        inventoryCount: data.inventory?.length || 0,
+        transactionsCount: data.transactions?.length || 0,
+        timestamp: data.timestamp,
+      })
 
       // Update Redis connection status
       setRedisConnected(data.redis_connected)
@@ -61,18 +70,21 @@ export function useInventoryData() {
       // Only update from API if it's newer or we're forcing a fetch
       if (apiTimestamp > localTimestamp || forceFetch) {
         // Update our state and refs with the API data
-        setInventory(data.inventory || [])
-        setTransactions(data.transactions || [])
+        const newInventory = data.inventory || []
+        const newTransactions = data.transactions || []
 
-        inventoryRef.current = data.inventory || []
-        transactionsRef.current = data.transactions || []
+        console.log("Updating with API data:", {
+          inventoryCount: newInventory.length,
+          transactionsCount: newTransactions.length,
+        })
+
+        setInventory(newInventory)
+        setTransactions(newTransactions)
+
+        inventoryRef.current = newInventory
+        transactionsRef.current = newTransactions
 
         lastUpdateTimestampRef.current = apiTimestamp
-
-        console.log("Updated with API data:", {
-          inventoryCount: data.inventory?.length || 0,
-          transactionsCount: data.transactions?.length || 0,
-        })
       } else {
         console.log("Local data is newer, keeping local data")
       }
@@ -89,6 +101,8 @@ export function useInventoryData() {
 
   // Function to add a transaction
   const addTransaction = useCallback(async (transaction: Transaction) => {
+    console.log("=== addTransaction called ===", transaction)
+
     // Set the updating flag to prevent concurrent updates
     isUpdatingRef.current = true
 
@@ -113,6 +127,7 @@ export function useInventoryData() {
       }
 
       const data = await response.json()
+      console.log("Add transaction response:", data)
 
       if (!data.success) {
         throw new Error(data.error || "Failed to add transaction")
@@ -122,11 +137,14 @@ export function useInventoryData() {
       setRedisConnected(data.redis_connected)
 
       // Update our state and refs with the API data
-      setInventory(data.inventory || [])
-      setTransactions(data.transactions || [])
+      const newInventory = data.inventory || []
+      const newTransactions = data.transactions || []
 
-      inventoryRef.current = data.inventory || []
-      transactionsRef.current = data.transactions || []
+      setInventory(newInventory)
+      setTransactions(newTransactions)
+
+      inventoryRef.current = newInventory
+      transactionsRef.current = newTransactions
 
       lastUpdateTimestampRef.current = data.timestamp
 
@@ -226,6 +244,7 @@ export function useInventoryData() {
 
   // Initial data fetch
   useEffect(() => {
+    console.log("=== Initial data fetch ===")
     fetchData()
   }, [fetchData])
 
