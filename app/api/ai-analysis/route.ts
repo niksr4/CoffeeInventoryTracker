@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getAllTransactions, getAllInventoryItems } from "@/lib/storage"
 
 // Use direct HTTP calls instead of the Groq SDK to avoid browser detection issues
-async function callGroqAPI(messages: any[], model = "llama-3.1-70b-versatile") {
+async function callGroqAPI(messages: any[], model = "llama3-70b-8192") {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -186,29 +186,56 @@ Focus on practical cost-saving strategies.`
     console.log("Calling Groq API with prompt length:", analysisPrompt.length)
 
     try {
-      // Use direct HTTP call to Groq API
-      const analysis = await callGroqAPI([
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: analysisPrompt,
-        },
-      ])
+      // Try with multiple model options in case one is deprecated
+      let analysis = null
+      let modelUsed = ""
 
-      console.log("Groq API response received")
+      // List of models to try in order of preference
+      const modelsToTry = ["llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"]
+
+      let lastError = null
+
+      // Try each model until one works
+      for (const model of modelsToTry) {
+        try {
+          console.log(`Trying Groq model: ${model}`)
+          analysis = await callGroqAPI(
+            [
+              {
+                role: "system",
+                content: systemPrompt,
+              },
+              {
+                role: "user",
+                content: analysisPrompt,
+              },
+            ],
+            model,
+          )
+
+          if (analysis) {
+            modelUsed = model
+            console.log(`Successfully used model: ${model}`)
+            break
+          }
+        } catch (error) {
+          console.error(`Error with model ${model}:`, error)
+          lastError = error
+        }
+      }
 
       if (!analysis) {
-        throw new Error("No analysis generated")
+        throw lastError || new Error("All Groq models failed")
       }
+
+      console.log("Groq API response received")
 
       return NextResponse.json({
         success: true,
         analysis,
         analysisType,
         timeframe: timeframeDays,
+        modelUsed,
         dataPoints: {
           inventoryItems: inventory.length,
           recentTransactions: recentTransactions.length,

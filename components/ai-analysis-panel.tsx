@@ -14,6 +14,7 @@ interface AnalysisResult {
   analysis: string
   analysisType: string
   timeframe: number
+  modelUsed?: string
   dataPoints: {
     inventoryItems: number
     recentTransactions: number
@@ -241,6 +242,7 @@ export default function AIAnalysisPanel() {
               <Badge variant="outline">{analysisResult.timeframe} days</Badge>
               <Badge variant="outline">{analysisResult.dataPoints.inventoryItems} items</Badge>
               <Badge variant="outline">{analysisResult.dataPoints.recentTransactions} recent transactions</Badge>
+              {analysisResult.modelUsed && <Badge variant="secondary">Model: {analysisResult.modelUsed}</Badge>}
               {analysisResult.note && <Badge variant="secondary">Fallback Analysis</Badge>}
             </div>
           </CardHeader>
