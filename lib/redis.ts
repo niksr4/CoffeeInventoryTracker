@@ -1,3 +1,19 @@
+Skip to content
+Nik's projects
+Nik's projects
+
+Hobby
+
+v0-simple-inventory-tracker
+
+4PMR1n5Vi
+
+
+
+Source
+Output
+lib/redis.ts
+
 import { Redis } from "@upstash/redis"
 
 // Simple flag to track if Redis is available
@@ -43,41 +59,3 @@ export async function checkRedisConnection(): Promise<boolean> {
   if (!redis) {
     isRedisAvailable = false
     return false
-  }
-
-  try {
-    const pong = await redis.ping()
-    isRedisAvailable = pong === "PONG"
-    console.log("Redis connection check:", isRedisAvailable ? "Connected" : "Failed")
-    return isRedisAvailable
-  } catch (error) {
-    console.error("Redis connection error:", error)
-    isRedisAvailable = false
-    return false
-  }
-}
-
-// Get Redis availability status
-export function getRedisAvailability(): boolean {
-  return isRedisAvailable
-}
-
-// Set Redis availability status
-export function setRedisAvailability(status: boolean): void {
-  isRedisAvailable = status
-}
-
-// Safe Redis Operation
-export async function safeRedisOperation<T>(operation: () => Promise<T>, fallback: T): Promise<T> {
-  if (!redis) {
-    console.warn("Redis client not initialized, operation skipped")
-    return fallback
-  }
-
-  try {
-    return await operation()
-  } catch (error) {
-    console.error("Redis operation failed:", error)
-    return fallback
-  }
-}
