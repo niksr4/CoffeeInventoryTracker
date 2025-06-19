@@ -1836,7 +1836,7 @@ export default function InventorySystem() {
           </>
         )}
       </div>
-\
+      \
       {/* Edit Transaction Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -1912,9 +1912,7 @@ export default function InventorySystem() {
                         id="edit-price"
                         type="number"
                         step="0.01"
-                        value={editingTransaction.price || ""}
-                        onChange
-                        value={editingTransaction.price || ""}
+                        value={(editingTransaction.price ?? "").toString()}
                         onChange={(e) =>
                           setEditingTransaction({
                             ...editingTransaction,
