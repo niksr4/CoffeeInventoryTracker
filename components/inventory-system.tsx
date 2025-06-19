@@ -563,12 +563,12 @@ export default function InventorySystem() {
     // Create CSV rows from actual inventory items (with correct quantities including 0 and calculated values)
     const rows = exportItems.map((item) => {
       const itemValue = itemValues[item.name]?.totalValue || 0
-      return [item.name, item.quantity.toString(), item.unit, `$${itemValue.toFixed(2)}`]
+      return [item.name, item.quantity.toString(), item.unit, `₹${itemValue.toFixed(2)}`]
     })
 
     // Add a total row
     const totalValue = Object.values(itemValues).reduce((sum, item) => sum + item.totalValue, 0)
-    rows.push(["TOTAL", "", "", `$${totalValue.toFixed(2)}`])
+    rows.push(["TOTAL", "", "", `₹${totalValue.toFixed(2)}`])
 
     // Combine header and rows
     const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n")
@@ -679,8 +679,8 @@ export default function InventorySystem() {
       transaction.date,
       transaction.itemType,
       `${transaction.quantity} ${transaction.unit}`,
-      transaction.price ? `$${transaction.price.toFixed(2)}` : "-",
-      transaction.totalCost ? `$${transaction.totalCost.toFixed(2)}` : "-",
+      transaction.price ? `₹${transaction.price.toFixed(2)}` : "-",
+      transaction.totalCost ? `₹${transaction.totalCost.toFixed(2)}` : "-",
       transaction.transactionType,
       transaction.notes,
       transaction.user,
@@ -988,11 +988,11 @@ export default function InventorySystem() {
                             className="border-gray-300 pl-8 h-12"
                           />
                           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                            $
+                            ₹
                           </div>
                           {newTransaction.quantity && newTransaction.price && (
                             <div className="mt-1 text-sm text-gray-600">
-                              Total cost: ${(Number(newTransaction.quantity) * Number(newTransaction.price)).toFixed(2)}
+                              Total cost: ₹{(Number(newTransaction.quantity) * Number(newTransaction.price)).toFixed(2)}
                             </div>
                           )}
                         </div>
@@ -1155,8 +1155,8 @@ export default function InventorySystem() {
                                   </div>
                                   {itemValue > 0 && (
                                     <div className="text-sm text-gray-600">
-                                      ${itemValue.toFixed(2)}{" "}
-                                      {avgPrice > 0 && `(avg: $${avgPrice.toFixed(2)}/${item.unit})`}
+                                      ₹{itemValue.toFixed(2)}{" "}
+                                      {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
                                     </div>
                                   )}
                                 </div>
@@ -1186,13 +1186,11 @@ export default function InventorySystem() {
                           )
                         })
                       })()}
-
-                      {filteredAndSortedInventory.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
-                          No inventory items found matching your search.
-                        </div>
-                      )}
-                    </div>
+                    {filteredAndSortedInventory.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        No inventory items found matching your search.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1284,9 +1282,9 @@ export default function InventorySystem() {
                           <td className="py-4 px-4">
                             {transaction.transactionType === "Restocking" && transaction.price ? (
                               <div>
-                                <div className="font-medium">${transaction.totalCost?.toFixed(2)}</div>
+                                <div className="font-medium">₹{transaction.totalCost?.toFixed(2)}</div>
                                 <div className="text-sm text-gray-500">
-                                  ${transaction.price.toFixed(2)}/{transaction.unit}
+                                  ₹{transaction.price.toFixed(2)}/{transaction.unit}
                                 </div>
                               </div>
                             ) : (
@@ -1556,11 +1554,11 @@ export default function InventorySystem() {
                           className="border-gray-300 pl-8 h-12"
                         />
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                          $
+                          ₹
                         </div>
                         {newTransaction.quantity && newTransaction.price && (
                           <div className="mt-1 text-sm text-gray-600">
-                            Total cost: ${(Number(newTransaction.quantity) * Number(newTransaction.price)).toFixed(2)}
+                            Total cost: ₹{(Number(newTransaction.quantity) * Number(newTransaction.price)).toFixed(2)}
                           </div>
                         )}
                       </div>
@@ -1725,8 +1723,8 @@ export default function InventorySystem() {
                                 </div>
                                 {itemValue > 0 && (
                                   <div className="text-sm text-gray-600">
-                                    ${itemValue.toFixed(2)}{" "}
-                                    {avgPrice > 0 && `(avg: $${avgPrice.toFixed(2)}/${item.unit})`}
+                                    ₹{itemValue.toFixed(2)}{" "}
+                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
                                   </div>
                                 )}
                               </div>
@@ -1754,9 +1752,7 @@ export default function InventorySystem() {
                             </div>
                           </div>
                         )
-                      })
-                    })()}
-
+                      })}\
                     {filteredAndSortedInventory.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         No inventory items found matching your search.
@@ -1840,7 +1836,7 @@ export default function InventorySystem() {
           </>
         )}
       </div>
-
+\
       {/* Edit Transaction Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -1930,11 +1926,11 @@ export default function InventorySystem() {
                         placeholder="Enter price per unit"
                       />
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                        $
+                        ₹
                       </div>
                       {editingTransaction.price && (
                         <div className="mt-1 text-sm text-gray-600">
-                          Total cost: ${(editingTransaction.quantity * editingTransaction.price).toFixed(2)}
+                          Total cost: ₹{(editingTransaction.quantity * editingTransaction.price).toFixed(2)}
                         </div>
                       )}
                     </div>
@@ -2178,5 +2174,5 @@ export default function InventorySystem() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  )\
 }
