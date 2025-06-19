@@ -1186,6 +1186,7 @@ export default function InventorySystem() {
                           )
                         })
                       })()}
+                    </div>
                     {filteredAndSortedInventory.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         No inventory items found matching your search.
@@ -1752,7 +1753,8 @@ export default function InventorySystem() {
                             </div>
                           </div>
                         )
-                      })}\
+                      })()}
+\
                     {filteredAndSortedInventory.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         No inventory items found matching your search.
@@ -1836,7 +1838,7 @@ export default function InventorySystem() {
           </>
         )}
       </div>
-      \
+
       {/* Edit Transaction Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -1912,7 +1914,9 @@ export default function InventorySystem() {
                         id="edit-price"
                         type="number"
                         step="0.01"
-                        value={(editingTransaction.price ?? "").toString()}
+                        value={editingTransaction.price || ""}
+                        onChange
+                        value={editingTransaction.price || ""}
                         onChange={(e) =>
                           setEditingTransaction({
                             ...editingTransaction,
@@ -2172,5 +2176,5 @@ export default function InventorySystem() {
         </DialogContent>
       </Dialog>
     </div>
-  )\
+  )
 }
