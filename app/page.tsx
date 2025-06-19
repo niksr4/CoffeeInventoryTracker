@@ -1,7 +1,5 @@
-"use client"
+import LoginPage from "@/components/login-page"
 
-import CurrentInventory from "../client/src/components/CurrentInventory"
-
-export default function SyntheticV0PageForDeployment() {
-  return <CurrentInventory />
+export default function Home() {
+  return <LoginPage />
 }
