@@ -19,6 +19,10 @@ import {
   SortDesc,
   History,
   RotateCw,
+  Brain,
+  TrendingUp,
+  AlertTriangle,
+  BarChart3,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +31,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
@@ -149,6 +155,11 @@ export default function InventorySystem() {
   const [transactionSearchTerm, setTransactionSearchTerm] = useState("")
   const [recentTransactionSearchTerm, setRecentTransactionSearchTerm] = useState("")
 
+  // AI Analysis state
+  const [aiAnalysis, setAiAnalysis] = useState<string>("")
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string>("")
+
   const [newTransaction, setNewTransaction] = useState({
     itemType: "",
     quantity: "",
@@ -205,6 +216,43 @@ export default function InventorySystem() {
   const handleLogout = () => {
     logout()
     router.push("/")
+  }
+
+  // AI Analysis function
+  const generateAIAnalysis = async () => {
+    setIsAnalyzing(true)
+    setAnalysisError("")
+
+    try {
+      // Prepare data for analysis
+      const analysisData = {
+        inventory: inventory,
+        transactions: transactions.slice(0, 50), // Last 50 transactions for analysis
+        totalItems: inventory.length,
+        totalTransactions: transactions.length,
+        recentActivity: transactions.filter((t) => isWithinLast24Hours(t.date)).length,
+      }
+
+      const response = await fetch("/api/ai-analysis", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(analysisData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to generate analysis")
+      }
+
+      const data = await response.json()
+      setAiAnalysis(data.analysis)
+    } catch (error) {
+      console.error("AI Analysis error:", error)
+      setAnalysisError("Failed to generate AI analysis. Please try again.")
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -806,433 +854,758 @@ export default function InventorySystem() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
-              <span className="mr-2">+</span> New Inventory Transaction
-            </h2>
-            <div className="border-t border-gray-200 pt-5">
-              <div className="mb-5">
-                <label className="block text-gray-700 mb-2">Item Type</label>
-                <Select
-                  value={newTransaction.itemType}
-                  onValueChange={(value) => {
-                    // Get the unit for the selected item
-                    const unit = getUnitForItem(value)
-                    setNewTransaction({
-                      ...newTransaction,
-                      itemType: value,
-                      selectedUnit: unit,
-                    })
-                  }}
-                >
-                  <SelectTrigger className="w-full border-gray-300 h-12">
-                    <SelectValue placeholder="Select item type" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[40vh] overflow-y-auto">
-                    {itemTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* Admin Tabs */}
+        {isAdmin ? (
+          <Tabs defaultValue="inventory" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
+              <TabsTrigger value="transactions">Transaction History</TabsTrigger>
+              <TabsTrigger value="ai-analysis">
+                <Brain className="h-4 w-4 mr-2" />
+                AI Analysis
+              </TabsTrigger>
+            </TabsList>
 
-              <div className="mb-5">
-                <label className="block text-gray-700 mb-2">Quantity</label>
-                <div className="relative">
-                  <Input
-                    type="number"
-                    placeholder="Enter quantity"
-                    value={newTransaction.quantity}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, quantity: e.target.value })}
-                    className="border-gray-300 pr-12 h-12"
-                  />
-                  {newTransaction.selectedUnit && (
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
-                      {newTransaction.selectedUnit}
+            <TabsContent value="inventory" className="space-y-8">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                  <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
+                    <span className="mr-2">+</span> New Inventory Transaction
+                  </h2>
+                  <div className="border-t border-gray-200 pt-5">
+                    <div className="mb-5">
+                      <label className="block text-gray-700 mb-2">Item Type</label>
+                      <Select
+                        value={newTransaction.itemType}
+                        onValueChange={(value) => {
+                          // Get the unit for the selected item
+                          const unit = getUnitForItem(value)
+                          setNewTransaction({
+                            ...newTransaction,
+                            itemType: value,
+                            selectedUnit: unit,
+                          })
+                        }}
+                      >
+                        <SelectTrigger className="w-full border-gray-300 h-12">
+                          <SelectValue placeholder="Select item type" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[40vh] overflow-y-auto">
+                          {itemTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="mb-5">
-                <label className="block text-gray-700 mb-2">Transaction Type</label>
-                <RadioGroup
-                  value={newTransaction.transactionType}
-                  onValueChange={(value: "Depleting" | "Restocking") =>
-                    setNewTransaction({ ...newTransaction, transactionType: value })
-                  }
-                  className="flex flex-col sm:flex-row gap-4"
-                >
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="Depleting" id="depleting" className="h-5 w-5" />
-                    <Label htmlFor="depleting" className="text-base">
-                      Depleting
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="Restocking" id="restocking" className="h-5 w-5" />
-                    <Label htmlFor="restocking" className="text-base">
-                      Restocking
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-gray-700 mb-2">Notes (Optional)</label>
-                <Textarea
-                  placeholder="Add any additional details"
-                  value={newTransaction.notes}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, notes: e.target.value })}
-                  className="border-gray-300 min-h-[100px]"
-                />
-              </div>
-
-              <Button
-                onClick={handleRecordTransaction}
-                className="w-full bg-green-700 hover:bg-green-800 text-white h-12 text-base"
-              >
-                <Check className="mr-2 h-5 w-5" /> Record Transaction
-              </Button>
-            </div>
-          </div>
-
-          {/* Current Inventory Levels section with search and sort */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-lg font-medium text-green-700 flex items-center">
-                <List className="mr-2 h-5 w-5" /> Current Inventory Levels
-              </h2>
-              <div className="flex gap-2">
-                {(isAdmin || user?.username === "KAB123") && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={exportInventoryToCSV} className="h-10">
-                      <Download className="mr-2 h-4 w-4" /> Export
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setIsNewItemDialogOpen(true)}
-                      className="bg-green-700 hover:bg-green-800 h-10"
-                    >
-                      <Plus className="mr-2 h-4 w-4" /> Add New Item
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Search and sort controls for inventory */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search inventory..."
-                  value={inventorySearchTerm}
-                  onChange={(e) => setInventorySearchTerm(e.target.value)}
-                  className="pl-10 h-10"
-                />
-              </div>
-              {(isAdmin || user?.username === "KAB123") && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleInventorySort}
-                  className="flex items-center gap-1 h-10 whitespace-nowrap"
-                >
-                  {inventorySortOrder === "asc" ? (
-                    <>
-                      <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
-                    </>
-                  ) : inventorySortOrder === "desc" ? (
-                    <>
-                      <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
-                    </>
-                  ) : (
-                    <>
-                      <SortAsc className="h-4 w-4 mr-1" /> Sort
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-
-            <div className="border-t border-gray-200 pt-5">
-              <div className="grid grid-cols-1 gap-4">
-                {filteredAndSortedInventory.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
-                  >
-                    <div className="font-medium text-base">{item.name}</div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-base">
-                        {item.quantity} {item.unit}
+                    <div className="mb-5">
+                      <label className="block text-gray-700 mb-2">Quantity</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          placeholder="Enter quantity"
+                          value={newTransaction.quantity}
+                          onChange={(e) => setNewTransaction({ ...newTransaction, quantity: e.target.value })}
+                          className="border-gray-300 pr-12 h-12"
+                        />
+                        {newTransaction.selectedUnit && (
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
+                            {newTransaction.selectedUnit}
+                          </div>
+                        )}
                       </div>
-                      {/* Show edit and delete buttons for admin users and KAB123 user */}
-                      {(isAdmin || user?.username === "KAB123") && (
+                    </div>
+
+                    <div className="mb-5">
+                      <label className="block text-gray-700 mb-2">Transaction Type</label>
+                      <RadioGroup
+                        value={newTransaction.transactionType}
+                        onValueChange={(value: "Depleting" | "Restocking") =>
+                          setNewTransaction({ ...newTransaction, transactionType: value })
+                        }
+                        className="flex flex-col sm:flex-row gap-4"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value="Depleting" id="depleting" className="h-5 w-5" />
+                          <Label htmlFor="depleting" className="text-base">
+                            Depleting
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value="Restocking" id="restocking" className="h-5 w-5" />
+                          <Label htmlFor="restocking" className="text-base">
+                            Restocking
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    <div className="mb-6">
+                      <label className="block text-gray-700 mb-2">Notes (Optional)</label>
+                      <Textarea
+                        placeholder="Add any additional details"
+                        value={newTransaction.notes}
+                        onChange={(e) => setNewTransaction({ ...newTransaction, notes: e.target.value })}
+                        className="border-gray-300 min-h-[100px]"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleRecordTransaction}
+                      className="w-full bg-green-700 hover:bg-green-800 text-white h-12 text-base"
+                    >
+                      <Check className="mr-2 h-5 w-5" /> Record Transaction
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Current Inventory Levels section with search and sort */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                  <div className="flex justify-between items-center mb-5">
+                    <h2 className="text-lg font-medium text-green-700 flex items-center">
+                      <List className="mr-2 h-5 w-5" /> Current Inventory Levels
+                    </h2>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={exportInventoryToCSV} className="h-10">
+                        <Download className="mr-2 h-4 w-4" /> Export
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setIsNewItemDialogOpen(true)}
+                        className="bg-green-700 hover:bg-green-800 h-10"
+                      >
+                        <Plus className="mr-2 h-4 w-4" /> Add New Item
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Search and sort controls for inventory */}
+                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    <div className="relative flex-grow">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search inventory..."
+                        value={inventorySearchTerm}
+                        onChange={(e) => setInventorySearchTerm(e.target.value)}
+                        className="pl-10 h-10"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleInventorySort}
+                      className="flex items-center gap-1 h-10 whitespace-nowrap"
+                    >
+                      {inventorySortOrder === "asc" ? (
                         <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditInventoryItem(item)}
-                            className="text-amber-600 p-2 h-auto"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteInventoryItem(item)}
-                            className="text-red-600 p-2 h-auto"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
                         </>
+                      ) : inventorySortOrder === "desc" ? (
+                        <>
+                          <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
+                        </>
+                      ) : (
+                        <>
+                          <SortAsc className="h-4 w-4 mr-1" /> Sort
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-5">
+                    <div className="grid grid-cols-1 gap-4">
+                      {filteredAndSortedInventory.map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
+                        >
+                          <div className="font-medium text-base">{item.name}</div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-base">
+                              {item.quantity} {item.unit}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditInventoryItem(item)}
+                              className="text-amber-600 p-2 h-auto"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteInventoryItem(item)}
+                              className="text-red-600 p-2 h-auto"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {filteredAndSortedInventory.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          No inventory items found matching your search.
+                        </div>
                       )}
                     </div>
                   </div>
-                ))}
+                </div>
+              </div>
+            </TabsContent>
 
-                {filteredAndSortedInventory.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">No inventory items found matching your search.</div>
+            <TabsContent value="transactions" className="space-y-8">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
+                  <Clock className="mr-2 h-5 w-5" /> Transaction History
+                </h2>
+
+                {/* Search and filter controls for transactions */}
+                <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3 flex-grow">
+                    <div className="relative flex-grow">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search transactions..."
+                        value={transactionSearchTerm}
+                        onChange={(e) => setTransactionSearchTerm(e.target.value)}
+                        className="pl-10 h-10"
+                      />
+                    </div>
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="w-full sm:w-48 border-gray-300 h-10">
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[40vh] overflow-y-auto">
+                        <SelectItem value="All Types">All Types</SelectItem>
+                        {itemTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleTransactionSort}
+                      className="flex items-center gap-1 h-10 whitespace-nowrap"
+                    >
+                      {transactionSortOrder === "asc" ? (
+                        <>
+                          <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
+                        </>
+                      ) : transactionSortOrder === "desc" ? (
+                        <>
+                          <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
+                        </>
+                      ) : (
+                        <>
+                          <SortAsc className="h-4 w-4 mr-1" /> Sort
+                        </>
+                      )}
+                    </Button>
+                    <Button className="bg-green-600 hover:bg-green-700 h-10" onClick={exportToCSV}>
+                      <Download className="mr-2 h-4 w-4" /> Export
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border rounded-md overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
+                        <th className="py-4 px-4 text-left flex items-center">
+                          DATE <ChevronDown className="ml-1 h-4 w-4" />
+                        </th>
+                        <th className="py-4 px-4 text-left">ITEM TYPE</th>
+                        <th className="py-4 px-4 text-left">QUANTITY</th>
+                        <th className="py-4 px-4 text-left">TRANSACTION</th>
+                        {!isMobile && <th className="py-4 px-4 text-left">NOTES</th>}
+                        {!isMobile && <th className="py-4 px-4 text-left">USER</th>}
+                        <th className="py-4 px-4 text-right">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentTransactions.map((transaction) => (
+                        <tr key={transaction.id} className="border-b last:border-0 hover:bg-gray-50">
+                          <td className="py-4 px-4">{formatDate(transaction.date)}</td>
+                          <td className="py-4 px-4">{transaction.itemType}</td>
+                          <td className="py-4 px-4">
+                            {transaction.quantity} {transaction.unit}
+                          </td>
+                          <td className="py-4 px-4">
+                            <Badge
+                              variant="outline"
+                              className={
+                                transaction.transactionType === "Depleting"
+                                  ? "bg-red-100 text-red-700 border-red-200"
+                                  : "bg-green-100 text-green-700 border-green-200"
+                              }
+                            >
+                              {transaction.transactionType}
+                            </Badge>
+                          </td>
+                          {!isMobile && <td className="py-4 px-4">{transaction.notes}</td>}
+                          {!isMobile && <td className="py-4 px-4">{transaction.user}</td>}
+                          <td className="py-4 px-4 text-right">
+                            <div className="flex justify-end gap-3">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditTransaction(transaction)}
+                                className="text-amber-600"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteConfirm(transaction.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {currentTransactions.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">No transactions found matching your search.</div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
+                  <div className="text-sm text-gray-500 order-2 sm:order-1">
+                    Showing {filteredTransactions.length > 0 ? `${startIndex + 1} to ${endIndex} of` : "0 of"}{" "}
+                    {filteredTransactions.length} results
+                  </div>
+                  <div className="flex gap-3 order-1 sm:order-2">
+                    <Button
+                      variant="outline"
+                      className="text-gray-500 h-10"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={currentPage === 1 ? "default" : "outline"}
+                      className={currentPage === 1 ? "bg-green-700 h-10" : "text-gray-500 h-10"}
+                    >
+                      1
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="text-gray-500 h-10"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="ai-analysis" className="space-y-6">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-lg font-medium text-green-700 flex items-center">
+                      <Brain className="mr-2 h-5 w-5" /> AI Inventory Analysis
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Get AI-powered insights about your inventory patterns and usage trends
+                    </p>
+                  </div>
+                  <Button
+                    onClick={generateAIAnalysis}
+                    disabled={isAnalyzing}
+                    className="bg-green-700 hover:bg-green-800"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <BarChart3 className="mr-2 h-4 w-4" />
+                        Generate Analysis
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Quick Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+                      <List className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{inventory.length}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{transactions.length}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{recentTransactions.length}</div>
+                      <p className="text-xs text-muted-foreground">Last 24 hours</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
+                      <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{inventory.filter((item) => item.quantity < 10).length}</div>
+                      <p className="text-xs text-muted-foreground">Below 10 units</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* AI Analysis Results */}
+                {analysisError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center">
+                      <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+                      <span className="text-red-800">{analysisError}</span>
+                    </div>
+                  </div>
+                )}
+
+                {aiAnalysis && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Brain className="mr-2 h-5 w-5" />
+                        AI Analysis Results
+                      </CardTitle>
+                      <CardDescription>
+                        Generated insights based on your inventory data and transaction patterns
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose max-w-none">
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">{aiAnalysis}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!aiAnalysis && !isAnalyzing && !analysisError && (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <Brain className="h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Analysis Generated Yet</h3>
+                      <p className="text-gray-600 text-center mb-4">
+                        Click "Generate Analysis" to get AI-powered insights about your inventory patterns, usage
+                        trends, and recommendations.
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          // Non-admin view (existing layout)
+          <>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
+                  <span className="mr-2">+</span> New Inventory Transaction
+                </h2>
+                <div className="border-t border-gray-200 pt-5">
+                  <div className="mb-5">
+                    <label className="block text-gray-700 mb-2">Item Type</label>
+                    <Select
+                      value={newTransaction.itemType}
+                      onValueChange={(value) => {
+                        // Get the unit for the selected item
+                        const unit = getUnitForItem(value)
+                        setNewTransaction({
+                          ...newTransaction,
+                          itemType: value,
+                          selectedUnit: unit,
+                        })
+                      }}
+                    >
+                      <SelectTrigger className="w-full border-gray-300 h-12">
+                        <SelectValue placeholder="Select item type" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[40vh] overflow-y-auto">
+                        {itemTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-        {/* Recent Transactions for non-admin users (except KAB123) */}
-        {!isAdmin && user?.username !== "KAB123" && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 mt-8">
-            <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
-              <History className="mr-2 h-5 w-5" /> Your Recent Transactions (Last 24 Hours)
-            </h2>
-
-            {/* Search controls for recent transactions */}
-            <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
-              <div className="flex flex-col sm:flex-row gap-3 flex-grow">
-                <div className="relative flex-grow">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search recent transactions..."
-                    value={recentTransactionSearchTerm}
-                    onChange={(e) => setRecentTransactionSearchTerm(e.target.value)}
-                    className="pl-10 h-10"
-                  />
-                </div>
-              </div>
-              <Button className="bg-green-600 hover:bg-green-700 h-10" onClick={exportRecentTransactionsToCSV}>
-                <Download className="mr-2 h-4 w-4" /> Export
-              </Button>
-            </div>
-
-            <div className="border rounded-md overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
-                    <th className="py-4 px-4 text-left">DATE</th>
-                    <th className="py-4 px-4 text-left">ITEM TYPE</th>
-                    <th className="py-4 px-4 text-left">QUANTITY</th>
-                    <th className="py-4 px-4 text-left">TRANSACTION</th>
-                    {!isMobile && <th className="py-4 px-4 text-left">NOTES</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentTransactions.map((transaction) => (
-                    <tr key={transaction.id} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="py-4 px-4">{formatDate(transaction.date)}</td>
-                      <td className="py-4 px-4">{transaction.itemType}</td>
-                      <td className="py-4 px-4">
-                        {transaction.quantity} {transaction.unit}
-                      </td>
-                      <td className="py-4 px-4">
-                        <Badge
-                          variant="outline"
-                          className={
-                            transaction.transactionType === "Depleting"
-                              ? "bg-red-100 text-red-700 border-red-200"
-                              : "bg-green-100 text-green-700 border-green-200"
-                          }
-                        >
-                          {transaction.transactionType}
-                        </Badge>
-                      </td>
-                      {!isMobile && <td className="py-4 px-4">{transaction.notes}</td>}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {recentTransactions.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No transactions found in the last 24 hours. Transactions you make will appear here.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Full Transaction History for admin users only */}
-        {isAdmin && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 mt-8">
-            <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
-              <Clock className="mr-2 h-5 w-5" /> Transaction History
-            </h2>
-
-            {/* Search and filter controls for transactions */}
-            <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
-              <div className="flex flex-col sm:flex-row gap-3 flex-grow">
-                <div className="relative flex-grow">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search transactions..."
-                    value={transactionSearchTerm}
-                    onChange={(e) => setTransactionSearchTerm(e.target.value)}
-                    className="pl-10 h-10"
-                  />
-                </div>
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-full sm:w-48 border-gray-300 h-10">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[40vh] overflow-y-auto">
-                    <SelectItem value="All Types">All Types</SelectItem>
-                    {itemTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleTransactionSort}
-                  className="flex items-center gap-1 h-10 whitespace-nowrap"
-                >
-                  {transactionSortOrder === "asc" ? (
-                    <>
-                      <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
-                    </>
-                  ) : transactionSortOrder === "desc" ? (
-                    <>
-                      <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
-                    </>
-                  ) : (
-                    <>
-                      <SortAsc className="h-4 w-4 mr-1" /> Sort
-                    </>
-                  )}
-                </Button>
-                <Button className="bg-green-600 hover:bg-green-700 h-10" onClick={exportToCSV}>
-                  <Download className="mr-2 h-4 w-4" /> Export
-                </Button>
-              </div>
-            </div>
-
-            <div className="border rounded-md overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
-                    <th className="py-4 px-4 text-left flex items-center">
-                      DATE <ChevronDown className="ml-1 h-4 w-4" />
-                    </th>
-                    <th className="py-4 px-4 text-left">ITEM TYPE</th>
-                    <th className="py-4 px-4 text-left">QUANTITY</th>
-                    <th className="py-4 px-4 text-left">TRANSACTION</th>
-                    {!isMobile && <th className="py-4 px-4 text-left">NOTES</th>}
-                    {!isMobile && <th className="py-4 px-4 text-left">USER</th>}
-                    <th className="py-4 px-4 text-right">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentTransactions.map((transaction) => (
-                    <tr key={transaction.id} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="py-4 px-4">{formatDate(transaction.date)}</td>
-                      <td className="py-4 px-4">{transaction.itemType}</td>
-                      <td className="py-4 px-4">
-                        {transaction.quantity} {transaction.unit}
-                      </td>
-                      <td className="py-4 px-4">
-                        <Badge
-                          variant="outline"
-                          className={
-                            transaction.transactionType === "Depleting"
-                              ? "bg-red-100 text-red-700 border-red-200"
-                              : "bg-green-100 text-green-700 border-green-200"
-                          }
-                        >
-                          {transaction.transactionType}
-                        </Badge>
-                      </td>
-                      {!isMobile && <td className="py-4 px-4">{transaction.notes}</td>}
-                      {!isMobile && <td className="py-4 px-4">{transaction.user}</td>}
-                      <td className="py-4 px-4 text-right">
-                        <div className="flex justify-end gap-3">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditTransaction(transaction)}
-                            className="text-amber-600"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteConfirm(transaction.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                  <div className="mb-5">
+                    <label className="block text-gray-700 mb-2">Quantity</label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        placeholder="Enter quantity"
+                        value={newTransaction.quantity}
+                        onChange={(e) => setNewTransaction({ ...newTransaction, quantity: e.target.value })}
+                        className="border-gray-300 pr-12 h-12"
+                      />
+                      {newTransaction.selectedUnit && (
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
+                          {newTransaction.selectedUnit}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+                    </div>
+                  </div>
 
-              {currentTransactions.length === 0 && (
-                <div className="text-center py-8 text-gray-500">No transactions found matching your search.</div>
-              )}
+                  <div className="mb-5">
+                    <label className="block text-gray-700 mb-2">Transaction Type</label>
+                    <RadioGroup
+                      value={newTransaction.transactionType}
+                      onValueChange={(value: "Depleting" | "Restocking") =>
+                        setNewTransaction({ ...newTransaction, transactionType: value })
+                      }
+                      className="flex flex-col sm:flex-row gap-4"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <RadioGroupItem value="Depleting" id="depleting" className="h-5 w-5" />
+                        <Label htmlFor="depleting" className="text-base">
+                          Depleting
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <RadioGroupItem value="Restocking" id="restocking" className="h-5 w-5" />
+                        <Label htmlFor="restocking" className="text-base">
+                          Restocking
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-gray-700 mb-2">Notes (Optional)</label>
+                    <Textarea
+                      placeholder="Add any additional details"
+                      value={newTransaction.notes}
+                      onChange={(e) => setNewTransaction({ ...newTransaction, notes: e.target.value })}
+                      className="border-gray-300 min-h-[100px]"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleRecordTransaction}
+                    className="w-full bg-green-700 hover:bg-green-800 text-white h-12 text-base"
+                  >
+                    <Check className="mr-2 h-5 w-5" /> Record Transaction
+                  </Button>
+                </div>
+              </div>
+
+              {/* Current Inventory Levels section with search and sort */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <div className="flex justify-between items-center mb-5">
+                  <h2 className="text-lg font-medium text-green-700 flex items-center">
+                    <List className="mr-2 h-5 w-5" /> Current Inventory Levels
+                  </h2>
+                  <div className="flex gap-2">
+                    {user?.username === "KAB123" && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={exportInventoryToCSV} className="h-10">
+                          <Download className="mr-2 h-4 w-4" /> Export
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => setIsNewItemDialogOpen(true)}
+                          className="bg-green-700 hover:bg-green-800 h-10"
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Add New Item
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Search and sort controls for inventory */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search inventory..."
+                      value={inventorySearchTerm}
+                      onChange={(e) => setInventorySearchTerm(e.target.value)}
+                      className="pl-10 h-10"
+                    />
+                  </div>
+                  {user?.username === "KAB123" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleInventorySort}
+                      className="flex items-center gap-1 h-10 whitespace-nowrap"
+                    >
+                      {inventorySortOrder === "asc" ? (
+                        <>
+                          <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
+                        </>
+                      ) : inventorySortOrder === "desc" ? (
+                        <>
+                          <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
+                        </>
+                      ) : (
+                        <>
+                          <SortAsc className="h-4 w-4 mr-1" /> Sort
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-200 pt-5">
+                  <div className="grid grid-cols-1 gap-4">
+                    {filteredAndSortedInventory.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
+                      >
+                        <div className="font-medium text-base">{item.name}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-base">
+                            {item.quantity} {item.unit}
+                          </div>
+                          {/* Show edit and delete buttons for KAB123 user */}
+                          {user?.username === "KAB123" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditInventoryItem(item)}
+                                className="text-amber-600 p-2 h-auto"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteInventoryItem(item)}
+                                className="text-red-600 p-2 h-auto"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {filteredAndSortedInventory.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        No inventory items found matching your search.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
-              <div className="text-sm text-gray-500 order-2 sm:order-1">
-                Showing {filteredTransactions.length > 0 ? `${startIndex + 1} to ${endIndex} of` : "0 of"}{" "}
-                {filteredTransactions.length} results
+            {/* Recent Transactions for non-admin users (except KAB123) */}
+            {user?.username !== "KAB123" && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 mt-8">
+                <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
+                  <History className="mr-2 h-5 w-5" /> Your Recent Transactions (Last 24 Hours)
+                </h2>
+
+                {/* Search controls for recent transactions */}
+                <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3 flex-grow">
+                    <div className="relative flex-grow">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search recent transactions..."
+                        value={recentTransactionSearchTerm}
+                        onChange={(e) => setRecentTransactionSearchTerm(e.target.value)}
+                        className="pl-10 h-10"
+                      />
+                    </div>
+                  </div>
+                  <Button className="bg-green-600 hover:bg-green-700 h-10" onClick={exportRecentTransactionsToCSV}>
+                    <Download className="mr-2 h-4 w-4" /> Export
+                  </Button>
+                </div>
+
+                <div className="border rounded-md overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
+                        <th className="py-4 px-4 text-left">DATE</th>
+                        <th className="py-4 px-4 text-left">ITEM TYPE</th>
+                        <th className="py-4 px-4 text-left">QUANTITY</th>
+                        <th className="py-4 px-4 text-left">TRANSACTION</th>
+                        {!isMobile && <th className="py-4 px-4 text-left">NOTES</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentTransactions.map((transaction) => (
+                        <tr key={transaction.id} className="border-b last:border-0 hover:bg-gray-50">
+                          <td className="py-4 px-4">{formatDate(transaction.date)}</td>
+                          <td className="py-4 px-4">{transaction.itemType}</td>
+                          <td className="py-4 px-4">
+                            {transaction.quantity} {transaction.unit}
+                          </td>
+                          <td className="py-4 px-4">
+                            <Badge
+                              variant="outline"
+                              className={
+                                transaction.transactionType === "Depleting"
+                                  ? "bg-red-100 text-red-700 border-red-200"
+                                  : "bg-green-100 text-green-700 border-green-200"
+                              }
+                            >
+                              {transaction.transactionType}
+                            </Badge>
+                          </td>
+                          {!isMobile && <td className="py-4 px-4">{transaction.notes}</td>}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {recentTransactions.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      No transactions found in the last 24 hours. Transactions you make will appear here.
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-3 order-1 sm:order-2">
-                <Button
-                  variant="outline"
-                  className="text-gray-500 h-10"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={currentPage === 1 ? "default" : "outline"}
-                  className={currentPage === 1 ? "bg-green-700 h-10" : "text-gray-500 h-10"}
-                >
-                  1
-                </Button>
-                <Button
-                  variant="outline"
-                  className="text-gray-500 h-10"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
       </div>
 
