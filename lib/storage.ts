@@ -15,6 +15,8 @@ export type Transaction = {
   date: string
   user: string
   unit: string
+  price?: number // Price per unit for restocking transactions
+  totalCost?: number // Total cost (quantity * price) for restocking transactions
 }
 
 // Default inventory items - ONLY used for first-time initialization

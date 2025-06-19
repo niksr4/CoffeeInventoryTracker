@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
 import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+import InventoryValueSummary from "@/components/inventory-value-summary"
 
 // Update the itemDefinitions array to remove Diesel
 const itemDefinitions = [
@@ -165,7 +166,8 @@ export default function InventorySystem() {
     quantity: "",
     transactionType: "Depleting" | "Restocking",
     notes: "",
-    selectedUnit: "", // Track the selected unit
+    selectedUnit: "",
+    price: "", // Add price field
   })
 
   // Add a new state for the new item form and dialog
@@ -623,13 +625,15 @@ export default function InventorySystem() {
   // Export transactions to CSV
   const exportToCSV = () => {
     // Create CSV header
-    const headers = ["Date", "Item Type", "Quantity", "Transaction Type", "Notes", "User"]
+    const headers = ["Date", "Item Type", "Quantity", "Unit Price", "Total Cost", "Transaction Type", "Notes", "User"]
 
     // Create CSV rows from filtered transactions
     const rows = filteredTransactions.map((transaction) => [
       transaction.date,
       transaction.itemType,
       `${transaction.quantity} ${transaction.unit}`,
+      transaction.price ? `$${transaction.price.toFixed(2)}` : "-",
+      transaction.totalCost ? `$${transaction.totalCost.toFixed(2)}` : "-",
       transaction.transactionType,
       transaction.notes,
       transaction.user,
@@ -700,6 +704,12 @@ export default function InventorySystem() {
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: newTransaction.selectedUnit,
+      // Add price data for restocking transactions
+      ...(newTransaction.transactionType === "Restocking" &&
+        newTransaction.price && {
+          price: Number(newTransaction.price),
+          totalCost: quantity * Number(newTransaction.price),
+        }),
     }
 
     // Add the transaction to the database
@@ -726,6 +736,7 @@ export default function InventorySystem() {
       transactionType: "Depleting" | "Restocking",
       notes: "",
       selectedUnit: "",
+      price: "", // Reset price field
     })
   }
 
@@ -860,6 +871,9 @@ export default function InventorySystem() {
             </TabsList>
 
             <TabsContent value="inventory" className="space-y-8">
+              {/* Add Inventory Value Summary */}
+              <InventoryValueSummary inventory={inventory} transactions={transactions} />
+
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
                   <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
@@ -910,6 +924,33 @@ export default function InventorySystem() {
                         )}
                       </div>
                     </div>
+
+                    {/* Price field - only show for Restocking */}
+                    {newTransaction.transactionType === "Restocking" && (
+                      <div className="mb-5">
+                        <label className="block text-gray-700 mb-2">
+                          Price per {newTransaction.selectedUnit || "unit"}
+                        </label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Enter price per unit"
+                            value={newTransaction.price}
+                            onChange={(e) => setNewTransaction({ ...newTransaction, price: e.target.value })}
+                            className="border-gray-300 pl-8 h-12"
+                          />
+                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                            $
+                          </div>
+                          {newTransaction.quantity && newTransaction.price && (
+                            <div className="mt-1 text-sm text-gray-600">
+                              Total cost: ${(Number(newTransaction.quantity) * Number(newTransaction.price)).toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="mb-5">
                       <label className="block text-gray-700 mb-2">Transaction Type</label>
@@ -1118,6 +1159,7 @@ export default function InventorySystem() {
                         </th>
                         <th className="py-4 px-4 text-left">ITEM TYPE</th>
                         <th className="py-4 px-4 text-left">QUANTITY</th>
+                        <th className="py-4 px-4 text-left">COST</th> {/* Add this new header */}
                         <th className="py-4 px-4 text-left">TRANSACTION</th>
                         {!isMobile && <th className="py-4 px-4 text-left">NOTES</th>}
                         {!isMobile && <th className="py-4 px-4 text-left">USER</th>}
@@ -1131,6 +1173,18 @@ export default function InventorySystem() {
                           <td className="py-4 px-4">{transaction.itemType}</td>
                           <td className="py-4 px-4">
                             {transaction.quantity} {transaction.unit}
+                          </td>
+                          <td className="py-4 px-4">
+                            {transaction.transactionType === "Restocking" && transaction.price ? (
+                              <div>
+                                <div className="font-medium">${transaction.totalCost?.toFixed(2)}</div>
+                                <div className="text-sm text-gray-500">
+                                  ${transaction.price.toFixed(2)}/{transaction.unit}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
                           </td>
                           <td className="py-4 px-4">
                             <Badge
@@ -1378,6 +1432,33 @@ export default function InventorySystem() {
                       )}
                     </div>
                   </div>
+
+                  {/* Price field - only show for Restocking */}
+                  {newTransaction.transactionType === "Restocking" && (
+                    <div className="mb-5">
+                      <label className="block text-gray-700 mb-2">
+                        Price per {newTransaction.selectedUnit || "unit"}
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Enter price per unit"
+                          value={newTransaction.price}
+                          onChange={(e) => setNewTransaction({ ...newTransaction, price: e.target.value })}
+                          className="border-gray-300 pl-8 h-12"
+                        />
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                          $
+                        </div>
+                        {newTransaction.quantity && newTransaction.price && (
+                          <div className="mt-1 text-sm text-gray-600">
+                            Total cost: ${(Number(newTransaction.quantity) * Number(newTransaction.price)).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mb-5">
                     <label className="block text-gray-700 mb-2">Transaction Type</label>
@@ -1665,6 +1746,42 @@ export default function InventorySystem() {
                     </div>
                   </div>
                 </div>
+
+                {/* Price field for editing - only show for Restocking */}
+                {editingTransaction.transactionType === "Restocking" && (
+                  <div>
+                    <Label htmlFor="edit-price" className="mb-2 block">
+                      Price per {editingTransaction.unit}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="edit-price"
+                        type="number"
+                        step="0.01"
+                        value={editingTransaction.price || ""}
+                        onChange
+                        value={editingTransaction.price || ""}
+                        onChange={(e) =>
+                          setEditingTransaction({
+                            ...editingTransaction,
+                            price: Number(e.target.value),
+                            totalCost: Number(e.target.value) * editingTransaction.quantity,
+                          })
+                        }
+                        className="pl-8 h-12"
+                        placeholder="Enter price per unit"
+                      />
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                        $
+                      </div>
+                      {editingTransaction.price && (
+                        <div className="mt-1 text-sm text-gray-600">
+                          Total cost: ${(editingTransaction.quantity * editingTransaction.price).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
