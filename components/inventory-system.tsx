@@ -515,18 +515,11 @@ export default function InventorySystem() {
     // Create CSV header
     const headers = ["Item Name", "Quantity", "Unit"]
 
-    // Get all items from itemDefinitions and merge with current inventory
-    const allItems = itemDefinitions.map((itemDef) => {
-      const existingItem = inventory.find((inv) => inv.name === itemDef.name)
-      return {
-        name: itemDef.name,
-        quantity: existingItem ? existingItem.quantity : 0,
-        unit: itemDef.unit,
-      }
-    })
+    // Use the actual filtered and sorted inventory which has the correct calculated quantities
+    const exportItems = filteredAndSortedInventory
 
-    // Create CSV rows from all items (including zero quantity)
-    const rows = allItems.map((item) => [item.name, item.quantity.toString(), item.unit])
+    // Create CSV rows from actual inventory items (with correct quantities including 0)
+    const rows = exportItems.map((item) => [item.name, item.quantity.toString(), item.unit])
 
     // Combine header and rows
     const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n")
