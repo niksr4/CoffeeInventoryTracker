@@ -944,12 +944,10 @@ export default function InventorySystem() {
                                     <div className="text-base">
                                       {item.quantity} {item.unit}
                                     </div>
-                                    {itemValue > 0 && (
-                                      <div className="text-sm text-gray-600">
-                                        ₹{itemValue.toFixed(2)}{" "}
-                                        {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
-                                      </div>
-                                    )}
+                                    <div className="text-sm text-gray-600">
+                                      ₹{itemValue.toFixed(2)}{" "}
+                                      {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
+                                    </div>
                                   </div>
                                   {(isAdmin || user?.username === "KAB123") && (
                                     <>
@@ -1474,12 +1472,10 @@ export default function InventorySystem() {
                                   <div className="text-base">
                                     {item.quantity} {item.unit}
                                   </div>
-                                  {itemValue > 0 && (
-                                    <div className="text-sm text-gray-600">
-                                      ₹{itemValue.toFixed(2)}{" "}
-                                      {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
-                                    </div>
-                                  )}
+                                  <div className="text-sm text-gray-600">
+                                    ₹{itemValue.toFixed(2)}{" "}
+                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
+                                  </div>
                                 </div>
                                 {(isAdmin || user?.username === "KAB123") && (
                                   <>

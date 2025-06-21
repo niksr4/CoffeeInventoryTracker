@@ -82,7 +82,7 @@ export default function InventoryValueSummary({ inventory, transactions }: Inven
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">${totalInventoryValue.toFixed(2)}</div>
+          <div className="text-2xl font-bold">₹{totalInventoryValue.toFixed(2)}</div>
           <p className="text-xs text-muted-foreground">Based on FIFO costing method</p>
         </CardContent>
       </Card>
@@ -93,7 +93,7 @@ export default function InventoryValueSummary({ inventory, transactions }: Inven
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">${totalRestockingCost.toFixed(2)}</div>
+          <div className="text-2xl font-bold">₹{totalRestockingCost.toFixed(2)}</div>
           <p className="text-xs text-muted-foreground">All-time restocking costs</p>
         </CardContent>
       </Card>
@@ -115,7 +115,7 @@ export default function InventoryValueSummary({ inventory, transactions }: Inven
           <Calculator className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">${recentRestockingCost.toFixed(2)}</div>
+          <div className="text-2xl font-bold">₹{recentRestockingCost.toFixed(2)}</div>
           <p className="text-xs text-muted-foreground">Last 30 days</p>
         </CardContent>
       </Card>
