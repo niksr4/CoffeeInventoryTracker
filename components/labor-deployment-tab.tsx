@@ -108,6 +108,8 @@ export default function LaborDeploymentTab() {
   const [reference, setReference] = useState("")
   const [laborEntries, setLaborEntries] = useState<FormLaborEntry[]>([{ laborCount: "", costPerLabor: "" }])
   const [searchTerm, setSearchTerm] = useState("")
+  const [exportStartDate, setExportStartDate] = useState<string>("")
+  const [exportEndDate, setExportEndDate] = useState<string>("")
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newCode = e.target.value
@@ -196,18 +198,37 @@ export default function LaborDeploymentTab() {
   const exportToCSV = () => {
     if (!isAdmin || filteredDeployments.length === 0) return
 
-    const headers = [
-      "ID",
-      "Date",
-      "Code",
-      "Reference",
-      "Labor Details", // Changed from Labor Count & Cost Per Laborer
-      "Total Cost (₹)",
-      "Recorded By",
-    ]
-    const rows = filteredDeployments.map((d) => {
+    let deploymentsToExport = filteredDeployments
+
+    if (exportStartDate && exportEndDate) {
+      const startDate = new Date(exportStartDate)
+      startDate.setHours(0, 0, 0, 0) // Start of the day
+      const endDate = new Date(exportEndDate)
+      endDate.setHours(23, 59, 59, 999) // End of the day
+
+      if (startDate > endDate) {
+        alert("Start date cannot be after end date.")
+        return
+      }
+
+      deploymentsToExport = deploymentsToExport.filter((d) => {
+        const deploymentDate = new Date(d.date)
+        return deploymentDate >= startDate && deploymentDate <= endDate
+      })
+    } else if (exportStartDate || exportEndDate) {
+      alert("Please select both a start and end date for the range, or leave both empty to export all.")
+      return
+    }
+
+    if (deploymentsToExport.length === 0) {
+      alert("No deployments found for the selected date range.")
+      return
+    }
+
+    const headers = ["Date", "Reference", "Labor Details", "Total Cost (₹)", "Recorded By"]
+    const rows = deploymentsToExport.map((d) => {
       const laborDetails = d.laborEntries.map((le) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`).join("; ")
-      return [d.id, formatDate(d.date), d.code, d.reference, laborDetails, d.totalCost.toFixed(2), d.user]
+      return [formatDate(d.date), d.reference, laborDetails, d.totalCost.toFixed(2), d.user]
     })
 
     let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"
@@ -216,7 +237,7 @@ export default function LaborDeploymentTab() {
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement("a")
     link.setAttribute("href", encodedUri)
-    link.setAttribute("download", "labor_deployment_history.csv")
+    link.setAttribute("download", `labor_deployment_history_${exportStartDate}_to_${exportEndDate}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -322,10 +343,35 @@ export default function LaborDeploymentTab() {
               </CardDescription>
             </div>
             {isAdmin && (
-              <Button onClick={exportToCSV} variant="outline" size="sm" disabled={filteredDeployments.length === 0}>
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    className="h-9 text-sm"
+                    aria-label="Export start date"
+                  />
+                  <span className="text-sm">to</span>
+                  <Input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    className="h-9 text-sm"
+                    aria-label="Export end date"
+                  />
+                </div>
+                <Button
+                  onClick={exportToCSV}
+                  variant="outline"
+                  size="sm"
+                  disabled={filteredDeployments.length === 0}
+                  className="w-full sm:w-auto"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>

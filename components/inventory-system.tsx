@@ -732,7 +732,7 @@ export default function InventorySystem() {
 
           {isAdmin ? (
             <Tabs defaultValue="inventory" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="flex w-full overflow-x-auto border-b sm:justify-center">
                 <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
                 <TabsTrigger value="transactions">Transaction History</TabsTrigger>
                 <TabsTrigger value="labor">
@@ -1273,7 +1273,7 @@ export default function InventorySystem() {
             </Tabs>
           ) : (
             <Tabs defaultValue="inventory" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="flex w-full overflow-x-auto border-b sm:justify-center">
                 <TabsTrigger value="inventory">Inventory</TabsTrigger>
                 <TabsTrigger value="labor">
                   <Users className="h-4 w-4 mr-2" />
