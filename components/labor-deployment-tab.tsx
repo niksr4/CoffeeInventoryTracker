@@ -1,18 +1,15 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useMemo } from "react"
 import { useAuth } from "@/hooks/use-auth"
-import { useLaborData } from "@/hooks/use-labor-data"
+import { useLaborData, type LaborEntry } from "@/hooks/use-labor-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Check, Search, Users, Download } from "lucide-react"
+import { Check, Search, Users, Download, PlusCircle, XCircle } from "lucide-react"
 
-// As per the user's request, there are duplicate codes (e.g., 116).
-// This map uses the first provided reference for any duplicate code.
 const laborCodeMap: { [key: string]: string } = {
   "101": "Salaries And Allowances",
   "102": "Provident Fund, Insurance",
@@ -28,7 +25,7 @@ const laborCodeMap: { [key: string]: string } = {
   "112": "Vehicle Running & Maint",
   "113": "Electricity",
   "115": "Machinary Maintenance",
-  "116": "Land",
+  "116": "Land", // Note: 116 appears twice in user provided list, using first one.
   "117": "Maint Build, Roads, Yard",
   "118": "Weather Protectives",
   "119": "Cattle Expenses",
@@ -98,54 +95,86 @@ const formatDate = (dateString: string) => {
   }
 }
 
+type FormLaborEntry = {
+  laborCount: string
+  costPerLabor: string
+}
+
 export default function LaborDeploymentTab() {
   const { user, isAdmin } = useAuth()
   const { deployments, loading, addDeployment } = useLaborData()
 
-  const [formState, setFormState] = useState({
-    code: "",
-    reference: "",
-    laborCount: "",
-    costPerLabor: "",
-  })
+  const [code, setCode] = useState("")
+  const [reference, setReference] = useState("")
+  const [laborEntries, setLaborEntries] = useState<FormLaborEntry[]>([{ laborCount: "", costPerLabor: "" }])
   const [searchTerm, setSearchTerm] = useState("")
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const code = e.target.value
-    const reference = laborCodeMap[code] || ""
-    setFormState((prev) => ({ ...prev, code, reference }))
+    const newCode = e.target.value
+    setCode(newCode)
+    setReference(laborCodeMap[newCode] || "")
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormState((prev) => ({ ...prev, [name]: value }))
+  const handleLaborEntryChange = (index: number, field: keyof FormLaborEntry, value: string) => {
+    const updatedEntries = [...laborEntries]
+    updatedEntries[index][field] = value
+    setLaborEntries(updatedEntries)
+  }
+
+  const addLaborEntryField = () => {
+    setLaborEntries([...laborEntries, { laborCount: "", costPerLabor: "" }])
+  }
+
+  const removeLaborEntryField = (index: number) => {
+    if (laborEntries.length > 1) {
+      const updatedEntries = laborEntries.filter((_, i) => i !== index)
+      setLaborEntries(updatedEntries)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formState.code || !formState.reference || !formState.laborCount || !formState.costPerLabor || !user) return
+    if (!code || !reference || !user || laborEntries.some((entry) => !entry.laborCount || !entry.costPerLabor)) return
+
+    const numericLaborEntries: LaborEntry[] = laborEntries
+      .map((entry) => ({
+        laborCount: Number(entry.laborCount),
+        costPerLabor: Number(entry.costPerLabor),
+      }))
+      .filter((entry) => entry.laborCount > 0 && entry.costPerLabor >= 0)
+
+    if (numericLaborEntries.length === 0) {
+      // Optionally, show a toast message for invalid entries
+      alert("Please provide valid labor count and cost for at least one entry.")
+      return
+    }
 
     const success = await addDeployment({
-      code: formState.code,
-      reference: formState.reference,
-      laborCount: Number(formState.laborCount),
-      costPerLabor: Number(formState.costPerLabor),
+      code,
+      reference,
+      laborEntries: numericLaborEntries,
       user: user.username,
     })
 
     if (success) {
-      setFormState({ code: "", reference: "", laborCount: "", costPerLabor: "" })
+      setCode("")
+      setReference("")
+      setLaborEntries([{ laborCount: "", costPerLabor: "" }])
     }
   }
 
   const totalCost = useMemo(() => {
-    const laborCount = Number(formState.laborCount)
-    const costPerLabor = Number(formState.costPerLabor)
-    if (!isNaN(laborCount) && !isNaN(costPerLabor) && laborCount > 0 && costPerLabor > 0) {
-      return (laborCount * costPerLabor).toFixed(2)
-    }
-    return "0.00"
-  }, [formState.laborCount, formState.costPerLabor])
+    return laborEntries
+      .reduce((sum, entry) => {
+        const laborCount = Number(entry.laborCount)
+        const costPerLabor = Number(entry.costPerLabor)
+        if (!isNaN(laborCount) && !isNaN(costPerLabor) && laborCount > 0 && costPerLabor >= 0) {
+          return sum + laborCount * costPerLabor
+        }
+        return sum
+      }, 0)
+      .toFixed(2)
+  }, [laborEntries])
 
   const filteredDeployments = useMemo(() => {
     let deploymentsToFilter = deployments
@@ -172,21 +201,14 @@ export default function LaborDeploymentTab() {
       "Date",
       "Code",
       "Reference",
-      "Labor Count",
-      "Cost Per Laborer (₹)",
+      "Labor Details", // Changed from Labor Count & Cost Per Laborer
       "Total Cost (₹)",
       "Recorded By",
     ]
-    const rows = filteredDeployments.map((d) => [
-      d.id,
-      formatDate(d.date),
-      d.code,
-      d.reference,
-      d.laborCount,
-      d.costPerLabor.toFixed(2),
-      d.totalCost.toFixed(2),
-      d.user,
-    ])
+    const rows = filteredDeployments.map((d) => {
+      const laborDetails = d.laborEntries.map((le) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`).join("; ")
+      return [d.id, formatDate(d.date), d.code, d.reference, laborDetails, d.totalCost.toFixed(2), d.user]
+    })
 
     let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"
     csvContent += rows.map((e) => e.join(",")).join("\n")
@@ -205,7 +227,9 @@ export default function LaborDeploymentTab() {
       <Card>
         <CardHeader>
           <CardTitle>Record Labor Deployment</CardTitle>
-          <CardDescription>Enter the details for the labor deployed.</CardDescription>
+          <CardDescription>
+            Enter the details for the labor deployed. Use '+' to add multiple labor groups for the same task.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -215,7 +239,7 @@ export default function LaborDeploymentTab() {
                 <Input
                   id="code"
                   name="code"
-                  value={formState.code}
+                  value={code}
                   onChange={handleCodeChange}
                   placeholder="e.g., 101"
                   required
@@ -223,35 +247,60 @@ export default function LaborDeploymentTab() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reference">Reference</Label>
-                <Input id="reference" name="reference" value={formState.reference} readOnly placeholder="Auto-filled" />
+                <Input id="reference" name="reference" value={reference} readOnly placeholder="Auto-filled" />
               </div>
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="laborCount">Number of Laborers</Label>
-                <Input
-                  id="laborCount"
-                  name="laborCount"
-                  type="number"
-                  value={formState.laborCount}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 10"
-                  required
-                />
+
+            {laborEntries.map((entry, index) => (
+              <div key={index} className="space-y-3 p-3 border rounded-md relative">
+                {laborEntries.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6 text-red-500 hover:text-red-700"
+                    onClick={() => removeLaborEntryField(index)}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    <span className="sr-only">Remove labor entry</span>
+                  </Button>
+                )}
+                <p className="text-sm font-medium text-gray-600">Labor Group {index + 1}</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`laborCount-${index}`}>Number of Laborers</Label>
+                    <Input
+                      id={`laborCount-${index}`}
+                      name={`laborCount-${index}`}
+                      type="number"
+                      value={entry.laborCount}
+                      onChange={(e) => handleLaborEntryChange(index, "laborCount", e.target.value)}
+                      placeholder="e.g., 10"
+                      required
+                      min="1"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`costPerLabor-${index}`}>Cost per Laborer (₹)</Label>
+                    <Input
+                      id={`costPerLabor-${index}`}
+                      name={`costPerLabor-${index}`}
+                      type="number"
+                      value={entry.costPerLabor}
+                      onChange={(e) => handleLaborEntryChange(index, "costPerLabor", e.target.value)}
+                      placeholder="e.g., 500"
+                      required
+                      min="0"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="costPerLabor">Cost per Laborer (₹)</Label>
-                <Input
-                  id="costPerLabor"
-                  name="costPerLabor"
-                  type="number"
-                  value={formState.costPerLabor}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 500"
-                  required
-                />
-              </div>
-            </div>
+            ))}
+
+            <Button type="button" variant="outline" onClick={addLaborEntryField} className="w-full">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Labor Group
+            </Button>
+
             <div className="p-4 bg-gray-50 rounded-md text-center">
               <p className="text-sm text-gray-600">Total Cost</p>
               <p className="text-2xl font-bold text-green-700">₹{totalCost}</p>
@@ -273,7 +322,7 @@ export default function LaborDeploymentTab() {
               </CardDescription>
             </div>
             {isAdmin && (
-              <Button onClick={exportToCSV} variant="outline" size="sm">
+              <Button onClick={exportToCSV} variant="outline" size="sm" disabled={filteredDeployments.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
                 Export CSV
               </Button>
@@ -302,12 +351,16 @@ export default function LaborDeploymentTab() {
                         {d.code} - {d.reference}
                       </p>
                       <p className="text-sm text-gray-500">{formatDate(d.date)}</p>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {d.laborEntries.map((entry, idx) => (
+                          <span key={idx} className="block">
+                            {entry.laborCount} laborers @ ₹{entry.costPerLabor.toFixed(2)} each
+                          </span>
+                        ))}
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-green-700">₹{d.totalCost.toFixed(2)}</p>
-                      <p className="text-sm text-gray-500">
-                        {d.laborCount} × ₹{d.costPerLabor.toFixed(2)}
-                      </p>
                     </div>
                   </div>
                   {isAdmin && (

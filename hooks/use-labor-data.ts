@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import type { LaborDeployment } from "@/app/api/labor/route"
+import type { LaborDeployment, LaborEntry } from "@/app/api/labor/route"
 import { toast } from "@/components/ui/use-toast"
 
 export function useLaborData() {
@@ -38,8 +38,7 @@ export function useLaborData() {
   const addDeployment = async (deploymentData: {
     code: string
     reference: string
-    laborCount: number
-    costPerLabor: number
+    laborEntries: LaborEntry[]
     user: string
   }) => {
     try {
@@ -50,7 +49,8 @@ export function useLaborData() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to record labor deployment.")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to record labor deployment.")
       }
 
       await fetchDeployments() // Refresh data
