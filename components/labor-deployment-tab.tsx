@@ -25,7 +25,7 @@ const laborCodeMap: { [key: string]: string } = {
   "112": "Vehicle Running & Maint",
   "113": "Electricity",
   "115": "Machinary Maintenance",
-  "116": "Land", // Note: 116 appears twice in user provided list, using first one.
+  "116": "Land",
   "117": "Maint Build, Roads, Yard",
   "118": "Weather Protectives",
   "119": "Cattle Expenses",
@@ -100,13 +100,27 @@ type FormLaborEntry = {
   costPerLabor: string
 }
 
+const CURRENT_YEAR = new Date().getFullYear()
+const IS_PRESET_YEAR = CURRENT_YEAR === 2025 // Assuming 2025 is the target year for presets
+
+const getInitialCostForGroup = (index: number): string => {
+  if (IS_PRESET_YEAR) {
+    if (index === 0) return "475"
+    if (index === 1) return "450"
+  }
+  return "0"
+}
+
 export default function LaborDeploymentTab() {
   const { user, isAdmin } = useAuth()
   const { deployments, loading, addDeployment } = useLaborData()
 
   const [code, setCode] = useState("")
   const [reference, setReference] = useState("")
-  const [laborEntries, setLaborEntries] = useState<FormLaborEntry[]>([{ laborCount: "", costPerLabor: "" }])
+
+  const [laborEntries, setLaborEntries] = useState<FormLaborEntry[]>([
+    { laborCount: "", costPerLabor: getInitialCostForGroup(0) },
+  ])
   const [searchTerm, setSearchTerm] = useState("")
   const [exportStartDate, setExportStartDate] = useState<string>("")
   const [exportEndDate, setExportEndDate] = useState<string>("")
@@ -124,7 +138,8 @@ export default function LaborDeploymentTab() {
   }
 
   const addLaborEntryField = () => {
-    setLaborEntries([...laborEntries, { laborCount: "", costPerLabor: "" }])
+    const newEntryIndex = laborEntries.length
+    setLaborEntries([...laborEntries, { laborCount: "", costPerLabor: getInitialCostForGroup(newEntryIndex) }])
   }
 
   const removeLaborEntryField = (index: number) => {
@@ -136,18 +151,21 @@ export default function LaborDeploymentTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!code || !reference || !user || laborEntries.some((entry) => !entry.laborCount || !entry.costPerLabor)) return
+    if (!code || !reference || !user || laborEntries.some((entry) => !entry.laborCount)) {
+      // Cost per labor can be blank (will default to 0)
+      alert("Please fill in Code, Reference, and Number of Laborers for all entries.")
+      return
+    }
 
     const numericLaborEntries: LaborEntry[] = laborEntries
       .map((entry) => ({
         laborCount: Number(entry.laborCount),
-        costPerLabor: Number(entry.costPerLabor),
+        costPerLabor: Number(entry.costPerLabor || "0"), // Default to 0 if blank
       }))
-      .filter((entry) => entry.laborCount > 0 && entry.costPerLabor >= 0)
+      .filter((entry) => entry.laborCount > 0) // Cost can be 0
 
     if (numericLaborEntries.length === 0) {
-      // Optionally, show a toast message for invalid entries
-      alert("Please provide valid labor count and cost for at least one entry.")
+      alert("Please provide a valid number of laborers for at least one entry.")
       return
     }
 
@@ -161,7 +179,7 @@ export default function LaborDeploymentTab() {
     if (success) {
       setCode("")
       setReference("")
-      setLaborEntries([{ laborCount: "", costPerLabor: "" }])
+      setLaborEntries([{ laborCount: "", costPerLabor: getInitialCostForGroup(0) }])
     }
   }
 
@@ -169,8 +187,8 @@ export default function LaborDeploymentTab() {
     return laborEntries
       .reduce((sum, entry) => {
         const laborCount = Number(entry.laborCount)
-        const costPerLabor = Number(entry.costPerLabor)
-        if (!isNaN(laborCount) && !isNaN(costPerLabor) && laborCount > 0 && costPerLabor >= 0) {
+        const costPerLabor = Number(entry.costPerLabor || "0") // Default to 0 if blank
+        if (!isNaN(laborCount) && !isNaN(costPerLabor) && laborCount > 0) {
           return sum + laborCount * costPerLabor
         }
         return sum
@@ -202,9 +220,9 @@ export default function LaborDeploymentTab() {
 
     if (exportStartDate && exportEndDate) {
       const startDate = new Date(exportStartDate)
-      startDate.setHours(0, 0, 0, 0) // Start of the day
+      startDate.setHours(0, 0, 0, 0)
       const endDate = new Date(exportEndDate)
-      endDate.setHours(23, 59, 59, 999) // End of the day
+      endDate.setHours(23, 59, 59, 999)
 
       if (startDate > endDate) {
         alert("Start date cannot be after end date.")
@@ -250,6 +268,7 @@ export default function LaborDeploymentTab() {
           <CardTitle>Record Labor Deployment</CardTitle>
           <CardDescription>
             Enter the details for the labor deployed. Use '+' to add multiple labor groups for the same task.
+            {IS_PRESET_YEAR && " Costs for Group 1 (475₹) and Group 2 (450₹) are pre-filled for this year."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -309,8 +328,9 @@ export default function LaborDeploymentTab() {
                       type="number"
                       value={entry.costPerLabor}
                       onChange={(e) => handleLaborEntryChange(index, "costPerLabor", e.target.value)}
-                      placeholder="e.g., 500"
-                      required
+                      placeholder={
+                        getInitialCostForGroup(index) === "0" ? "0" : `e.g., ${getInitialCostForGroup(index)}`
+                      }
                       min="0"
                     />
                   </div>
