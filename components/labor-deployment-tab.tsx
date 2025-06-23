@@ -7,8 +7,9 @@ import { useLaborData, type LaborEntry } from "@/hooks/use-labor-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Check, Search, Users, Download, PlusCircle, XCircle } from "lucide-react"
+import { Check, Search, Users, Download, PlusCircle, XCircle, MessageSquare } from "lucide-react"
 
 const laborCodeMap: { [key: string]: string } = {
   "101": "Salaries And Allowances",
@@ -101,7 +102,7 @@ type FormLaborEntry = {
 }
 
 const CURRENT_YEAR = new Date().getFullYear()
-const IS_PRESET_YEAR = CURRENT_YEAR === 2025 // Assuming 2025 is the target year for presets
+const IS_PRESET_YEAR = CURRENT_YEAR === 2025
 
 const getInitialCostForGroup = (index: number): string => {
   if (IS_PRESET_YEAR) {
@@ -117,10 +118,10 @@ export default function LaborDeploymentTab() {
 
   const [code, setCode] = useState("")
   const [reference, setReference] = useState("")
-
   const [laborEntries, setLaborEntries] = useState<FormLaborEntry[]>([
     { laborCount: "", costPerLabor: getInitialCostForGroup(0) },
   ])
+  const [notes, setNotes] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [exportStartDate, setExportStartDate] = useState<string>("")
   const [exportEndDate, setExportEndDate] = useState<string>("")
@@ -152,7 +153,6 @@ export default function LaborDeploymentTab() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!code || !reference || !user || laborEntries.some((entry) => !entry.laborCount)) {
-      // Cost per labor can be blank (will default to 0)
       alert("Please fill in Code, Reference, and Number of Laborers for all entries.")
       return
     }
@@ -160,9 +160,9 @@ export default function LaborDeploymentTab() {
     const numericLaborEntries: LaborEntry[] = laborEntries
       .map((entry) => ({
         laborCount: Number(entry.laborCount),
-        costPerLabor: Number(entry.costPerLabor || "0"), // Default to 0 if blank
+        costPerLabor: Number(entry.costPerLabor || "0"),
       }))
-      .filter((entry) => entry.laborCount > 0) // Cost can be 0
+      .filter((entry) => entry.laborCount > 0)
 
     if (numericLaborEntries.length === 0) {
       alert("Please provide a valid number of laborers for at least one entry.")
@@ -174,12 +174,14 @@ export default function LaborDeploymentTab() {
       reference,
       laborEntries: numericLaborEntries,
       user: user.username,
+      notes,
     })
 
     if (success) {
       setCode("")
       setReference("")
       setLaborEntries([{ laborCount: "", costPerLabor: getInitialCostForGroup(0) }])
+      setNotes("")
     }
   }
 
@@ -187,7 +189,7 @@ export default function LaborDeploymentTab() {
     return laborEntries
       .reduce((sum, entry) => {
         const laborCount = Number(entry.laborCount)
-        const costPerLabor = Number(entry.costPerLabor || "0") // Default to 0 if blank
+        const costPerLabor = Number(entry.costPerLabor || "0")
         if (!isNaN(laborCount) && !isNaN(costPerLabor) && laborCount > 0) {
           return sum + laborCount * costPerLabor
         }
@@ -209,7 +211,8 @@ export default function LaborDeploymentTab() {
       (d) =>
         d.code.toLowerCase().includes(lowercasedFilter) ||
         d.reference.toLowerCase().includes(lowercasedFilter) ||
-        d.user.toLowerCase().includes(lowercasedFilter),
+        d.user.toLowerCase().includes(lowercasedFilter) ||
+        (d.notes && d.notes.toLowerCase().includes(lowercasedFilter)),
     )
   }, [deployments, searchTerm, isAdmin, user?.username])
 
@@ -243,10 +246,11 @@ export default function LaborDeploymentTab() {
       return
     }
 
-    const headers = ["Date", "Reference", "Labor Details", "Total Cost (₹)", "Recorded By"]
+    const headers = ["Date", "Reference", "Labor Details", "Total Cost (₹)", "Notes", "Recorded By"]
     const rows = deploymentsToExport.map((d) => {
       const laborDetails = d.laborEntries.map((le) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`).join("; ")
-      return [formatDate(d.date), d.reference, laborDetails, d.totalCost.toFixed(2), d.user]
+      const notes = d.notes ? `"${d.notes.replace(/"/g, '""')}"` : ""
+      return [formatDate(d.date), d.reference, laborDetails, d.totalCost.toFixed(2), notes, d.user]
     })
 
     let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"
@@ -342,6 +346,17 @@ export default function LaborDeploymentTab() {
               <PlusCircle className="mr-2 h-4 w-4" /> Add Labor Group
             </Button>
 
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add any relevant notes about this deployment..."
+                className="min-h-[80px]"
+              />
+            </div>
+
             <div className="p-4 bg-gray-50 rounded-md text-center">
               <p className="text-sm text-gray-600">Total Cost</p>
               <p className="text-2xl font-bold text-green-700">₹{totalCost}</p>
@@ -399,7 +414,7 @@ export default function LaborDeploymentTab() {
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search by code, reference, or user..."
+              placeholder="Search by code, reference, user, or notes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -429,8 +444,14 @@ export default function LaborDeploymentTab() {
                       <p className="font-semibold text-green-700">₹{d.totalCost.toFixed(2)}</p>
                     </div>
                   </div>
+                  {d.notes && (
+                    <div className="mt-2 pt-2 border-t text-sm text-gray-600 flex items-start gap-2">
+                      <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <p className="whitespace-pre-wrap">{d.notes}</p>
+                    </div>
+                  )}
                   {isAdmin && (
-                    <div className="mt-2 pt-2 border-t">
+                    <div className={`mt-2 pt-2 ${d.notes ? "" : "border-t"}`}>
                       <p className="text-xs text-gray-500 flex items-center">
                         <Users className="h-3 w-3 mr-1.5" />
                         Recorded by: {d.user}

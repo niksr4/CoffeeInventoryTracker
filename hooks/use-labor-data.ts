@@ -40,6 +40,7 @@ export function useLaborData() {
     reference: string
     laborEntries: LaborEntry[]
     user: string
+    notes?: string
   }) => {
     try {
       const response = await fetch("/api/labor", {

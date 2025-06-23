@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { redis, KEYS, getRedisAvailability, setRedisAvailability, checkRedisConnection } from "@/lib/redis" // Updated imports
+import { redis, KEYS, getRedisAvailability, setRedisAvailability, checkRedisConnection } from "@/lib/redis"
 
 export type LaborEntry = {
   laborCount: number
@@ -14,14 +14,12 @@ export type LaborDeployment = {
   totalCost: number
   date: string // Should be ISO string
   user: string
+  notes?: string
 }
-
-// No longer using globalLaborDeployments
-// const globalLaborDeployments: LaborDeployment[] = []
 
 export async function GET() {
   if (!redis) {
-    await checkRedisConnection() // Attempt to re-check/initialize
+    await checkRedisConnection()
     if (!getRedisAvailability()) {
       console.error("GET /api/labor: Redis client not available.")
       return NextResponse.json({ deployments: [], error: "Database not available" }, { status: 503 })
@@ -33,7 +31,6 @@ export async function GET() {
     if (!deployments) {
       return NextResponse.json({ deployments: [] })
     }
-    // Return deployments sorted by most recent date
     const sortedDeployments = [...deployments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     return NextResponse.json({ deployments: sortedDeployments })
   } catch (error) {
@@ -45,7 +42,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   if (!redis) {
-    await checkRedisConnection() // Attempt to re-check/initialize
+    await checkRedisConnection()
     if (!getRedisAvailability()) {
       console.error("POST /api/labor: Redis client not available.")
       return NextResponse.json({ success: false, error: "Database not available" }, { status: 503 })
@@ -85,20 +82,19 @@ export async function POST(request: NextRequest) {
       reference: body.reference,
       laborEntries: body.laborEntries,
       totalCost: calculatedTotalCost,
-      date: new Date().toISOString(), // Ensure ISO string for consistent sorting
+      date: new Date().toISOString(),
       user: body.user,
+      notes: body.notes || undefined,
     }
 
-    // Fetch current deployments, add new one, then save
     const currentDeployments = (await redis.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)) || []
-    currentDeployments.unshift(newDeployment) // Add to the beginning for chronological order (newest first)
+    currentDeployments.unshift(newDeployment)
 
     await redis.set(KEYS.LABOR_DEPLOYMENTS, currentDeployments)
 
     return NextResponse.json({ success: true, deployment: newDeployment })
   } catch (error) {
     console.error("Error in POST /api/labor:", error)
-    // Check if it's a JSON parsing error or Redis error
     if (error instanceof SyntaxError) {
       return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 })
     }
