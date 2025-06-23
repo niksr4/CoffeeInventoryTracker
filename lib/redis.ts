@@ -36,6 +36,7 @@ export const KEYS = {
   TRANSACTIONS: "inventory:transactions",
   INVENTORY_HASH: "inventory:items",
   LAST_UPDATE: "inventory:lastUpdate",
+  LABOR_DEPLOYMENTS: "labor:deployments",
 }
 
 // Check Redis connection and set availability flag
