@@ -50,6 +50,7 @@ import { toast } from "@/components/ui/use-toast"
 import type { InventoryItem, Transaction } from "@/lib/inventory-service"
 import InventoryValueSummary from "@/components/inventory-value-summary"
 import LaborDeploymentTab from "@/components/labor-deployment-tab"
+import AiAnalysisCharts from "@/components/ai-analysis-charts"
 
 const itemDefinitions = [
   { name: "UREA", unit: "kg" },
@@ -1160,6 +1161,7 @@ export default function InventorySystem() {
                 <LaborDeploymentTab />
               </TabsContent>
               <TabsContent value="ai-analysis" className="space-y-6">
+                <AiAnalysisCharts inventory={inventory} transactions={transactions} />
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
                   <div className="flex justify-between items-center mb-6">
                     <div>
