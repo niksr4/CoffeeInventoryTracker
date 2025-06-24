@@ -1123,24 +1123,26 @@ export default function InventorySystem() {
                               </>
                             )}
                             <td className="py-4 px-4">
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleEditTransaction(transaction)}
-                                  className="text-amber-600 p-2 h-auto"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDeleteConfirm(transaction.id)}
-                                  className="text-red-600 p-2 h-auto"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                              {(isAdmin || user?.username === "KAB123") && (
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleEditTransaction(transaction)}
+                                    className="text-amber-600 p-2 h-auto"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeleteConfirm(transaction.id)}
+                                    className="text-red-600 p-2 h-auto"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}

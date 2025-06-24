@@ -88,7 +88,7 @@ const expenditureCodeMap: { [key: string]: string } = {
   "161": "Robusta Processing & Drying",
   "162": "Robusta Curing",
   "163": "Robusta Irrigation",
-  "181": "Pepper Plants -cost",
+  "181": "Pepper planting, upkeep",
   "182": "Pepper Manuring",
   "183": "Pepper Pest & Disease Cont.",
   "184": "Pepper Havest, Process, Pack",
@@ -440,7 +440,7 @@ const LaborSection = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-green-700">₹{d.totalCost.toFixed(2)}</p>
-                      {isAdmin && (
+                      {(isAdmin || user?.username === "KAB123") && (
                         <div className="flex gap-1 mt-1 justify-end">
                           <Button
                             variant="ghost"
@@ -722,7 +722,7 @@ const ConsumablesSection = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-blue-700">₹{d.amount.toFixed(2)}</p>
-                      {isAdmin && (
+                      {(isAdmin || user?.username === "KAB123") && (
                         <div className="flex gap-1 mt-1 justify-end">
                           <Button
                             variant="ghost"
@@ -854,6 +854,15 @@ export default function AccountsPage() {
       alert("Please select both start and end date for filtering, or leave both empty to export all.")
       return
     }
+
+    deploymentsToExport.sort((a, b) => {
+      if (a.code < b.code) return -1
+      if (a.code > b.code) return 1
+      // Secondary sort by date (newest first) if codes are the same
+      const dateA = new Date(a.date).getTime()
+      const dateB = new Date(b.date).getTime()
+      return dateB - dateA
+    })
 
     if (deploymentsToExport.length === 0) {
       alert("No entries found for the selected date range.")
