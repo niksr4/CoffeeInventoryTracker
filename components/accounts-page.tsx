@@ -819,6 +819,17 @@ export default function AccountsPage() {
   }, [laborDeployments, consumableDeployments])
 
   const exportCombinedCSV = () => {
+    const escapeCsvField = (field: any): string => {
+      if (field === null || field === undefined) {
+        return ""
+      }
+      const stringField = String(field)
+      if (stringField.search(/("|,|\n)/g) >= 0) {
+        return `"${stringField.replace(/"/g, '""')}"`
+      }
+      return stringField
+    }
+
     if (combinedDeployments.length === 0) {
       alert("No data available to export.")
       return
@@ -859,28 +870,33 @@ export default function AccountsPage() {
       "Recorded By",
     ]
 
+    let grandTotal = 0
     const rows = deploymentsToExport.map((d) => {
-      const laborDetails =
+      const laborDetailsContent =
         d.entryType === "Labor" && d.laborEntries
           ? d.laborEntries.map((le: LaborEntry) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`).join("; ")
           : ""
       const expenditureAmount = d.entryType === "Labor" ? d.totalCost : (d as ConsumableDeployment).amount
+      grandTotal += expenditureAmount
 
-      const notes = d.notes ? `"${d.notes.replace(/"/g, '""')}"` : ""
       return [
-        formatDate(d.date),
-        d.entryType,
-        d.code,
-        d.reference,
-        laborDetails,
-        expenditureAmount.toFixed(2),
-        notes,
-        d.user,
+        escapeCsvField(formatDate(d.date)),
+        escapeCsvField(d.entryType),
+        escapeCsvField(d.code),
+        escapeCsvField(d.reference),
+        escapeCsvField(laborDetailsContent),
+        escapeCsvField(expenditureAmount.toFixed(2)),
+        escapeCsvField(d.notes),
+        escapeCsvField(d.user),
       ]
     })
 
-    let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"
-    csvContent += rows.map((e) => e.join(",")).join("\n")
+    let csvContent = "data:text/csv;charset=utf-8," + headers.map(escapeCsvField).join(",") + "\n"
+    csvContent += rows.map((row) => row.join(",")).join("\n")
+
+    // Add the total row
+    const totalRow = ["", "", "", "", "GRAND TOTAL", grandTotal.toFixed(2), "", ""]
+    csvContent += "\n" + totalRow.map(escapeCsvField).join(",")
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement("a")
     link.setAttribute("href", encodedUri)
