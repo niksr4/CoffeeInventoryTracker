@@ -140,7 +140,7 @@ export default function InventorySystem() {
   } = useInventoryData()
 
   const [inventorySortOrder, setInventorySortOrder] = useState<"asc" | "desc" | null>(null)
-  const [transactionSortOrder, setTransactionSortOrder] = useState<"asc" | "desc" | null>(null)
+  const [transactionSortOrder, setTransactionSortOrder] = useState<"desc" | "asc">("desc") // "desc" for newest first, "asc" for oldest first
   const [inventorySearchTerm, setInventorySearchTerm] = useState("")
   const [transactionSearchTerm, setTransactionSearchTerm] = useState("")
   const [recentTransactionSearchTerm, setRecentTransactionSearchTerm] = useState("")
@@ -419,9 +419,7 @@ export default function InventorySystem() {
   }
 
   const toggleTransactionSort = () => {
-    if (transactionSortOrder === null) setTransactionSortOrder("asc")
-    else if (transactionSortOrder === "asc") setTransactionSortOrder("desc")
-    else setTransactionSortOrder(null)
+    setTransactionSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
   }
 
   const exportInventoryToCSV = () => {
@@ -484,22 +482,61 @@ export default function InventorySystem() {
       })
   })()
 
+  // Inside the InventorySystem component function body, before the return statement:
+
   const filteredTransactions = transactions
-    .filter((t) => filterType === "All Types" || t.itemType === filterType)
     .filter((t) => {
+      // Ensure t and its properties are defined before trying to access them
+      if (!t) return false
+
+      const passesFilterType = filterType === "All Types" || (t.itemType && t.itemType === filterType)
+      if (!passesFilterType) return false
+
       const searchLower = transactionSearchTerm.toLowerCase()
-      return (
-        t.itemType.toLowerCase().includes(searchLower) ||
-        t.notes.toLowerCase().includes(searchLower) ||
-        t.user.toLowerCase().includes(searchLower) ||
-        t.transactionType.toLowerCase().includes(searchLower)
-      )
+      if (searchLower === "") return true // Pass if search term is empty, after type filter
+
+      const itemMatch = t.itemType ? t.itemType.toLowerCase().includes(searchLower) : false
+      const notesMatch = t.notes ? t.notes.toLowerCase().includes(searchLower) : false
+      const userMatch = t.user ? t.user.toLowerCase().includes(searchLower) : false
+      const typeMatch = t.transactionType ? t.transactionType.toLowerCase().includes(searchLower) : false
+
+      return itemMatch || notesMatch || userMatch || typeMatch
     })
     .sort((a, b) => {
-      if (transactionSortOrder === "asc") return a.itemType.localeCompare(b.itemType)
-      else if (transactionSortOrder === "desc") return b.itemType.localeCompare(a.itemType)
-      return 0
+      try {
+        // Ensure dates are valid before comparing
+        const dateA = new Date(a.date)
+        const dateB = new Date(b.date)
+
+        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0
+        if (isNaN(dateA.getTime())) return 1 // Put invalid dates at the end
+        if (isNaN(dateB.getTime())) return -1
+
+        // Use transactionSortOrder state for date sorting
+        if (transactionSortOrder === "asc") {
+          // Oldest first
+          return dateA.getTime() - dateB.getTime()
+        }
+        return dateB.getTime() - dateA.getTime() // Newest first (desc)
+      } catch (e) {
+        console.error("Error sorting transactions by date:", e, a, b)
+        return 0
+      }
     })
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
+  // Ensure currentPage is valid if filteredTransactions becomes empty or shrinks
+  const validatedCurrentPage = Math.max(1, Math.min(currentPage, totalPages || 1))
+  const startIndex = (validatedCurrentPage - 1) * itemsPerPage
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredTransactions.length)
+  const currentTransactions = filteredTransactions.slice(startIndex, endIndex)
+
+  // If currentPage was adjusted, update the state
+  useEffect(() => {
+    if (currentPage !== validatedCurrentPage) {
+      setCurrentPage(validatedCurrentPage)
+    }
+  }, [currentPage, validatedCurrentPage])
 
   const recentTransactions = transactions
     .filter((t) => isWithinLast24Hours(t.date))
@@ -521,10 +558,6 @@ export default function InventorySystem() {
       }
     })
 
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = Math.min(startIndex + itemsPerPage, filteredTransactions.length)
-  const currentTransactions = filteredTransactions.slice(startIndex, endIndex)
   const itemTypes = itemDefinitions.map((item) => item.name)
   const getUnitForItem = (itemName: string) => {
     const item = itemDefinitions.find((item) => item.name === itemName)
@@ -984,6 +1017,174 @@ export default function InventorySystem() {
                           No inventory items found matching your search.
                         </div>
                       )}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="transactions" className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                  <div className="flex justify-between items-center mb-5">
+                    <h2 className="text-lg font-medium text-green-700 flex items-center">
+                      <History className="mr-2 h-5 w-5" /> Transaction History
+                    </h2>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={exportToCSV} className="h-10">
+                        <Download className="mr-2 h-4 w-4" /> Export
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
+                    <div className="flex flex-col sm:flex-row gap-3 flex-grow">
+                      <div className="relative flex-grow">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search transactions..."
+                          value={transactionSearchTerm}
+                          onChange={(e) => setTransactionSearchTerm(e.target.value)}
+                          className="pl-10 h-10"
+                        />
+                      </div>
+                      <Select value={filterType} onValueChange={setFilterType}>
+                        <SelectTrigger className="w-40 h-10 border-gray-300">
+                          <SelectValue placeholder="All Types" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[40vh] overflow-y-auto">
+                          <SelectItem value="All Types">All Types</SelectItem>
+                          {itemTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleTransactionSort}
+                      className="flex items-center gap-1 h-10 whitespace-nowrap"
+                    >
+                      {transactionSortOrder === "desc" ? (
+                        <>
+                          <SortDesc className="h-4 w-4 mr-1" /> Date: Newest First
+                        </>
+                      ) : (
+                        <>
+                          <SortAsc className="h-4 w-4 mr-1" /> Date: Oldest First
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="border rounded-md overflow-x-auto">
+                    <table className="min-w-full">
+                      <thead>
+                        <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
+                          <th className="py-4 px-4 text-left">DATE</th>
+                          <th className="py-4 px-4 text-left">ITEM TYPE</th>
+                          <th className="py-4 px-4 text-left">QUANTITY</th>
+                          <th className="py-4 px-4 text-left">TRANSACTION</th>
+                          {!isMobile && (
+                            <>
+                              <th className="py-4 px-4 text-left">PRICE</th>
+                              <th className="py-4 px-4 text-left">NOTES</th>
+                              <th className="py-4 px-4 text-left">USER</th>
+                            </>
+                          )}
+                          <th className="py-4 px-4 text-left">ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentTransactions.map((transaction) => (
+                          <tr key={transaction.id} className="border-b last:border-0 hover:bg-gray-50">
+                            <td className="py-4 px-4">{formatDate(transaction.date)}</td>
+                            <td className="py-4 px-4">{transaction.itemType}</td>
+                            <td className="py-4 px-4">
+                              {transaction.quantity} {transaction.unit}
+                            </td>
+                            <td className="py-4 px-4">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  transaction.transactionType === "Depleting"
+                                    ? "bg-red-100 text-red-700 border-red-200"
+                                    : "bg-green-100 text-green-700 border-green-200"
+                                }
+                              >
+                                {transaction.transactionType}
+                              </Badge>
+                            </td>
+                            {!isMobile && (
+                              <>
+                                <td className="py-4 px-4">
+                                  {transaction.price ? `₹${transaction.price.toFixed(2)}` : "-"}
+                                </td>
+                                <td className="py-4 px-4">{transaction.notes}</td>
+                                <td className="py-4 px-4">{transaction.user}</td>
+                              </>
+                            )}
+                            <td className="py-4 px-4">
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditTransaction(transaction)}
+                                  className="text-amber-600 p-2 h-auto"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteConfirm(transaction.id)}
+                                  className="text-red-600 p-2 h-auto"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {/* No Transactions Message */}
+                    {transactions.length === 0 && (
+                      <div className="text-center py-10 text-gray-500">
+                        No transactions recorded yet. (Raw count: {transactions.length})
+                      </div>
+                    )}
+                    {transactions.length > 0 && filteredTransactions.length === 0 && (
+                      <div className="text-center py-10 text-gray-500">
+                        No transactions found matching your current filters. (Raw: {transactions.length}, Filtered: 0)
+                      </div>
+                    )}
+                    {filteredTransactions.length > 0 && currentTransactions.length === 0 && (
+                      <div className="text-center py-10 text-gray-500">
+                        Transactions available but not shown on this page. (Filtered: {filteredTransactions.length},
+                        Current Page Items: 0, Page: {validatedCurrentPage}/{totalPages})
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="text-sm text-gray-500">
+                      Showing {startIndex + 1} to {endIndex} of {filteredTransactions.length} transactions
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                      >
+                        Next
+                      </Button>
                     </div>
                   </div>
                 </div>
