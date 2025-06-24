@@ -824,6 +824,7 @@ export default function AccountsPage() {
         return ""
       }
       const stringField = String(field)
+      // Escape double quotes by doubling them, and wrap field in double quotes if it contains commas, double quotes, or newlines
       if (stringField.search(/("|,|\n)/g) >= 0) {
         return `"${stringField.replace(/"/g, '""')}"`
       }
@@ -864,7 +865,8 @@ export default function AccountsPage() {
       "Entry Type",
       "Code",
       "Reference",
-      "Labor Details",
+      "HF Labor Details",
+      "Outside Labor Details",
       "Total Expenditure (₹)",
       "Notes",
       "Recorded By",
@@ -872,10 +874,21 @@ export default function AccountsPage() {
 
     let grandTotal = 0
     const rows = deploymentsToExport.map((d) => {
-      const laborDetailsContent =
-        d.entryType === "Labor" && d.laborEntries
-          ? d.laborEntries.map((le: LaborEntry) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`).join("; ")
-          : ""
+      let hfLaborDetails = ""
+      let outsideLaborDetails = ""
+
+      if (d.entryType === "Labor" && d.laborEntries && d.laborEntries.length > 0) {
+        const hfEntry = d.laborEntries[0]
+        hfLaborDetails = `${hfEntry.laborCount} @ ${hfEntry.costPerLabor.toFixed(2)}`
+
+        if (d.laborEntries.length > 1) {
+          outsideLaborDetails = d.laborEntries
+            .slice(1)
+            .map((le: LaborEntry) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`)
+            .join("; ")
+        }
+      }
+
       const expenditureAmount = d.entryType === "Labor" ? d.totalCost : (d as ConsumableDeployment).amount
       grandTotal += expenditureAmount
 
@@ -884,7 +897,8 @@ export default function AccountsPage() {
         escapeCsvField(d.entryType),
         escapeCsvField(d.code),
         escapeCsvField(d.reference),
-        escapeCsvField(laborDetailsContent),
+        escapeCsvField(hfLaborDetails),
+        escapeCsvField(outsideLaborDetails),
         escapeCsvField(expenditureAmount.toFixed(2)),
         escapeCsvField(d.notes),
         escapeCsvField(d.user),
@@ -895,7 +909,7 @@ export default function AccountsPage() {
     csvContent += rows.map((row) => row.join(",")).join("\n")
 
     // Add the total row
-    const totalRow = ["", "", "", "", "GRAND TOTAL", grandTotal.toFixed(2), "", ""]
+    const totalRow = ["", "", "", "", "GRAND TOTAL", "", grandTotal.toFixed(2), "", ""] // Adjusted for new columns
     csvContent += "\n" + totalRow.map(escapeCsvField).join(",")
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement("a")
