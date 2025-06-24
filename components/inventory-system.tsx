@@ -3,12 +3,9 @@
 import { useState, useEffect } from "react"
 import {
   Check,
-  ChevronDown,
   Download,
   List,
   Clock,
-  ChevronLeft,
-  ChevronRight,
   LogOut,
   Edit,
   Trash2,
@@ -49,8 +46,8 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import type { InventoryItem, Transaction } from "@/lib/inventory-service"
 import InventoryValueSummary from "@/components/inventory-value-summary"
-import LaborDeploymentTab from "@/components/labor-deployment-tab"
 import AiAnalysisCharts from "@/components/ai-analysis-charts"
+import AccountsPage from "@/components/accounts-page"
 
 const itemDefinitions = [
   { name: "UREA", unit: "kg" },
@@ -736,9 +733,9 @@ export default function InventorySystem() {
               <TabsList className="flex w-full overflow-x-auto border-b sm:justify-center">
                 <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
                 <TabsTrigger value="transactions">Transaction History</TabsTrigger>
-                <TabsTrigger value="labor">
+                <TabsTrigger value="accounts">
                   <Users className="h-4 w-4 mr-2" />
-                  Labor Deployment
+                  Accounts
                 </TabsTrigger>
                 <TabsTrigger value="ai-analysis">
                   <Brain className="h-4 w-4 mr-2" />
@@ -991,174 +988,8 @@ export default function InventorySystem() {
                   </div>
                 </div>
               </TabsContent>
-              <TabsContent value="transactions" className="space-y-8">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                  <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
-                    <Clock className="mr-2 h-5 w-5" /> Transaction History
-                  </h2>
-                  <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
-                    <div className="flex flex-col sm:flex-row gap-3 flex-grow">
-                      <div className="relative flex-grow">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search transactions..."
-                          value={transactionSearchTerm}
-                          onChange={(e) => setTransactionSearchTerm(e.target.value)}
-                          className="pl-10 h-10"
-                        />
-                      </div>
-                      <Select value={filterType} onValueChange={setFilterType}>
-                        <SelectTrigger className="w-full sm:w-48 border-gray-300 h-10">
-                          <SelectValue placeholder="All Types" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[40vh] overflow-y-auto">
-                          <SelectItem value="All Types">All Types</SelectItem>
-                          {itemTypes.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={toggleTransactionSort}
-                        className="flex items-center gap-1 h-10 whitespace-nowrap"
-                      >
-                        {transactionSortOrder === "asc" ? (
-                          <>
-                            <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
-                          </>
-                        ) : transactionSortOrder === "desc" ? (
-                          <>
-                            <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
-                          </>
-                        ) : (
-                          <>
-                            <SortAsc className="h-4 w-4 mr-1" /> Sort
-                          </>
-                        )}
-                      </Button>
-                      <Button className="bg-green-600 hover:bg-green-700 h-10" onClick={exportToCSV}>
-                        <Download className="mr-2 h-4 w-4" /> Export
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="border rounded-md overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead>
-                        <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
-                          <th className="py-4 px-4 text-left flex items-center">
-                            DATE <ChevronDown className="ml-1 h-4 w-4" />
-                          </th>
-                          <th className="py-4 px-4 text-left">ITEM TYPE</th>
-                          <th className="py-4 px-4 text-left">QUANTITY</th>
-                          <th className="py-4 px-4 text-left">COST</th>
-                          <th className="py-4 px-4 text-left">TRANSACTION</th>
-                          {!isMobile && <th className="py-4 px-4 text-left">NOTES</th>}
-                          {!isMobile && <th className="py-4 px-4 text-left">USER</th>}
-                          <th className="py-4 px-4 text-right">ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentTransactions.map((transaction) => (
-                          <tr key={transaction.id} className="border-b last:border-0 hover:bg-gray-50">
-                            <td className="py-4 px-4">{formatDate(transaction.date)}</td>
-                            <td className="py-4 px-4">{transaction.itemType}</td>
-                            <td className="py-4 px-4">
-                              {transaction.quantity} {transaction.unit}
-                            </td>
-                            <td className="py-4 px-4">
-                              {transaction.transactionType === "Restocking" && transaction.price ? (
-                                <div>
-                                  <div className="font-medium">₹{transaction.totalCost?.toFixed(2)}</div>
-                                  <div className="text-sm text-gray-500">
-                                    ₹{transaction.price.toFixed(2)}/{transaction.unit}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="py-4 px-4">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  transaction.transactionType === "Depleting"
-                                    ? "bg-red-100 text-red-700 border-red-200"
-                                    : "bg-green-100 text-green-700 border-green-200"
-                                }
-                              >
-                                {transaction.transactionType}
-                              </Badge>
-                            </td>
-                            {!isMobile && <td className="py-4 px-4">{transaction.notes}</td>}
-                            {!isMobile && <td className="py-4 px-4">{transaction.user}</td>}
-                            <td className="py-4 px-4 text-right">
-                              <div className="flex justify-end gap-3">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleEditTransaction(transaction)}
-                                  className="text-amber-600"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDeleteConfirm(transaction.id)}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {currentTransactions.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">No transactions found matching your search.</div>
-                    )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
-                    <div className="text-sm text-gray-500 order-2 sm:order-1">
-                      Showing {filteredTransactions.length > 0 ? `${startIndex + 1} to ${endIndex} of` : "0 of"}{" "}
-                      {filteredTransactions.length} results
-                    </div>
-                    <div className="flex gap-3 order-1 sm:order-2">
-                      <Button
-                        variant="outline"
-                        className="text-gray-500 h-10"
-                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant={currentPage === 1 ? "default" : "outline"}
-                        className={currentPage === 1 ? "bg-green-700 h-10" : "text-gray-500 h-10"}
-                      >
-                        1
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="text-gray-500 h-10"
-                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages || totalPages === 0}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-              <TabsContent value="labor" className="space-y-6">
-                <LaborDeploymentTab />
+              <TabsContent value="accounts" className="space-y-6">
+                <AccountsPage />
               </TabsContent>
               <TabsContent value="ai-analysis" className="space-y-6">
                 <AiAnalysisCharts inventory={inventory} transactions={transactions} />
@@ -1277,9 +1108,9 @@ export default function InventorySystem() {
             <Tabs defaultValue="inventory" className="w-full">
               <TabsList className="flex w-full overflow-x-auto border-b sm:justify-center">
                 <TabsTrigger value="inventory">Inventory</TabsTrigger>
-                <TabsTrigger value="labor">
+                <TabsTrigger value="accounts">
                   <Users className="h-4 w-4 mr-2" />
-                  Labor Deployment
+                  Accounts
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="inventory" className="space-y-8 pt-6">
@@ -1589,8 +1420,8 @@ export default function InventorySystem() {
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="labor" className="space-y-6 pt-6">
-                <LaborDeploymentTab />
+              <TabsContent value="accounts" className="space-y-6 pt-6">
+                <AccountsPage />
               </TabsContent>
             </Tabs>
           )}
