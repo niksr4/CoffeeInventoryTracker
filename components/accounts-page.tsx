@@ -117,15 +117,19 @@ const expenditureCodeMap: { [key: string]: string } = {
   "245": "Organic Compost Manure",
 }
 
-const formatDate = (dateString?: string, style: "short" | "long" = "short") => {
+const formatDate = (dateString?: string, style: "short" | "long" | "date-only" = "short") => {
   if (!dateString) return "N/A"
   try {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return dateString
-    const options: Intl.DateTimeFormatOptions =
-      style === "short"
-        ? { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }
-        : { dateStyle: "medium", timeStyle: "short" }
+    let options: Intl.DateTimeFormatOptions = {}
+    if (style === "short") {
+      options = { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }
+    } else if (style === "long") {
+      options = { dateStyle: "medium", timeStyle: "short" }
+    } else if (style === "date-only") {
+      options = { day: "2-digit", month: "2-digit", year: "numeric" }
+    }
     return new Intl.DateTimeFormat("en-GB", options).format(date)
   } catch (error) {
     return dateString
@@ -824,7 +828,6 @@ export default function AccountsPage() {
         return ""
       }
       const stringField = String(field)
-      // Escape double quotes by doubling them, and wrap field in double quotes if it contains commas, double quotes, or newlines
       if (stringField.search(/("|,|\n)/g) >= 0) {
         return `"${stringField.replace(/"/g, '""')}"`
       }
@@ -858,7 +861,6 @@ export default function AccountsPage() {
     deploymentsToExport.sort((a, b) => {
       if (a.code < b.code) return -1
       if (a.code > b.code) return 1
-      // Secondary sort by date (newest first) if codes are the same
       const dateA = new Date(a.date).getTime()
       const dateB = new Date(b.date).getTime()
       return dateB - dateA
@@ -881,7 +883,6 @@ export default function AccountsPage() {
       "Recorded By",
     ]
 
-    let grandTotal = 0
     const rows = deploymentsToExport.map((d) => {
       let hfLaborDetails = ""
       let outsideLaborDetails = ""
@@ -899,10 +900,9 @@ export default function AccountsPage() {
       }
 
       const expenditureAmount = d.entryType === "Labor" ? d.totalCost : (d as ConsumableDeployment).amount
-      grandTotal += expenditureAmount
 
       return [
-        escapeCsvField(formatDate(d.date)),
+        escapeCsvField(formatDate(d.date, "date-only")),
         escapeCsvField(d.entryType),
         escapeCsvField(d.code),
         escapeCsvField(d.reference),
@@ -914,12 +914,72 @@ export default function AccountsPage() {
       ]
     })
 
+    // Calculate totals
+    let totalHfLaborCount = 0
+    let totalHfLaborCost = 0
+    let totalOutsideLaborCount = 0
+    let totalOutsideLaborCost = 0
+    let totalConsumablesCost = 0
+
+    deploymentsToExport.forEach((d) => {
+      if (d.entryType === "Labor") {
+        if (d.laborEntries && d.laborEntries.length > 0) {
+          const hfEntry = d.laborEntries[0]
+          totalHfLaborCount += hfEntry.laborCount
+          totalHfLaborCost += hfEntry.laborCount * hfEntry.costPerLabor
+        }
+        if (d.laborEntries && d.laborEntries.length > 1) {
+          d.laborEntries.slice(1).forEach((le) => {
+            totalOutsideLaborCount += le.laborCount
+            totalOutsideLaborCost += le.laborCount * le.costPerLabor
+          })
+        }
+      } else {
+        // Consumable
+        totalConsumablesCost += (d as ConsumableDeployment).amount
+      }
+    })
+
+    const grandTotal = totalHfLaborCost + totalOutsideLaborCost + totalConsumablesCost
+
     let csvContent = "data:text/csv;charset=utf-8," + headers.map(escapeCsvField).join(",") + "\n"
     csvContent += rows.map((row) => row.join(",")).join("\n")
 
-    // Add the total row
-    const totalRow = ["", "", "", "", "GRAND TOTAL", "", grandTotal.toFixed(2), "", ""] // Adjusted for new columns
+    // Add summary rows
+    csvContent += "\n" // Blank line
+
+    const hfSummaryRow = [
+      "",
+      "",
+      "",
+      "Total HF Labor",
+      `${totalHfLaborCount} laborers`,
+      "",
+      totalHfLaborCost.toFixed(2),
+      "",
+      "",
+    ]
+    csvContent += "\n" + hfSummaryRow.map(escapeCsvField).join(",")
+
+    const outsideSummaryRow = [
+      "",
+      "",
+      "",
+      "Total Outside Labor",
+      "",
+      `${totalOutsideLaborCount} laborers`,
+      totalOutsideLaborCost.toFixed(2),
+      "",
+      "",
+    ]
+    csvContent += "\n" + outsideSummaryRow.map(escapeCsvField).join(",")
+
+    const consumablesSummaryRow = ["", "", "", "Total Consumables", "", "", totalConsumablesCost.toFixed(2), "", ""]
+    csvContent += "\n" + consumablesSummaryRow.map(escapeCsvField).join(",")
+
+    const totalRow = ["", "", "", "GRAND TOTAL", "", "", grandTotal.toFixed(2), "", ""]
     csvContent += "\n" + totalRow.map(escapeCsvField).join(",")
+
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement("a")
     link.setAttribute("href", encodedUri)
