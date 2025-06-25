@@ -44,10 +44,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
-import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+import type { InventoryItem, Transaction } from "@/lib/storage"
 import InventoryValueSummary from "@/components/inventory-value-summary"
 import AiAnalysisCharts from "@/components/ai-analysis-charts"
 import AccountsPage from "@/components/accounts-page"
+import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 
 const itemDefinitions = [
   { name: "UREA", unit: "kg" },
@@ -138,6 +139,8 @@ export default function InventorySystem() {
     lastSync,
     refreshData,
   } = useInventoryData()
+
+  const itemValues = useInventoryValuation(transactions)
 
   const [inventorySortOrder, setInventorySortOrder] = useState<"asc" | "desc" | null>(null)
   const [transactionSortOrder, setTransactionSortOrder] = useState<"desc" | "asc">("desc") // "desc" for newest first, "asc" for oldest first
@@ -423,35 +426,11 @@ export default function InventorySystem() {
   }
 
   const exportInventoryToCSV = () => {
-    const calculateInventoryValues = () => {
-      const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> = {}
-      const chronologicalTransactions = [...transactions].reverse()
-      for (const transaction of chronologicalTransactions) {
-        const { itemType, quantity, transactionType, price, totalCost } = transaction
-        if (!itemValues[itemType]) itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
-        if (transactionType === "Restocking" && price && totalCost) {
-          itemValues[itemType].quantity += quantity
-          itemValues[itemType].totalValue += totalCost
-          itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
-        } else if (transactionType === "Depleting") {
-          const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
-          itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
-          itemValues[itemType].totalValue = Math.max(0, itemValues[itemType].totalValue - depletedValue)
-          if (itemValues[itemType].quantity > 0) {
-            itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
-          } else {
-            itemValues[itemType].avgPrice = 0
-            itemValues[itemType].totalValue = 0
-          }
-        }
-      }
-      return itemValues
-    }
-    const itemValues = calculateInventoryValues()
     const headers = ["Item Name", "Quantity", "Unit", "Value"]
     const exportItems = filteredAndSortedInventory
     const rows = exportItems.map((item) => {
-      const itemValue = itemValues[item.name]?.totalValue || 0
+      const valueInfo = itemValues[item.name]
+      const itemValue = valueInfo ? valueInfo.totalValue : 0
       return [item.name, item.quantity.toString(), item.unit, `₹${itemValue.toFixed(2)}`]
     })
     const totalValue = Object.values(itemValues).reduce((sum, item) => sum + item.totalValue, 0)
@@ -938,79 +917,50 @@ export default function InventorySystem() {
                     </div>
                     <div className="border-t border-gray-200 pt-5">
                       <div className="grid grid-cols-1 gap-4">
-                        {(() => {
-                          const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> =
-                            {}
-                          const chronologicalTransactions = [...transactions].reverse()
-                          for (const transaction of chronologicalTransactions) {
-                            const { itemType, quantity, transactionType, price, totalCost } = transaction
-                            if (!itemValues[itemType])
-                              itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
-                            if (transactionType === "Restocking" && price && totalCost) {
-                              itemValues[itemType].quantity += quantity
-                              itemValues[itemType].totalValue += totalCost
-                              itemValues[itemType].avgPrice =
-                                itemValues[itemType].totalValue / itemValues[itemType].quantity
-                            } else if (transactionType === "Depleting") {
-                              const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
-                              itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
-                              itemValues[itemType].totalValue = Math.max(
-                                0,
-                                itemValues[itemType].totalValue - depletedValue,
-                              )
-                              if (itemValues[itemType].quantity > 0) {
-                                itemValues[itemType].avgPrice =
-                                  itemValues[itemType].totalValue / itemValues[itemType].quantity
-                              } else {
-                                itemValues[itemType].avgPrice = 0
-                                itemValues[itemType].totalValue = 0
-                              }
-                            }
-                          }
-                          return filteredAndSortedInventory.map((item, index) => {
-                            const itemValue = itemValues[item.name]?.totalValue || 0
-                            const avgPrice = itemValues[item.name]?.avgPrice || 0
-                            return (
-                              <div
-                                key={index}
-                                className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
-                              >
-                                <div className="font-medium text-base">{item.name}</div>
-                                <div className="flex items-center gap-3">
-                                  <div className="text-right">
-                                    <div className="text-base">
-                                      {item.quantity} {item.unit}
-                                    </div>
-                                    <div className="text-sm text-gray-600">
-                                      ₹{itemValue.toFixed(2)}{" "}
-                                      {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
-                                    </div>
+                        {filteredAndSortedInventory.map((item, index) => {
+                          const valueInfo = itemValues[item.name]
+                          const itemValue = valueInfo ? valueInfo.totalValue : 0
+                          const avgPrice = valueInfo ? valueInfo.avgPrice : 0
+                          return (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
+                            >
+                              <div className="font-medium text-base">{item.name}</div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-right">
+                                  <div className="text-base">
+                                    {item.quantity} {item.unit}
                                   </div>
-                                  {isAdmin && (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleEditInventoryItem(item)}
-                                        className="text-amber-600 p-2 h-auto"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleDeleteInventoryItem(item)}
-                                        className="text-red-600 p-2 h-auto"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </>
-                                  )}
+                                  <div className="text-sm text-gray-600">
+                                    ₹{itemValue.toFixed(2)}{" "}
+                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
+                                  </div>
                                 </div>
+                                {isAdmin && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleEditInventoryItem(item)}
+                                      className="text-amber-600 p-2 h-auto"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleDeleteInventoryItem(item)}
+                                      className="text-red-600 p-2 h-auto"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
                               </div>
-                            )
-                          })
-                        })()}
+                            </div>
+                          )
+                        })}
                       </div>
                       {filteredAndSortedInventory.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
@@ -1475,79 +1425,50 @@ export default function InventorySystem() {
                     </div>
                     <div className="border-t border-gray-200 pt-5">
                       <div className="grid grid-cols-1 gap-4">
-                        {(() => {
-                          const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> =
-                            {}
-                          const chronologicalTransactions = [...transactions].reverse()
-                          for (const transaction of chronologicalTransactions) {
-                            const { itemType, quantity, transactionType, price, totalCost } = transaction
-                            if (!itemValues[itemType])
-                              itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
-                            if (transactionType === "Restocking" && price && totalCost) {
-                              itemValues[itemType].quantity += quantity
-                              itemValues[itemType].totalValue += totalCost
-                              itemValues[itemType].avgPrice =
-                                itemValues[itemType].totalValue / itemValues[itemType].quantity
-                            } else if (transactionType === "Depleting") {
-                              const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
-                              itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
-                              itemValues[itemType].totalValue = Math.max(
-                                0,
-                                itemValues[itemType].totalValue - depletedValue,
-                              )
-                              if (itemValues[itemType].quantity > 0) {
-                                itemValues[itemType].avgPrice =
-                                  itemValues[itemType].totalValue / itemValues[itemType].quantity
-                              } else {
-                                itemValues[itemType].avgPrice = 0
-                                itemValues[itemType].totalValue = 0
-                              }
-                            }
-                          }
-                          return filteredAndSortedInventory.map((item, index) => {
-                            const itemValue = itemValues[item.name]?.totalValue || 0
-                            const avgPrice = itemValues[item.name]?.avgPrice || 0
-                            return (
-                              <div
-                                key={index}
-                                className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
-                              >
-                                <div className="font-medium text-base">{item.name}</div>
-                                <div className="flex items-center gap-3">
-                                  <div className="text-right">
-                                    <div className="text-base">
-                                      {item.quantity} {item.unit}
-                                    </div>
-                                    <div className="text-sm text-gray-600">
-                                      ₹{itemValue.toFixed(2)}{" "}
-                                      {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
-                                    </div>
+                        {filteredAndSortedInventory.map((item, index) => {
+                          const valueInfo = itemValues[item.name]
+                          const itemValue = valueInfo ? valueInfo.totalValue : 0
+                          const avgPrice = valueInfo ? valueInfo.avgPrice : 0
+                          return (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
+                            >
+                              <div className="font-medium text-base">{item.name}</div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-right">
+                                  <div className="text-base">
+                                    {item.quantity} {item.unit}
                                   </div>
-                                  {isAdmin && (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleEditInventoryItem(item)}
-                                        className="text-amber-600 p-2 h-auto"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleDeleteInventoryItem(item)}
-                                        className="text-red-600 p-2 h-auto"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </>
-                                  )}
+                                  <div className="text-sm text-gray-600">
+                                    ₹{itemValue.toFixed(2)}{" "}
+                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
+                                  </div>
                                 </div>
+                                {isAdmin && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleEditInventoryItem(item)}
+                                      className="text-amber-600 p-2 h-auto"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleDeleteInventoryItem(item)}
+                                      className="text-red-600 p-2 h-auto"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
                               </div>
-                            )
-                          })
-                        })()}
+                            </div>
+                          )
+                        })}
                       </div>
                       {filteredAndSortedInventory.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
