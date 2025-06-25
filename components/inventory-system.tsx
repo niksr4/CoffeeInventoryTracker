@@ -56,22 +56,21 @@ const itemDefinitions = [
   { name: "DAP", unit: "kg" },
   { name: "MOP white", unit: "kg" },
   { name: "MgSO4", unit: "kg" },
-  { name: "MOP+UREA Mix", unit: "bags" },
+  { name: "MOP+UREA Mix", unit: "kg" }, // Updated unit
   { name: "Phosphoric Acid", unit: "L" },
-  { name: "Tricel", unit: "L" },
-  { name: "Glycil", unit: "L" },
-  { name: "Neem oil", unit: "L" },
+  { name: "Trical", unit: "L" },
+  { name: "Glycerol", unit: "L" },
+  { name: "Madam oil", unit: "L" },
   { name: "19:19:19", unit: "kg" },
   { name: "Zinc", unit: "L" },
-  { name: "Contaf", unit: "L" },
-  { name: "NPK Potassium Nitrate", unit: "kg" },
-  { name: "Solubor", unit: "kg" },
-  { name: "H.S.D", unit: "L" },
+  { name: "Contact", unit: "kg" }, // Updated unit
+  { name: "N P K Potassium Nitrate", unit: "kg" },
+  { name: "Soluble", unit: "kg" },
+  { name: "HSP", unit: "L" },
   { name: "Petrol", unit: "L" },
-  { name: "Rock phosphate", unit: "kg" },
+  { name: "Rock Phosphate", unit: "kg" },
   { name: "Micromin", unit: "kg" },
   { name: "Fix", unit: "L" },
-  { name: "Gramaxone", unit: "L" },
   { name: "Polyhalite", unit: "kg" },
 ]
 
@@ -665,7 +664,6 @@ export default function InventorySystem() {
         toast({
           title: "Rebuild failed",
           description: "There was an error rebuilding your inventory. Please try again.",
-          variant: "destructive",
         })
       }
     } finally {

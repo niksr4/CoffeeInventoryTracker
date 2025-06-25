@@ -1018,18 +1018,35 @@ export default function AccountsPage() {
         const date = formatDate(d.date, "qif")
         const amount = d.entryType === "Labor" ? d.totalCost : (d as ConsumableDeployment).amount
         const payee = d.reference // Using the reference as payee
-        const category = d.code // Expenditure code as category
+        const category = `${d.code} ${d.reference}` // Expenditure code as category
 
-        let memo = d.notes || ""
+        let memo = ""
         if (d.entryType === "Labor" && d.laborEntries) {
           const hfDetail = d.laborEntries[0]
             ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
             : ""
           const outsideDetail = d.laborEntries
             .slice(1)
-            .map((le) => `OS${d.laborEntries.indexOf(le)}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
+            .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`) // OS1, OS2, etc.
             .join("; ")
-          memo = `${hfDetail}${hfDetail && outsideDetail ? "; " : ""}${outsideDetail}${memo ? " | Notes: " + memo : ""}`
+
+          let laborDetails = ""
+          if (hfDetail && outsideDetail) {
+            laborDetails = `${hfDetail}; ${outsideDetail}`
+          } else if (hfDetail) {
+            laborDetails = hfDetail
+          } else if (outsideDetail) {
+            laborDetails = outsideDetail
+          }
+
+          if (d.notes) {
+            memo = laborDetails ? `${laborDetails} | Notes: ${d.notes}` : d.notes
+          } else {
+            memo = laborDetails
+          }
+        } else if (d.notes) {
+          // For consumables or labor entries without specific labor details but with notes
+          memo = d.notes
         }
 
         qifContent += `D${date}\n`

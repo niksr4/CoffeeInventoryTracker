@@ -4,21 +4,21 @@ export const ITEM_BASE_PRICES: Record<string, number> = {
   DAP: 28,
   "MOP white": 34,
   MgSO4: 10,
-  "MOP+UREA Mix": 26,
+  "MOP+UREA Mix": 26, // Unit: kg
   "Phosphoric Acid": 35,
-  Tricel: 34,
-  Glycil: 410,
-  "Neem oil": 320,
+  Trical: 34,
+  Glycerol: 410,
+  "Madam oil": 320,
   "19:19:19": 195,
   Zinc: 56,
-  Contaf: 28,
-  "NPK Potassium Nitrate": 28,
-  Solubor: 900,
-  "H.S.D": 8,
+  Contact: 28, // Unit: kg
+  "N P K Potassium Nitrate": 28,
+  Soluble: 900,
+  HSP: 8,
   Petrol: 103,
-  "Rock phosphate": 10,
+  "Rock Phosphate": 10,
   Micromin: 80,
   Fix: 280,
   Polyhalite: 35,
-  Gramaxone: 0, // Not provided, defaulting to 0
+  Gramaxone: 450, // ₹/L
 }
