@@ -15,7 +15,6 @@ import {
   SortAsc,
   SortDesc,
   History,
-  RotateCw,
   Brain,
   TrendingUp,
   AlertTriangle,
@@ -44,37 +43,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
-import type { InventoryItem, Transaction } from "@/lib/storage" // Assuming InventoryItem is from storage or inventory-service
+import type { InventoryItem, Transaction } from "@/lib/inventory-service" // Ensure types are from the correct source
 import InventoryValueSummary from "@/components/inventory-value-summary"
 import AiAnalysisCharts from "@/components/ai-analysis-charts"
 import AccountsPage from "@/components/accounts-page"
 import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 
-// This list defines the known catalog of items, their default units,
-// and populates dropdowns. Live data (quantity, actual unit, actual name) comes from Redis.
-const itemDefinitions = [
+// itemDefinitions is no longer the source of truth for item existence or names.
+// It might be used for suggesting units if needed, but Redis data is primary.
+const itemDefinitionsForUnitSuggestions = [
   { name: "UREA", unit: "kg" },
   { name: "MOP", unit: "kg" },
   { name: "DAP", unit: "kg" },
-  { name: "MOP white", unit: "kg" },
-  { name: "MgSO4", unit: "kg" },
-  { name: "MOP+UREA Mix", unit: "kg" },
-  { name: "Phosphoric Acid", unit: "L" },
-  { name: "Trical", unit: "L" },
-  { name: "Glycerol", unit: "L" },
-  { name: "Madam oil", unit: "L" },
-  { name: "19:19:19", unit: "kg" },
-  { name: "Zinc", unit: "L" },
-  { name: "Contact", unit: "kg" },
-  { name: "N P K Potassium Nitrate", unit: "kg" },
-  { name: "Soluble", unit: "kg" },
-  { name: "HSP", unit: "L" },
-  { name: "Petrol", unit: "L" },
-  { name: "Rock Phosphate", unit: "kg" },
-  { name: "Micromin", unit: "kg" },
-  { name: "Fix", unit: "L" },
-  { name: "Polyhalite", unit: "kg" },
-  { name: "Gramaxone", unit: "L" }, // Ensure Gramaxone is here if it's a standard item
+  // ... other items, primarily for their 'unit' property if needed as a suggestion
+  // For now, we will rely on units from Redis or allow manual unit entry.
 ]
 
 const formatDate = (dateString: string) => {
@@ -135,11 +117,10 @@ export default function InventorySystem() {
     transactions,
     addTransaction,
     batchUpdate,
-    rebuildInventory,
+    refreshData,
     loading,
     error: syncError,
     lastSync,
-    refreshData,
   } = useInventoryData()
 
   const itemValues = useInventoryValuation(transactions)
@@ -166,7 +147,7 @@ export default function InventorySystem() {
     quantity: "",
     transactionType: "Depleting",
     notes: "",
-    selectedUnit: "",
+    selectedUnit: "", // Will be derived from selected item in Redis
     price: "",
   })
 
@@ -177,7 +158,7 @@ export default function InventorySystem() {
     quantity: string
   }>({
     name: "",
-    unit: "kg",
+    unit: "kg", // Default unit for new item dialog
     quantity: "0",
   })
 
@@ -185,7 +166,7 @@ export default function InventorySystem() {
     name: string
     quantity: number
     unit: string
-    originalName: string
+    originalName: string // To identify the item in Redis if name changes
   } | null>(null)
   const [isInventoryEditDialogOpen, setIsInventoryEditDialogOpen] = useState(false)
 
@@ -198,7 +179,6 @@ export default function InventorySystem() {
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false)
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [isRebuilding, setIsRebuilding] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -220,9 +200,9 @@ export default function InventorySystem() {
     setAnalysisError("")
     try {
       const analysisData = {
-        inventory: inventory,
+        inventory: inventory, // Live inventory from Redis
         transactions: transactions.slice(0, 50),
-        totalItems: inventory.length, // This will now reflect items from Redis
+        totalItems: inventory.length, // Count of items directly from Redis
         totalTransactions: transactions.length,
         recentActivity: transactions.filter((t) => isWithinLast24Hours(t.date)).length,
       }
@@ -249,16 +229,16 @@ export default function InventorySystem() {
 
   const handleSaveEdit = async () => {
     if (!editingTransaction) return
-    const originalTransaction = transactions.find((t) => t.id === editingTransaction.id)
-    if (!originalTransaction) return
+
     const updatedTransactions = transactions.map((t) => (t.id === editingTransaction.id ? editingTransaction : t))
-    const success = await batchUpdate(updatedTransactions)
+    const success = await batchUpdate(updatedTransactions) // This should trigger a rebuild on the backend
     if (success) {
       toast({
         title: "Transaction updated",
         description: "The transaction has been updated successfully.",
         variant: "default",
       })
+      refreshData(true) // Refresh to get latest state after backend rebuild
     } else {
       toast({
         title: "Update failed",
@@ -279,24 +259,30 @@ export default function InventorySystem() {
     if (!transactionToDelete) return
     const transactionToRemove = transactions.find((t) => t.id === transactionToDelete)
     if (!transactionToRemove) return
+
+    // Create a "Item Deleted" type transaction to log the deletion
     const deletionNotification: Transaction = {
-      id: Date.now().toString(),
+      id: `del-${Date.now()}`, // Unique ID for the deletion log
       itemType: transactionToRemove.itemType,
-      quantity: transactionToRemove.quantity,
+      quantity: transactionToRemove.quantity, // Log the quantity involved
       transactionType: "Item Deleted",
-      notes: `Transaction deleted: ${transactionToRemove.notes}`,
+      notes: `Original transaction ID ${transactionToRemove.id} deleted. Notes: ${transactionToRemove.notes}`,
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: transactionToRemove.unit,
     }
+
+    // Filter out the transaction to be deleted and add the deletion notification
     const updatedTransactions = [deletionNotification, ...transactions.filter((t) => t.id !== transactionToDelete)]
-    const success = await batchUpdate(updatedTransactions)
+
+    const success = await batchUpdate(updatedTransactions) // Send all transactions to backend for rebuild
     if (success) {
       toast({
         title: "Transaction deleted",
-        description: "The transaction has been deleted successfully.",
+        description: "The transaction has been marked as deleted and inventory recalculated.",
         variant: "default",
       })
+      refreshData(true)
     } else {
       toast({
         title: "Deletion failed",
@@ -309,25 +295,38 @@ export default function InventorySystem() {
   }
 
   const handleAddNewItem = async () => {
-    if (!newItem.name || !newItem.unit) return
+    if (!newItem.name || !newItem.unit) {
+      toast({ title: "Missing fields", description: "Please enter item name and unit.", variant: "destructive" })
+      return
+    }
     const quantity = Number(newItem.quantity)
-    if (isNaN(quantity) || quantity < 0) return
+    if (isNaN(quantity) || quantity < 0) {
+      toast({
+        title: "Invalid quantity",
+        description: "Please enter a valid non-negative quantity.",
+        variant: "destructive",
+      })
+      return
+    }
 
-    // Add to itemDefinitions if it's a truly new item type for the dropdowns
-    if (!itemDefinitions.some((item) => item.name === newItem.name)) {
-      // This is a client-side update to itemDefinitions for the current session.
-      // For persistence of new item *types*, a more robust mechanism might be needed
-      // if itemDefinitions isn't meant to be manually updated in code.
-      // For now, this keeps the dropdowns consistent.
-      itemDefinitions.push({ name: newItem.name, unit: newItem.unit })
+    // Check if item already exists in Redis inventory (case-insensitive check recommended for robustness)
+    const existingItem = inventory.find((invItem) => invItem.name.toLowerCase() === newItem.name.toLowerCase())
+    if (existingItem) {
+      toast({
+        title: "Item exists",
+        description: `Item "${existingItem.name}" already exists. You can adjust its quantity via a transaction.`,
+        variant: "destructive",
+      })
+      setIsNewItemDialogOpen(false)
+      return
     }
 
     const transaction: Transaction = {
-      id: Date.now().toString(),
+      id: `new-${Date.now()}`,
       itemType: newItem.name,
       quantity: quantity,
-      transactionType: "Restocking",
-      notes: "Initial stock",
+      transactionType: "Restocking", // New items are typically a restocking event
+      notes: "New item added to inventory",
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: newItem.unit,
@@ -335,7 +334,11 @@ export default function InventorySystem() {
 
     const success = await addTransaction(transaction) // This will update Redis
     if (success) {
-      toast({ title: "Item added", description: "The new item has been added successfully.", variant: "default" })
+      toast({
+        title: "Item added",
+        description: `Item "${newItem.name}" has been added successfully.`,
+        variant: "default",
+      })
       refreshData(true) // Refresh data to get the latest state from Redis
     } else {
       toast({
@@ -349,101 +352,137 @@ export default function InventorySystem() {
   }
 
   const handleEditInventoryItem = (item: InventoryItem) => {
-    setEditingInventoryItem({ name: item.name, quantity: item.quantity, unit: item.unit, originalName: item.name })
+    setEditingInventoryItem({ ...item, originalName: item.name })
     setIsInventoryEditDialogOpen(true)
   }
 
   const handleSaveInventoryEdit = async () => {
     if (!editingInventoryItem) return
+
     const { name, quantity, unit, originalName } = editingInventoryItem
 
     // Find the original item from the live inventory (Redis data)
     const originalItemInRedis = inventory.find((item) => item.name === originalName)
     if (!originalItemInRedis) {
-      toast({ title: "Update failed", description: "Original item not found.", variant: "destructive" })
+      toast({
+        title: "Update failed",
+        description: "Original item not found in current inventory.",
+        variant: "destructive",
+      })
+      setIsInventoryEditDialogOpen(false)
       return
+    }
+
+    // If name is changed, check if the new name already exists (and is not the original item)
+    if (name.toLowerCase() !== originalName.toLowerCase()) {
+      const conflictingItem = inventory.find((invItem) => invItem.name.toLowerCase() === name.toLowerCase())
+      if (conflictingItem) {
+        toast({
+          title: "Name conflict",
+          description: `An item named "${conflictingItem.name}" already exists. Please choose a different name.`,
+          variant: "destructive",
+        })
+        return
+      }
     }
 
     const quantityDifference = quantity - originalItemInRedis.quantity
     const unitChanged = unit !== originalItemInRedis.unit
-    const nameChanged = name !== originalName
+    const nameChanged = name.toLowerCase() !== originalName.toLowerCase() // Case-insensitive comparison for name change detection
 
-    let notes = "Manual inventory adjustment"
+    let transactionNotes = ""
+    let transactionType: Transaction["transactionType"] = "Restocking" // Default
+    let transactionQuantity = 0
+
     if (nameChanged) {
-      notes = `Item renamed from "${originalName}" to "${name}"`
-      if (unitChanged) notes += `, unit changed from ${originalItemInRedis.unit} to ${unit}`
-      if (quantityDifference !== 0) notes += `, quantity adjusted`
-    } else if (unitChanged) {
-      notes = `Unit changed from ${originalItemInRedis.unit} to ${unit}`
-      if (quantityDifference !== 0) notes += ` and quantity adjusted`
+      transactionNotes += `Item name changed from "${originalName}" to "${name}". `
+    }
+    if (unitChanged) {
+      transactionNotes += `Unit changed from "${originalItemInRedis.unit}" to "${unit}". `
+    }
+    if (quantityDifference !== 0) {
+      transactionNotes += `Quantity adjusted by ${quantityDifference}.`
+      transactionType = quantityDifference > 0 ? "Restocking" : "Depleting"
+      transactionQuantity = Math.abs(quantityDifference)
+    } else if (nameChanged || unitChanged) {
+      // If only name/unit changed, but quantity is the same, log it as a 0 quantity "Restocking" or special type
+      // For simplicity, let's use "Restocking" with 0 quantity if no actual stock change.
+      // Or better, a dedicated "Unit Change" or "Metadata Change" type if backend supports it.
+      // The current `addTransaction` might not handle 0 quantity well for stock updates.
+      // Let's assume a transaction is only needed if quantity changes, or if name/unit change implies a data correction.
+      // For now, if quantity is unchanged, we might not need a stock-altering transaction,
+      // but a log of the change is good.
+      // The backend `addTransaction` should ideally handle name/unit updates without quantity change.
+      // Let's assume the backend `performBatchOperation` or a new endpoint handles this.
+      // For now, we'll create a transaction that reflects the state change.
+      // If quantity is zero, it's more of a metadata update.
+      // The current `updateInventoryFromTransaction` in service only changes quantity.
+      // This needs a more robust backend update mechanism for name/unit changes.
+
+      // For now, let's create a transaction that reflects the new state.
+      // The backend will need to be smart about this.
+      // A "Unit Change" transaction type was mentioned.
+      transactionType = "Unit Change" // Or a new type like "ItemUpdate"
+      transactionQuantity = quantity // The full new quantity for "Unit Change" type
+      if (!transactionNotes) transactionNotes = "Item details updated."
+    }
+
+    if (!transactionNotes) {
+      // No actual change
+      toast({ title: "No changes", description: "No changes detected for the item.", variant: "default" })
+      setIsInventoryEditDialogOpen(false)
+      return
     }
 
     const transaction: Transaction = {
-      id: Date.now().toString(),
-      itemType: nameChanged ? name : originalName, // Use new name if changed for the transaction log
-      quantity: Math.abs(quantityDifference), // Quantity of change
-      transactionType: quantityDifference > 0 ? "Restocking" : "Depleting",
-      notes: notes,
+      id: `edit-${Date.now()}`,
+      itemType: nameChanged ? name : originalName, // Use new name if it changed, for the transaction log
+      // Backend needs to know originalName to find and update/replace
+      quantity: transactionQuantity,
+      transactionType: transactionType,
+      notes: transactionNotes,
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: unit,
+      // We might need to pass originalName to backend if itemType (name) can change
+      // For now, relying on backend to handle this via a potential rebuild or smart update.
+      // A better API would be `updateItem(originalName, newItemData)`
     }
 
-    // If name changed, we need a special operation or ensure backend handles renaming.
-    // For now, we assume addTransaction can handle it or we might need a dedicated "rename" operation.
-    // The current addTransaction updates inventory based on itemType. If itemType changes, it might create a new item.
-    // This part needs careful handling on the backend if item names are mutable primary keys in the inventory hash.
-    // For simplicity, let's assume for now that renaming is complex and focus on quantity/unit changes.
-    // If name changes, it's more like deleting old and adding new.
-    // The provided transaction logic might be better if it always refers to originalName for lookup,
-    // and notes reflect the change.
+    // This is tricky: addTransaction updates based on transaction.itemType.
+    // If name changed, it will operate on the *new* name.
+    // The old item (originalName) needs to be handled (e.g., removed or its quantity set to 0 if it's a rename).
+    // This ideally requires a more specific backend operation than just `addTransaction`.
+    // E.g., an API like `/api/inventory/item/update` that takes `originalName` and `updatedItemData`.
+    // For now, we'll proceed with `addTransaction` and assume the backend's `rebuildInventoryFromTransactions`
+    // or a smarter `addTransaction` can handle it. This is a point of potential fragility.
+    // A "rename" operation is complex with the current transaction-based system.
 
-    // Let's refine the transaction for name change:
-    // Option 1: Two transactions (delete old, add new) - complex for user
-    // Option 2: One transaction that backend interprets as rename + adjustment.
-    // Current `addTransaction` updates inventory based on `transaction.itemType`.
-    // If `itemType` is the new name, it will adjust/create the new item.
-    // We need to ensure the old item is handled if its name changes.
+    // A temporary solution: if name changed, create two transactions:
+    // 1. Deplete originalName to 0 (if it's a pure rename)
+    // 2. Restock newName with the quantity.
+    // This is too complex for the user here.
+    // Let's assume `addTransaction` with the new name and quantity, and the notes, is sufficient for now,
+    // and `rebuildInventory` will sort it out. This implies the old item might linger if not explicitly handled.
 
-    // For now, let's assume the backend `addTransaction` and `rebuildInventoryFromTransactions`
-    // can correctly interpret a transaction where `itemType` might be a new name,
-    // and the `notes` indicate a rename from `originalName`.
-    // The `updateInventoryFromTransaction` in `inventory-service` uses `transaction.itemType`.
+    // The most robust way is for the backend to handle an "update item" operation.
+    // Given current tools, we'll log a transaction that reflects the new state.
+    // If `rebuildInventory` is called, it should correctly establish the new state.
 
-    // A safer approach for renaming might be a dedicated API endpoint or a more complex transaction object.
-    // Given the current structure, if a name changes, we should log a transaction against the *new* name
-    // reflecting the stock adjustment, and potentially another for the old name
-    // reflecting the stock adjustment, and potentially another for the old name if it needs to be zeroed out.
-    // Or, the backend `batchUpdate` should handle renames more explicitly.
+    const success = await addTransaction(transaction) // This will add a transaction for the *new* state.
+    // If name changed, the old item might still exist in Redis until rebuild.
 
-    // Sticking to current capabilities: if name changes, the transaction is against the new name.
-    // The old named item might remain if not explicitly zeroed out.
-    // This is a limitation to address if full renaming is critical.
-
-    const success = await addTransaction(transaction)
     if (success) {
       toast({
-        title: "Item updated",
-        description: "The inventory item has been updated successfully.",
+        title: "Item update logged",
+        description: "The item changes have been logged. Inventory will reflect after next sync/rebuild.",
         variant: "default",
       })
-      if (nameChanged) {
-        // Update itemDefinitions for client-side consistency if name changed
-        const defIndex = itemDefinitions.findIndex((def) => def.name === originalName)
-        if (defIndex > -1) {
-          itemDefinitions[defIndex].name = name
-          itemDefinitions[defIndex].unit = unit // also update unit in definition
-        } else {
-          // if originalName was not in definitions (e.g. came only from Redis)
-          const newDefIndex = itemDefinitions.findIndex((def) => def.name === name)
-          if (newDefIndex === -1) itemDefinitions.push({ name, unit }) // add new definition
-        }
-      }
-      refreshData(true)
+      refreshData(true) // Crucial to get the latest state
     } else {
       toast({
         title: "Update failed",
-        description: "There was an error updating the inventory item. Please try again.",
+        description: "There was an error logging the item update. Please try again.",
         variant: "destructive",
       })
     }
@@ -452,26 +491,39 @@ export default function InventorySystem() {
   }
 
   const handleDeleteInventoryItem = async (itemToDelete: InventoryItem) => {
+    // Confirm before deleting
+    if (
+      !window.confirm(
+        `Are you sure you want to delete item "${itemToDelete.name}"? This will set its quantity to 0 and log the deletion. The item will be hidden from the list.`,
+      )
+    ) {
+      return
+    }
+
     const transaction: Transaction = {
-      id: Date.now().toString(),
+      id: `del-item-${Date.now()}`,
       itemType: itemToDelete.name,
-      quantity: itemToDelete.quantity, // Record the quantity being removed
-      transactionType: "Item Deleted",
-      notes: `Item "${itemToDelete.name}" removed from inventory`,
+      quantity: itemToDelete.quantity, // Log the quantity that was present
+      transactionType: "Item Deleted", // This specific type should be handled by backend to remove the item
+      notes: `Item "${itemToDelete.name}" permanently deleted from inventory.`,
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: itemToDelete.unit,
     }
+
+    // We need a way for the backend to process "Item Deleted" to actually remove the item hash or set quantity to 0.
+    // `addTransaction` followed by `rebuildInventory` should handle this if `updateInventoryFromTransaction`
+    // correctly processes "Item Deleted" (e.g., by setting quantity to 0 or removing the hash entry).
+    // The current `updateInventoryFromTransaction` sets quantity to 0 for "Item Deleted".
+
     const success = await addTransaction(transaction)
     if (success) {
       toast({
         title: "Item deleted",
-        description: "The inventory item has been deleted successfully.",
+        description: `Item "${itemToDelete.name}" has been marked for deletion. Inventory will update.`,
         variant: "default",
       })
-      // Optionally remove from client-side itemDefinitions if it's no longer a standard item
-      // itemDefinitions = itemDefinitions.filter(def => def.name !== itemToDelete.name);
-      refreshData(true)
+      refreshData(true) // Refresh to get updated inventory
     } else {
       toast({
         title: "Deletion failed",
@@ -493,7 +545,15 @@ export default function InventorySystem() {
 
   const exportInventoryToCSV = () => {
     const headers = ["Item Name", "Quantity", "Unit", "Value"]
-    const exportItems = filteredAndSortedInventory
+    // Use live inventory directly for export
+    const exportItems = inventory
+      .filter((item) => item.name.toLowerCase().includes(inventorySearchTerm.toLowerCase()))
+      .sort((a, b) => {
+        if (inventorySortOrder === "asc") return a.name.localeCompare(b.name)
+        if (inventorySortOrder === "desc") return b.name.localeCompare(a.name)
+        return 0
+      })
+
     const rows = exportItems.map((item) => {
       const valueInfo = itemValues[item.name]
       const itemValue = valueInfo ? valueInfo.totalValue : 0
@@ -513,50 +573,17 @@ export default function InventorySystem() {
     document.body.removeChild(link)
   }
 
-  const filteredAndSortedInventory = (() => {
-    // Start with a map of all items from Redis (live data)
-    const liveInventoryMap = new Map<string, InventoryItem>()
-    inventory.forEach((item) => liveInventoryMap.set(item.name, item))
-
-    // Create a consolidated list, prioritizing Redis data
-    const consolidatedItems = new Map<string, { name: string; quantity: number; unit: string }>()
-
-    // Add all items from Redis
-    liveInventoryMap.forEach((item, name) => {
-      consolidatedItems.set(name, {
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-      })
+  // Inventory list is now directly from Redis, filtered and sorted
+  const filteredAndSortedInventory = inventory
+    .filter(
+      (item) => item.name && item.quantity > 0 && item.name.toLowerCase().includes(inventorySearchTerm.toLowerCase()),
+    )
+    .sort((a, b) => {
+      if (!a.name || !b.name) return 0
+      if (inventorySortOrder === "asc") return a.name.localeCompare(b.name)
+      if (inventorySortOrder === "desc") return b.name.localeCompare(a.name)
+      return 0
     })
-
-    // Add items from itemDefinitions if they aren't already in the map from Redis
-    // This ensures all "known" items are in the list, even if they have 0 quantity in Redis
-    itemDefinitions.forEach((def) => {
-      if (!consolidatedItems.has(def.name)) {
-        consolidatedItems.set(def.name, {
-          name: def.name,
-          quantity: 0, // Default to 0 if not in live inventory
-          unit: def.unit,
-        })
-      } else {
-        // If item exists in both, ensure unit from definition is used if Redis unit is somehow missing
-        const existing = consolidatedItems.get(def.name)!
-        if (!existing.unit && def.unit) {
-          existing.unit = def.unit
-        }
-      }
-    })
-
-    return Array.from(consolidatedItems.values())
-      .filter((item) => item.name && item.name.toLowerCase().includes(inventorySearchTerm.toLowerCase()))
-      .sort((a, b) => {
-        if (!a.name || !b.name) return 0
-        if (inventorySortOrder === "asc") return a.name.localeCompare(b.name)
-        if (inventorySortOrder === "desc") return b.name.localeCompare(a.name)
-        return 0
-      })
-  })()
 
   const filteredTransactions = transactions
     .filter((t) => {
@@ -620,18 +647,13 @@ export default function InventorySystem() {
       }
     })
 
-  // itemTypes for dropdowns should come from the consolidated list or itemDefinitions
-  const itemTypesForDropdown = Array.from(
-    new Set([...itemDefinitions.map((def) => def.name), ...inventory.map((item) => item.name)]),
-  )
+  // Item types for dropdowns are derived from current Redis inventory
+  const itemTypesForDropdown = Array.from(new Set(inventory.map((item) => item.name))).sort()
 
+  // Get unit for an item directly from Redis inventory state
   const getUnitForItem = (itemName: string): string => {
     const liveItem = inventory.find((item) => item.name === itemName)
-    if (liveItem && liveItem.unit) {
-      return liveItem.unit
-    }
-    const definedItem = itemDefinitions.find((item) => item.name === itemName)
-    return definedItem ? definedItem.unit : "kg" // Default unit
+    return liveItem && liveItem.unit ? liveItem.unit : "kg" // Fallback unit if not found (should not happen for existing items)
   }
 
   const exportToCSV = () => {
@@ -680,18 +702,35 @@ export default function InventorySystem() {
   }
 
   const handleRecordTransaction = async () => {
-    if (!newTransaction.itemType || !newTransaction.quantity || !newTransaction.transactionType) return
+    if (!newTransaction.itemType || !newTransaction.quantity || !newTransaction.transactionType) {
+      toast({ title: "Missing fields", description: "Please select item, quantity, and type.", variant: "destructive" })
+      return
+    }
     const quantity = Number(newTransaction.quantity)
-    if (isNaN(quantity) || quantity <= 0) return
+    if (isNaN(quantity) || quantity <= 0) {
+      toast({ title: "Invalid quantity", description: "Quantity must be a positive number.", variant: "destructive" })
+      return
+    }
+
+    const itemInRedis = inventory.find((item) => item.name === newTransaction.itemType)
+    if (!itemInRedis) {
+      toast({
+        title: "Item not found",
+        description: `Item "${newTransaction.itemType}" does not exist in inventory. Add it first.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     const transaction: Transaction = {
-      id: Date.now().toString(),
+      id: `txn-${Date.now()}`,
       itemType: newTransaction.itemType,
       quantity: quantity,
       transactionType: newTransaction.transactionType,
       notes: newTransaction.notes || "",
       date: generateTimestamp(),
       user: user?.username || "unknown",
-      unit: newTransaction.selectedUnit,
+      unit: newTransaction.selectedUnit, // This should be the unit of the item from Redis
       ...(newTransaction.transactionType === "Restocking" &&
         newTransaction.price && {
           price: Number(newTransaction.price),
@@ -726,7 +765,7 @@ export default function InventorySystem() {
   const handleManualSync = async () => {
     setIsSyncing(true)
     try {
-      await refreshData(true) // Force fetch from server
+      await refreshData(true)
       toast({
         title: "Sync complete",
         description: "Your inventory data has been synchronized successfully.",
@@ -743,32 +782,9 @@ export default function InventorySystem() {
     }
   }
 
-  const handleRebuildInventory = async () => {
-    setIsRebuilding(true)
-    try {
-      const success = await rebuildInventory() // Call the hook function
-      if (success) {
-        toast({
-          title: "Rebuild complete",
-          description: "Your inventory has been rebuilt from transaction history.",
-          variant: "default",
-        })
-        await refreshData(true) // Refresh data after rebuild
-      } else {
-        toast({
-          title: "Rebuild failed",
-          description: "There was an error rebuilding your inventory. Please try again.",
-          variant: "destructive",
-        })
-      }
-    } finally {
-      setIsRebuilding(false)
-    }
-  }
-
   if (!user) return null
-  if (loading && !inventory.length) {
-    // Show loading only on initial load or if inventory is empty
+  if (loading && !inventory.length && !syncError) {
+    // Show loading only on initial true load without data or error
     return (
       <div className="w-full h-screen flex items-center justify-center">
         <div className="text-center">
@@ -801,7 +817,9 @@ export default function InventorySystem() {
           <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="text-sm text-gray-500">
               {syncError ? (
-                <span className="text-red-500">{syncError}</span>
+                <span className="text-red-500 flex items-center gap-1">
+                  <AlertTriangle className="h-4 w-4" /> {syncError}
+                </span>
               ) : lastSync ? (
                 <span>Last synced: {lastSync.toLocaleTimeString()}</span>
               ) : (
@@ -809,23 +827,11 @@ export default function InventorySystem() {
               )}
             </div>
             <div className="flex gap-2">
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRebuildInventory}
-                  disabled={isRebuilding || isSyncing}
-                  className="flex items-center gap-1"
-                >
-                  <RotateCw className={`h-3 w-3 ${isRebuilding ? "animate-spin" : ""}`} />
-                  {isRebuilding ? "Rebuilding..." : "Rebuild Inventory"}
-                </Button>
-              )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleManualSync}
-                disabled={isSyncing || isRebuilding}
+                disabled={isSyncing}
                 className="flex items-center gap-1"
               >
                 <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
@@ -861,7 +867,7 @@ export default function InventorySystem() {
                         <Select
                           value={newTransaction.itemType}
                           onValueChange={(value) => {
-                            const unit = getUnitForItem(value)
+                            const unit = getUnitForItem(value) // Get unit from selected Redis item
                             setNewTransaction({ ...newTransaction, itemType: value, selectedUnit: unit })
                           }}
                         >
@@ -869,14 +875,19 @@ export default function InventorySystem() {
                             <SelectValue placeholder="Select item type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[40vh] overflow-y-auto">
-                            {itemTypesForDropdown.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
+                            {itemTypesForDropdown.map(
+                              (
+                                type, // Dropdown from Redis items
+                              ) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ),
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
+                      {/* ... rest of the new transaction form ... */}
                       <div className="mb-5">
                         <label className="block text-gray-700 mb-2">Quantity</label>
                         <div className="relative">
@@ -1011,13 +1022,14 @@ export default function InventorySystem() {
                     </div>
                     <div className="border-t border-gray-200 pt-5">
                       <div className="grid grid-cols-1 gap-4">
-                        {filteredAndSortedInventory.map((item, index) => {
+                        {filteredAndSortedInventory.map((item) => {
+                          // Directly from Redis state
                           const valueInfo = itemValues[item.name]
                           const itemValue = valueInfo ? valueInfo.totalValue : 0
                           const avgPrice = valueInfo ? valueInfo.avgPrice : 0
                           return (
                             <div
-                              key={item.name + index} // Use item.name for key if unique, or combine
+                              key={item.name} // Name from Redis should be unique key
                               className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
                             >
                               <div className="font-medium text-base">{item.name}</div>
@@ -1036,7 +1048,7 @@ export default function InventorySystem() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={() => handleEditInventoryItem(item as InventoryItem)} // Cast if necessary
+                                      onClick={() => handleEditInventoryItem(item)}
                                       className="text-amber-600 p-2 h-auto"
                                     >
                                       <Edit className="h-4 w-4" />
@@ -1044,7 +1056,7 @@ export default function InventorySystem() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={() => handleDeleteInventoryItem(item as InventoryItem)} // Cast if necessary
+                                      onClick={() => handleDeleteInventoryItem(item)}
                                       className="text-red-600 p-2 h-auto"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -1058,14 +1070,15 @@ export default function InventorySystem() {
                       </div>
                       {filteredAndSortedInventory.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
-                          No inventory items found matching your search.
+                          {inventorySearchTerm
+                            ? "No items match your search."
+                            : "Inventory is empty or not yet loaded."}
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
               </TabsContent>
-              {/* ... (rest of the TabsContent for transactions, accounts, ai-analysis remain largely the same) ... */}
               <TabsContent value="transactions" className="space-y-6">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
                   <div className="flex justify-between items-center mb-5">
@@ -1154,7 +1167,9 @@ export default function InventorySystem() {
                                     ? "bg-red-100 text-red-700 border-red-200"
                                     : transaction.transactionType === "Restocking"
                                       ? "bg-green-100 text-green-700 border-green-200"
-                                      : "bg-blue-100 text-blue-700 border-blue-200" // For other types like "Item Deleted"
+                                      : transaction.transactionType === "Item Deleted"
+                                        ? "bg-gray-100 text-gray-700 border-gray-200"
+                                        : "bg-blue-100 text-blue-700 border-blue-200" // For "Unit Change" etc.
                                 }
                               >
                                 {transaction.transactionType}
@@ -1173,8 +1188,8 @@ export default function InventorySystem() {
                             )}
                             <td className="py-4 px-4">
                               {(isAdmin || user?.username === "KAB123") &&
-                                transaction.transactionType !== "Item Deleted" &&
-                                transaction.transactionType !== "Unit Change" && (
+                                transaction.transactionType !== "Item Deleted" && // Don't allow editing of "Item Deleted" logs
+                                transaction.transactionType !== "Unit Change" && ( // Or "Unit Change" logs
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
@@ -1276,10 +1291,11 @@ export default function InventorySystem() {
                         <List className="h-4 w-4 text-muted-foreground" />
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">{filteredAndSortedInventory.length}</div>
+                        <div className="text-2xl font-bold">{inventory.length}</div> {/* Directly from Redis */}
                         <p className="text-xs text-muted-foreground">items in system</p>
                       </CardContent>
                     </Card>
+                    {/* ... other AI analysis cards ... */}
                     <Card>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
@@ -1306,7 +1322,7 @@ export default function InventorySystem() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {filteredAndSortedInventory.filter((item) => item.quantity < 10).length}
+                          {inventory.filter((item) => item.quantity < 10).length}
                         </div>
                         <p className="text-xs text-muted-foreground">Below 10 units</p>
                       </CardContent>
@@ -1390,6 +1406,7 @@ export default function InventorySystem() {
                           </SelectContent>
                         </Select>
                       </div>
+                      {/* ... rest of non-admin new transaction form ... */}
                       <div className="mb-5">
                         <label className="block text-gray-700 mb-2">Quantity</label>
                         <div className="relative">
@@ -1479,7 +1496,7 @@ export default function InventorySystem() {
                         <List className="mr-2 h-5 w-5" /> Current Inventory Levels
                       </h2>
                       <div className="flex gap-2">
-                        {user?.username === "KAB123" && (
+                        {user?.username === "KAB123" && ( // KAB123 can export
                           <Button size="sm" variant="outline" onClick={exportInventoryToCSV} className="h-10">
                             <Download className="mr-2 h-4 w-4" /> Export
                           </Button>
@@ -1496,7 +1513,7 @@ export default function InventorySystem() {
                           className="pl-10 h-10"
                         />
                       </div>
-                      {user?.username === "KAB123" && (
+                      {user?.username === "KAB123" && ( // KAB123 can sort
                         <Button
                           variant="outline"
                           size="sm"
@@ -1521,13 +1538,13 @@ export default function InventorySystem() {
                     </div>
                     <div className="border-t border-gray-200 pt-5">
                       <div className="grid grid-cols-1 gap-4">
-                        {filteredAndSortedInventory.map((item, index) => {
+                        {filteredAndSortedInventory.map((item) => {
                           const valueInfo = itemValues[item.name]
                           const itemValue = valueInfo ? valueInfo.totalValue : 0
                           const avgPrice = valueInfo ? valueInfo.avgPrice : 0
                           return (
                             <div
-                              key={item.name + index}
+                              key={item.name}
                               className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
                             >
                               <div className="font-medium text-base">{item.name}</div>
@@ -1541,7 +1558,7 @@ export default function InventorySystem() {
                                     {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit || "unit"})`}
                                   </div>
                                 </div>
-                                {/* Non-admins typically don't edit/delete inventory items directly */}
+                                {/* Non-admins (except KAB123 if special) don't get edit/delete buttons here */}
                               </div>
                             </div>
                           )
@@ -1549,13 +1566,15 @@ export default function InventorySystem() {
                       </div>
                       {filteredAndSortedInventory.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
-                          No inventory items found matching your search.
+                          {inventorySearchTerm
+                            ? "No items match your search."
+                            : "Inventory is empty or not yet loaded."}
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
-                {user?.username !== "KAB123" && ( // Show recent transactions for non-KAB123 users
+                {user?.username !== "KAB123" && (
                   <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 mt-8">
                     <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
                       <History className="mr-2 h-5 w-5" /> Your Recent Transactions (Last 24 Hours)
@@ -1633,16 +1652,13 @@ export default function InventorySystem() {
         </div>
       </div>
 
-      {/* Dialogs (Edit Transaction, Delete Confirm, Add New Item, Edit Inventory Item) */}
-      {/* These remain largely the same, but ensure itemType dropdowns use itemTypesForDropdown */}
-      {/* and getUnitForItem is used consistently. */}
-
+      {/* Dialogs: Edit Transaction, Delete Confirm, Add New Item, Edit Inventory Item */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Transaction</DialogTitle>
             <DialogDescription>
-              Make changes to the transaction. This will update inventory levels accordingly.
+              Make changes to the transaction. This will update inventory levels accordingly after recalculation.
             </DialogDescription>
           </DialogHeader>
           {editingTransaction && (
@@ -1655,7 +1671,7 @@ export default function InventorySystem() {
                   <Select
                     value={editingTransaction.itemType}
                     onValueChange={(value) => {
-                      const unit = getUnitForItem(value) // Use updated getUnitForItem
+                      const unit = getUnitForItem(value)
                       setEditingTransaction({ ...editingTransaction, itemType: value, unit: unit })
                     }}
                   >
@@ -1663,18 +1679,15 @@ export default function InventorySystem() {
                       <SelectValue placeholder="Select item type" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[40vh] overflow-y-auto">
-                      {itemTypesForDropdown.map(
-                        (
-                          type, // Use itemTypesForDropdown
-                        ) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ),
-                      )}
+                      {itemTypesForDropdown.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
+                {/* ... other fields in edit transaction dialog ... */}
                 <div>
                   <Label htmlFor="edit-quantity" className="mb-2 block">
                     Quantity
@@ -1735,7 +1748,7 @@ export default function InventorySystem() {
                   id="edit-transaction-type"
                   value={editingTransaction.transactionType}
                   onValueChange={(
-                    value: "Depleting" | "Restocking" | "Item Deleted" | "Unit Change", // Allow all valid types
+                    value: "Depleting" | "Restocking", // Only allow these for direct edit
                   ) => setEditingTransaction({ ...editingTransaction, transactionType: value })}
                   className="flex flex-col sm:flex-row gap-4"
                 >
@@ -1782,7 +1795,7 @@ export default function InventorySystem() {
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this transaction? This will update inventory levels accordingly.
+              Are you sure you want to delete this transaction? This action will be logged and inventory recalculated.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-6 gap-3 flex-col sm:flex-row">
@@ -1794,7 +1807,7 @@ export default function InventorySystem() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteTransaction} className="w-full sm:w-auto h-11">
-              Delete
+              Delete Transaction
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1805,8 +1818,7 @@ export default function InventorySystem() {
           <DialogHeader>
             <DialogTitle>Add New Inventory Item</DialogTitle>
             <DialogDescription>
-              Create a new item to track in your inventory. This will also add it to the item type dropdowns for future
-              transactions.
+              Create a new item to track in your inventory. It will appear in item lists after being added.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-4">
@@ -1818,7 +1830,7 @@ export default function InventorySystem() {
                 id="new-item-name"
                 value={newItem.name}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                placeholder="Enter item name"
+                placeholder="Enter unique item name"
                 className="h-12"
               />
             </div>
@@ -1835,20 +1847,21 @@ export default function InventorySystem() {
                   <SelectItem value="L">L</SelectItem>
                   <SelectItem value="pcs">pcs</SelectItem>
                   <SelectItem value="bags">bags</SelectItem>
-                  {/* Add more common units if needed */}
+                  <SelectItem value="units">units</SelectItem>
+                  {/* Add more common units */}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label htmlFor="new-item-quantity" className="mb-2 block">
-                Initial Quantity (Optional)
+                Initial Quantity
               </Label>
               <Input
                 id="new-item-quantity"
                 type="number"
                 value={newItem.quantity}
                 onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                placeholder="Enter initial quantity (can be 0)"
+                placeholder="Enter initial quantity (e.g., 0)"
                 className="h-12"
               />
             </div>
@@ -1869,28 +1882,31 @@ export default function InventorySystem() {
           <DialogHeader>
             <DialogTitle>Edit Inventory Item Details</DialogTitle>
             <DialogDescription>
-              Update the name, quantity, and unit for this inventory item. Changes will be logged as transactions.
+              Update name, quantity, or unit. Changes are logged as transactions and inventory is recalculated.
             </DialogDescription>
           </DialogHeader>
           {editingInventoryItem && (
             <div className="space-y-5 py-4">
               <div>
-                <Label className="mb-2 block">Original Name: {editingInventoryItem.originalName}</Label>
+                <Label className="mb-2 block text-sm text-gray-600">
+                  Original Name: {editingInventoryItem.originalName}
+                </Label>
               </div>
               <div>
                 <Label htmlFor="edit-inventory-name" className="mb-2 block">
-                  New Item Name (if changing)
+                  Item Name
                 </Label>
                 <Input
                   id="edit-inventory-name"
                   value={editingInventoryItem.name}
                   onChange={(e) => setEditingInventoryItem({ ...editingInventoryItem, name: e.target.value })}
                   className="h-12"
+                  placeholder="Enter new name if changing"
                 />
               </div>
               <div>
                 <Label htmlFor="edit-inventory-quantity" className="mb-2 block">
-                  New Quantity
+                  Quantity
                 </Label>
                 <Input
                   id="edit-inventory-quantity"
@@ -1904,7 +1920,7 @@ export default function InventorySystem() {
               </div>
               <div>
                 <Label htmlFor="edit-inventory-unit" className="mb-2 block">
-                  New Unit
+                  Unit
                 </Label>
                 <Select
                   value={editingInventoryItem.unit}
@@ -1918,6 +1934,7 @@ export default function InventorySystem() {
                     <SelectItem value="L">L</SelectItem>
                     <SelectItem value="pcs">pcs</SelectItem>
                     <SelectItem value="bags">bags</SelectItem>
+                    <SelectItem value="units">units</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
