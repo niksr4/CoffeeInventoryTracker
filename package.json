@@ -38,7 +38,6 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
-    "@upstash/ratelimit": "latest",
     "@upstash/redis": "latest",
     "ai": "latest",
     "autoprefixer": "^10.4.20",

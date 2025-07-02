@@ -3,27 +3,60 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, TrendingUp, Package, Calculator } from "lucide-react"
 import type { Transaction, InventoryItem } from "@/lib/storage"
-import { useInventoryValuation } from "@/hooks/use-inventory-valuation" // Import the new hook
 
 interface InventoryValueSummaryProps {
-  inventory: InventoryItem[] // Still useful for 'total items' count
+  inventory: InventoryItem[]
   transactions: Transaction[]
 }
 
 export default function InventoryValueSummary({ inventory, transactions }: InventoryValueSummaryProps) {
-  const itemValues = useInventoryValuation(transactions) // Use the new hook
+  // Calculate inventory value using FIFO (First In, First Out) method
+  const calculateInventoryValue = () => {
+    const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> = {}
 
-  // Calculate totals based on the output of useInventoryValuation
+    // Process transactions chronologically (oldest first)
+    const chronologicalTransactions = [...transactions].reverse()
+
+    for (const transaction of chronologicalTransactions) {
+      const { itemType, quantity, transactionType, price, totalCost } = transaction
+
+      if (!itemValues[itemType]) {
+        itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
+      }
+
+      if (transactionType === "Restocking" && price && totalCost) {
+        // Add to inventory with cost
+        itemValues[itemType].quantity += quantity
+        itemValues[itemType].totalValue += totalCost
+        itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
+      } else if (transactionType === "Depleting") {
+        // Remove from inventory (FIFO - use average price)
+        const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
+        itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
+        itemValues[itemType].totalValue = Math.max(0, itemValues[itemType].totalValue - depletedValue)
+
+        // Recalculate average price if quantity > 0
+        if (itemValues[itemType].quantity > 0) {
+          itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
+        } else {
+          itemValues[itemType].avgPrice = 0
+          itemValues[itemType].totalValue = 0
+        }
+      }
+    }
+
+    return itemValues
+  }
+
+  const itemValues = calculateInventoryValue()
+
+  // Calculate totals
   const totalInventoryValue = Object.values(itemValues).reduce((sum, item) => sum + item.totalValue, 0)
-
-  // Total Investment (all-time restocking costs)
-  // This needs to be calculated directly from transactions as before,
-  // as the hook focuses on current value, not historical spend.
   const totalRestockingCost = transactions
     .filter((t) => t.transactionType === "Restocking" && t.totalCost)
     .reduce((sum, t) => sum + (t.totalCost || 0), 0)
 
-  const itemsWithValue = Object.keys(itemValues).filter((key) => itemValues[key]?.totalValue > 0).length
+  const itemsWithValue = Object.keys(itemValues).filter((key) => itemValues[key].totalValue > 0).length
 
   // Recent restocking activity (last 30 days)
   const thirtyDaysAgo = new Date()
@@ -36,7 +69,7 @@ export default function InventoryValueSummary({ inventory, transactions }: Inven
         const transactionDate = new Date(t.date)
         return transactionDate >= thirtyDaysAgo
       } catch {
-        return false // Handle invalid date strings gracefully
+        return false
       }
     })
     .reduce((sum, t) => sum + (t.totalCost || 0), 0)
@@ -50,7 +83,7 @@ export default function InventoryValueSummary({ inventory, transactions }: Inven
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">₹{totalInventoryValue.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">Based on FIFO & base prices</p>
+          <p className="text-xs text-muted-foreground">Based on FIFO costing method</p>
         </CardContent>
       </Card>
 
@@ -72,7 +105,7 @@ export default function InventoryValueSummary({ inventory, transactions }: Inven
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{itemsWithValue}</div>
-          <p className="text-xs text-muted-foreground">Out of {inventory.length} total defined items</p>
+          <p className="text-xs text-muted-foreground">Out of {inventory.length} total items</p>
         </CardContent>
       </Card>
 
@@ -83,7 +116,7 @@ export default function InventoryValueSummary({ inventory, transactions }: Inven
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">₹{recentRestockingCost.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">Last 30 days restocking</p>
+          <p className="text-xs text-muted-foreground">Last 30 days</p>
         </CardContent>
       </Card>
     </div>

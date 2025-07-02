@@ -101,7 +101,10 @@ export function useInventoryData() {
         },
         body: JSON.stringify({
           operation: "addTransaction",
-          data: { transaction },
+          data: {
+            transaction,
+          },
+          timestamp: Date.now(),
         }),
       })
 
@@ -155,7 +158,10 @@ export function useInventoryData() {
         },
         body: JSON.stringify({
           operation: "batchUpdate",
-          data: { transactions: newTransactions },
+          data: {
+            transactions: newTransactions,
+          },
+          timestamp: Date.now(),
         }),
       })
 

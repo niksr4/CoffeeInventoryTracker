@@ -3,9 +3,12 @@
 import { useState, useEffect } from "react"
 import {
   Check,
+  ChevronDown,
   Download,
   List,
   Clock,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
   Edit,
   Trash2,
@@ -15,6 +18,7 @@ import {
   SortAsc,
   SortDesc,
   History,
+  RotateCw,
   Brain,
   TrendingUp,
   AlertTriangle,
@@ -43,20 +47,33 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
-import type { InventoryItem, Transaction } from "@/lib/inventory-service" // Ensure types are from the correct source
+import type { InventoryItem, Transaction } from "@/lib/inventory-service"
 import InventoryValueSummary from "@/components/inventory-value-summary"
-import AiAnalysisCharts from "@/components/ai-analysis-charts"
-import AccountsPage from "@/components/accounts-page"
-import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
+import LaborDeploymentTab from "@/components/labor-deployment-tab"
 
-// itemDefinitions is no longer the source of truth for item existence or names.
-// It might be used for suggesting units if needed, but Redis data is primary.
-const itemDefinitionsForUnitSuggestions = [
+const itemDefinitions = [
   { name: "UREA", unit: "kg" },
   { name: "MOP", unit: "kg" },
   { name: "DAP", unit: "kg" },
-  // ... other items, primarily for their 'unit' property if needed as a suggestion
-  // For now, we will rely on units from Redis or allow manual unit entry.
+  { name: "MOP white", unit: "kg" },
+  { name: "MgSO4", unit: "kg" },
+  { name: "MOP+UREA Mix", unit: "bags" },
+  { name: "Phosphoric Acid", unit: "L" },
+  { name: "Tricel", unit: "L" },
+  { name: "Glycil", unit: "L" },
+  { name: "Neem oil", unit: "L" },
+  { name: "19:19:19", unit: "kg" },
+  { name: "Zinc", unit: "L" },
+  { name: "Contaf", unit: "L" },
+  { name: "NPK Potassium Nitrate", unit: "kg" },
+  { name: "Solubor", unit: "kg" },
+  { name: "H.S.D", unit: "L" },
+  { name: "Petrol", unit: "L" },
+  { name: "Rock phosphate", unit: "kg" },
+  { name: "Micromin", unit: "kg" },
+  { name: "Fix", unit: "L" },
+  { name: "Gramaxone", unit: "L" },
+  { name: "Polyhalite", unit: "kg" },
 ]
 
 const formatDate = (dateString: string) => {
@@ -113,20 +130,19 @@ export default function InventorySystem() {
   const router = useRouter()
 
   const {
-    inventory, // This is InventoryItem[] from Redis via useInventoryData
+    inventory,
     transactions,
     addTransaction,
     batchUpdate,
-    refreshData,
+    rebuildInventory,
     loading,
     error: syncError,
     lastSync,
+    refreshData,
   } = useInventoryData()
 
-  const itemValues = useInventoryValuation(transactions)
-
   const [inventorySortOrder, setInventorySortOrder] = useState<"asc" | "desc" | null>(null)
-  const [transactionSortOrder, setTransactionSortOrder] = useState<"desc" | "asc">("desc")
+  const [transactionSortOrder, setTransactionSortOrder] = useState<"asc" | "desc" | null>(null)
   const [inventorySearchTerm, setInventorySearchTerm] = useState("")
   const [transactionSearchTerm, setTransactionSearchTerm] = useState("")
   const [recentTransactionSearchTerm, setRecentTransactionSearchTerm] = useState("")
@@ -147,7 +163,7 @@ export default function InventorySystem() {
     quantity: "",
     transactionType: "Depleting",
     notes: "",
-    selectedUnit: "", // Will be derived from selected item in Redis
+    selectedUnit: "",
     price: "",
   })
 
@@ -158,7 +174,7 @@ export default function InventorySystem() {
     quantity: string
   }>({
     name: "",
-    unit: "kg", // Default unit for new item dialog
+    unit: "kg",
     quantity: "0",
   })
 
@@ -166,7 +182,7 @@ export default function InventorySystem() {
     name: string
     quantity: number
     unit: string
-    originalName: string // To identify the item in Redis if name changes
+    originalName: string
   } | null>(null)
   const [isInventoryEditDialogOpen, setIsInventoryEditDialogOpen] = useState(false)
 
@@ -179,6 +195,7 @@ export default function InventorySystem() {
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false)
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isRebuilding, setIsRebuilding] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -200,9 +217,9 @@ export default function InventorySystem() {
     setAnalysisError("")
     try {
       const analysisData = {
-        inventory: inventory, // Live inventory from Redis
+        inventory: inventory,
         transactions: transactions.slice(0, 50),
-        totalItems: inventory.length, // Count of items directly from Redis
+        totalItems: inventory.length,
         totalTransactions: transactions.length,
         recentActivity: transactions.filter((t) => isWithinLast24Hours(t.date)).length,
       }
@@ -229,16 +246,16 @@ export default function InventorySystem() {
 
   const handleSaveEdit = async () => {
     if (!editingTransaction) return
-
+    const originalTransaction = transactions.find((t) => t.id === editingTransaction.id)
+    if (!originalTransaction) return
     const updatedTransactions = transactions.map((t) => (t.id === editingTransaction.id ? editingTransaction : t))
-    const success = await batchUpdate(updatedTransactions) // This should trigger a rebuild on the backend
+    const success = await batchUpdate(updatedTransactions)
     if (success) {
       toast({
         title: "Transaction updated",
         description: "The transaction has been updated successfully.",
         variant: "default",
       })
-      refreshData(true) // Refresh to get latest state after backend rebuild
     } else {
       toast({
         title: "Update failed",
@@ -259,30 +276,24 @@ export default function InventorySystem() {
     if (!transactionToDelete) return
     const transactionToRemove = transactions.find((t) => t.id === transactionToDelete)
     if (!transactionToRemove) return
-
-    // Create a "Item Deleted" type transaction to log the deletion
     const deletionNotification: Transaction = {
-      id: `del-${Date.now()}`, // Unique ID for the deletion log
+      id: Date.now().toString(),
       itemType: transactionToRemove.itemType,
-      quantity: transactionToRemove.quantity, // Log the quantity involved
+      quantity: transactionToRemove.quantity,
       transactionType: "Item Deleted",
-      notes: `Original transaction ID ${transactionToRemove.id} deleted. Notes: ${transactionToRemove.notes}`,
+      notes: `Transaction deleted: ${transactionToRemove.notes}`,
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: transactionToRemove.unit,
     }
-
-    // Filter out the transaction to be deleted and add the deletion notification
     const updatedTransactions = [deletionNotification, ...transactions.filter((t) => t.id !== transactionToDelete)]
-
-    const success = await batchUpdate(updatedTransactions) // Send all transactions to backend for rebuild
+    const success = await batchUpdate(updatedTransactions)
     if (success) {
       toast({
         title: "Transaction deleted",
-        description: "The transaction has been marked as deleted and inventory recalculated.",
+        description: "The transaction has been deleted successfully.",
         variant: "default",
       })
-      refreshData(true)
     } else {
       toast({
         title: "Deletion failed",
@@ -295,51 +306,25 @@ export default function InventorySystem() {
   }
 
   const handleAddNewItem = async () => {
-    if (!newItem.name || !newItem.unit) {
-      toast({ title: "Missing fields", description: "Please enter item name and unit.", variant: "destructive" })
-      return
-    }
+    if (!newItem.name || !newItem.unit) return
     const quantity = Number(newItem.quantity)
-    if (isNaN(quantity) || quantity < 0) {
-      toast({
-        title: "Invalid quantity",
-        description: "Please enter a valid non-negative quantity.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check if item already exists in Redis inventory (case-insensitive check recommended for robustness)
-    const existingItem = inventory.find((invItem) => invItem.name.toLowerCase() === newItem.name.toLowerCase())
-    if (existingItem) {
-      toast({
-        title: "Item exists",
-        description: `Item "${existingItem.name}" already exists. You can adjust its quantity via a transaction.`,
-        variant: "destructive",
-      })
-      setIsNewItemDialogOpen(false)
-      return
-    }
-
+    if (isNaN(quantity) || quantity < 0) return
     const transaction: Transaction = {
-      id: `new-${Date.now()}`,
+      id: Date.now().toString(),
       itemType: newItem.name,
       quantity: quantity,
-      transactionType: "Restocking", // New items are typically a restocking event
-      notes: "New item added to inventory",
+      transactionType: "Restocking",
+      notes: "Initial stock",
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: newItem.unit,
     }
-
-    const success = await addTransaction(transaction) // This will update Redis
+    if (!itemDefinitions.some((item) => item.name === newItem.name)) {
+      itemDefinitions.push({ name: newItem.name, unit: newItem.unit })
+    }
+    const success = await addTransaction(transaction)
     if (success) {
-      toast({
-        title: "Item added",
-        description: `Item "${newItem.name}" has been added successfully.`,
-        variant: "default",
-      })
-      refreshData(true) // Refresh data to get the latest state from Redis
+      toast({ title: "Item added", description: "The new item has been added successfully.", variant: "default" })
     } else {
       toast({
         title: "Addition failed",
@@ -352,137 +337,49 @@ export default function InventorySystem() {
   }
 
   const handleEditInventoryItem = (item: InventoryItem) => {
-    setEditingInventoryItem({ ...item, originalName: item.name })
+    setEditingInventoryItem({ name: item.name, quantity: item.quantity, unit: item.unit, originalName: item.name })
     setIsInventoryEditDialogOpen(true)
   }
 
   const handleSaveInventoryEdit = async () => {
     if (!editingInventoryItem) return
-
     const { name, quantity, unit, originalName } = editingInventoryItem
-
-    // Find the original item from the live inventory (Redis data)
-    const originalItemInRedis = inventory.find((item) => item.name === originalName)
-    if (!originalItemInRedis) {
-      toast({
-        title: "Update failed",
-        description: "Original item not found in current inventory.",
-        variant: "destructive",
-      })
-      setIsInventoryEditDialogOpen(false)
-      return
-    }
-
-    // If name is changed, check if the new name already exists (and is not the original item)
-    if (name.toLowerCase() !== originalName.toLowerCase()) {
-      const conflictingItem = inventory.find((invItem) => invItem.name.toLowerCase() === name.toLowerCase())
-      if (conflictingItem) {
-        toast({
-          title: "Name conflict",
-          description: `An item named "${conflictingItem.name}" already exists. Please choose a different name.`,
-          variant: "destructive",
-        })
-        return
-      }
-    }
-
-    const quantityDifference = quantity - originalItemInRedis.quantity
-    const unitChanged = unit !== originalItemInRedis.unit
-    const nameChanged = name.toLowerCase() !== originalName.toLowerCase() // Case-insensitive comparison for name change detection
-
-    let transactionNotes = ""
-    let transactionType: Transaction["transactionType"] = "Restocking" // Default
-    let transactionQuantity = 0
-
-    if (nameChanged) {
-      transactionNotes += `Item name changed from "${originalName}" to "${name}". `
-    }
-    if (unitChanged) {
-      transactionNotes += `Unit changed from "${originalItemInRedis.unit}" to "${unit}". `
-    }
-    if (quantityDifference !== 0) {
-      transactionNotes += `Quantity adjusted by ${quantityDifference}.`
-      transactionType = quantityDifference > 0 ? "Restocking" : "Depleting"
-      transactionQuantity = Math.abs(quantityDifference)
-    } else if (nameChanged || unitChanged) {
-      // If only name/unit changed, but quantity is the same, log it as a 0 quantity "Restocking" or special type
-      // For simplicity, let's use "Restocking" with 0 quantity if no actual stock change.
-      // Or better, a dedicated "Unit Change" or "Metadata Change" type if backend supports it.
-      // The current `addTransaction` might not handle 0 quantity well for stock updates.
-      // Let's assume a transaction is only needed if quantity changes, or if name/unit change implies a data correction.
-      // For now, if quantity is unchanged, we might not need a stock-altering transaction,
-      // but a log of the change is good.
-      // The backend `addTransaction` should ideally handle name/unit updates without quantity change.
-      // Let's assume the backend `performBatchOperation` or a new endpoint handles this.
-      // For now, we'll create a transaction that reflects the state change.
-      // If quantity is zero, it's more of a metadata update.
-      // The current `updateInventoryFromTransaction` in service only changes quantity.
-      // This needs a more robust backend update mechanism for name/unit changes.
-
-      // For now, let's create a transaction that reflects the new state.
-      // The backend will need to be smart about this.
-      // A "Unit Change" transaction type was mentioned.
-      transactionType = "Unit Change" // Or a new type like "ItemUpdate"
-      transactionQuantity = quantity // The full new quantity for "Unit Change" type
-      if (!transactionNotes) transactionNotes = "Item details updated."
-    }
-
-    if (!transactionNotes) {
-      // No actual change
-      toast({ title: "No changes", description: "No changes detected for the item.", variant: "default" })
-      setIsInventoryEditDialogOpen(false)
-      return
-    }
-
+    const originalItem = inventory.find((item) => item.name === originalName)
+    if (!originalItem) return
+    const quantityDifference = quantity - originalItem.quantity
+    const unitChanged = unit !== originalItem.unit
+    const nameChanged = name !== originalName
     const transaction: Transaction = {
-      id: `edit-${Date.now()}`,
-      itemType: nameChanged ? name : originalName, // Use new name if it changed, for the transaction log
-      // Backend needs to know originalName to find and update/replace
-      quantity: transactionQuantity,
-      transactionType: transactionType,
-      notes: transactionNotes,
+      id: Date.now().toString(),
+      itemType: originalName,
+      quantity: unitChanged ? quantity : Math.abs(quantityDifference),
+      transactionType: unitChanged ? "Unit Change" : quantityDifference > 0 ? "Restocking" : "Depleting",
+      notes: nameChanged
+        ? `Item renamed from "${originalName}" to "${name}"${unitChanged ? ", unit changed" : ""}${quantityDifference !== 0 ? ", quantity adjusted" : ""}`
+        : unitChanged
+          ? `Unit changed from ${originalItem.unit} to ${unit}${quantityDifference !== 0 ? " and quantity adjusted" : ""}`
+          : "Manual inventory adjustment",
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: unit,
-      // We might need to pass originalName to backend if itemType (name) can change
-      // For now, relying on backend to handle this via a potential rebuild or smart update.
-      // A better API would be `updateItem(originalName, newItemData)`
     }
-
-    // This is tricky: addTransaction updates based on transaction.itemType.
-    // If name changed, it will operate on the *new* name.
-    // The old item (originalName) needs to be handled (e.g., removed or its quantity set to 0 if it's a rename).
-    // This ideally requires a more specific backend operation than just `addTransaction`.
-    // E.g., an API like `/api/inventory/item/update` that takes `originalName` and `updatedItemData`.
-    // For now, we'll proceed with `addTransaction` and assume the backend's `rebuildInventoryFromTransactions`
-    // or a smarter `addTransaction` can handle it. This is a point of potential fragility.
-    // A "rename" operation is complex with the current transaction-based system.
-
-    // A temporary solution: if name changed, create two transactions:
-    // 1. Deplete originalName to 0 (if it's a pure rename)
-    // 2. Restock newName with the quantity.
-    // This is too complex for the user here.
-    // Let's assume `addTransaction` with the new name and quantity, and the notes, is sufficient for now,
-    // and `rebuildInventory` will sort it out. This implies the old item might linger if not explicitly handled.
-
-    // The most robust way is for the backend to handle an "update item" operation.
-    // Given current tools, we'll log a transaction that reflects the new state.
-    // If `rebuildInventory` is called, it should correctly establish the new state.
-
-    const success = await addTransaction(transaction) // This will add a transaction for the *new* state.
-    // If name changed, the old item might still exist in Redis until rebuild.
-
+    if (nameChanged) {
+      const itemDefIndex = itemDefinitions.findIndex((item) => item.name === originalName)
+      if (itemDefIndex >= 0) {
+        itemDefinitions[itemDefIndex].name = name
+      }
+    }
+    const success = await addTransaction(transaction)
     if (success) {
       toast({
-        title: "Item update logged",
-        description: "The item changes have been logged. Inventory will reflect after next sync/rebuild.",
+        title: "Item updated",
+        description: "The inventory item has been updated successfully.",
         variant: "default",
       })
-      refreshData(true) // Crucial to get the latest state
     } else {
       toast({
         title: "Update failed",
-        description: "There was an error logging the item update. Please try again.",
+        description: "There was an error updating the inventory item. Please try again.",
         variant: "destructive",
       })
     }
@@ -490,40 +387,24 @@ export default function InventorySystem() {
     setIsInventoryEditDialogOpen(false)
   }
 
-  const handleDeleteInventoryItem = async (itemToDelete: InventoryItem) => {
-    // Confirm before deleting
-    if (
-      !window.confirm(
-        `Are you sure you want to delete item "${itemToDelete.name}"? This will set its quantity to 0 and log the deletion. The item will be hidden from the list.`,
-      )
-    ) {
-      return
-    }
-
+  const handleDeleteInventoryItem = async (item: InventoryItem) => {
     const transaction: Transaction = {
-      id: `del-item-${Date.now()}`,
-      itemType: itemToDelete.name,
-      quantity: itemToDelete.quantity, // Log the quantity that was present
-      transactionType: "Item Deleted", // This specific type should be handled by backend to remove the item
-      notes: `Item "${itemToDelete.name}" permanently deleted from inventory.`,
+      id: Date.now().toString(),
+      itemType: item.name,
+      quantity: item.quantity,
+      transactionType: "Item Deleted",
+      notes: `Item "${item.name}" removed from inventory`,
       date: generateTimestamp(),
       user: user?.username || "unknown",
-      unit: itemToDelete.unit,
+      unit: item.unit,
     }
-
-    // We need a way for the backend to process "Item Deleted" to actually remove the item hash or set quantity to 0.
-    // `addTransaction` followed by `rebuildInventory` should handle this if `updateInventoryFromTransaction`
-    // correctly processes "Item Deleted" (e.g., by setting quantity to 0 or removing the hash entry).
-    // The current `updateInventoryFromTransaction` sets quantity to 0 for "Item Deleted".
-
     const success = await addTransaction(transaction)
     if (success) {
       toast({
         title: "Item deleted",
-        description: `Item "${itemToDelete.name}" has been marked for deletion. Inventory will update.`,
+        description: "The inventory item has been deleted successfully.",
         variant: "default",
       })
-      refreshData(true) // Refresh to get updated inventory
     } else {
       toast({
         title: "Deletion failed",
@@ -540,26 +421,44 @@ export default function InventorySystem() {
   }
 
   const toggleTransactionSort = () => {
-    setTransactionSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
+    if (transactionSortOrder === null) setTransactionSortOrder("asc")
+    else if (transactionSortOrder === "asc") setTransactionSortOrder("desc")
+    else setTransactionSortOrder(null)
   }
 
   const exportInventoryToCSV = () => {
+    const calculateInventoryValues = () => {
+      const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> = {}
+      const chronologicalTransactions = [...transactions].reverse()
+      for (const transaction of chronologicalTransactions) {
+        const { itemType, quantity, transactionType, price, totalCost } = transaction
+        if (!itemValues[itemType]) itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
+        if (transactionType === "Restocking" && price && totalCost) {
+          itemValues[itemType].quantity += quantity
+          itemValues[itemType].totalValue += totalCost
+          itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
+        } else if (transactionType === "Depleting") {
+          const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
+          itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
+          itemValues[itemType].totalValue = Math.max(0, itemValues[itemType].totalValue - depletedValue)
+          if (itemValues[itemType].quantity > 0) {
+            itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
+          } else {
+            itemValues[itemType].avgPrice = 0
+            itemValues[itemType].totalValue = 0
+          }
+        }
+      }
+      return itemValues
+    }
+    const itemValues = calculateInventoryValues()
     const headers = ["Item Name", "Quantity", "Unit", "Value"]
-    // Use live inventory directly for export
-    const exportItems = inventory
-      .filter((item) => item.name.toLowerCase().includes(inventorySearchTerm.toLowerCase()))
-      .sort((a, b) => {
-        if (inventorySortOrder === "asc") return a.name.localeCompare(b.name)
-        if (inventorySortOrder === "desc") return b.name.localeCompare(a.name)
-        return 0
-      })
-
+    const exportItems = filteredAndSortedInventory
     const rows = exportItems.map((item) => {
-      const valueInfo = itemValues[item.name]
-      const itemValue = valueInfo ? valueInfo.totalValue : 0
+      const itemValue = itemValues[item.name]?.totalValue || 0
       return [item.name, item.quantity.toString(), item.unit, `₹${itemValue.toFixed(2)}`]
     })
-    const totalValue = Object.values(itemValues).reduce((sum, itemVal) => sum + itemVal.totalValue, 0)
+    const totalValue = Object.values(itemValues).reduce((sum, item) => sum + item.totalValue, 0)
     rows.push(["TOTAL", "", "", `₹${totalValue.toFixed(2)}`])
     const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n")
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
@@ -573,59 +472,36 @@ export default function InventorySystem() {
     document.body.removeChild(link)
   }
 
-  // Inventory list is now directly from Redis, filtered and sorted
-  const filteredAndSortedInventory = inventory
-    .filter(
-      (item) => item.name && item.quantity > 0 && item.name.toLowerCase().includes(inventorySearchTerm.toLowerCase()),
-    )
-    .sort((a, b) => {
-      if (!a.name || !b.name) return 0
-      if (inventorySortOrder === "asc") return a.name.localeCompare(b.name)
-      if (inventorySortOrder === "desc") return b.name.localeCompare(a.name)
-      return 0
+  const filteredAndSortedInventory = (() => {
+    const allItems = itemDefinitions.map((itemDef) => {
+      const existingItem = inventory.find((inv) => inv.name === itemDef.name)
+      return { name: itemDef.name, quantity: existingItem ? existingItem.quantity : 0, unit: itemDef.unit }
     })
+    return allItems
+      .filter((item) => item.name.toLowerCase().includes(inventorySearchTerm.toLowerCase()))
+      .sort((a, b) => {
+        if (inventorySortOrder === "asc") return a.name.localeCompare(b.name)
+        else if (inventorySortOrder === "desc") return b.name.localeCompare(a.name)
+        return 0
+      })
+  })()
 
   const filteredTransactions = transactions
+    .filter((t) => filterType === "All Types" || t.itemType === filterType)
     .filter((t) => {
-      if (!t) return false
-      const passesFilterType = filterType === "All Types" || (t.itemType && t.itemType === filterType)
-      if (!passesFilterType) return false
       const searchLower = transactionSearchTerm.toLowerCase()
-      if (searchLower === "") return true
-      const itemMatch = t.itemType ? t.itemType.toLowerCase().includes(searchLower) : false
-      const notesMatch = t.notes ? t.notes.toLowerCase().includes(searchLower) : false
-      const userMatch = t.user ? t.user.toLowerCase().includes(searchLower) : false
-      const typeMatch = t.transactionType ? t.transactionType.toLowerCase().includes(searchLower) : false
-      return itemMatch || notesMatch || userMatch || typeMatch
+      return (
+        t.itemType.toLowerCase().includes(searchLower) ||
+        t.notes.toLowerCase().includes(searchLower) ||
+        t.user.toLowerCase().includes(searchLower) ||
+        t.transactionType.toLowerCase().includes(searchLower)
+      )
     })
     .sort((a, b) => {
-      try {
-        const dateA = new Date(a.date)
-        const dateB = new Date(b.date)
-        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0
-        if (isNaN(dateA.getTime())) return 1
-        if (isNaN(dateB.getTime())) return -1
-        if (transactionSortOrder === "asc") {
-          return dateA.getTime() - dateB.getTime()
-        }
-        return dateB.getTime() - dateA.getTime()
-      } catch (e) {
-        console.error("Error sorting transactions by date:", e, a, b)
-        return 0
-      }
+      if (transactionSortOrder === "asc") return a.itemType.localeCompare(b.itemType)
+      else if (transactionSortOrder === "desc") return b.itemType.localeCompare(a.itemType)
+      return 0
     })
-
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
-  const validatedCurrentPage = Math.max(1, Math.min(currentPage, totalPages || 1))
-  const startIndex = (validatedCurrentPage - 1) * itemsPerPage
-  const endIndex = Math.min(startIndex + itemsPerPage, filteredTransactions.length)
-  const currentTransactions = filteredTransactions.slice(startIndex, endIndex)
-
-  useEffect(() => {
-    if (currentPage !== validatedCurrentPage) {
-      setCurrentPage(validatedCurrentPage)
-    }
-  }, [currentPage, validatedCurrentPage])
 
   const recentTransactions = transactions
     .filter((t) => isWithinLast24Hours(t.date))
@@ -647,13 +523,14 @@ export default function InventorySystem() {
       }
     })
 
-  // Item types for dropdowns are derived from current Redis inventory
-  const itemTypesForDropdown = Array.from(new Set(inventory.map((item) => item.name))).sort()
-
-  // Get unit for an item directly from Redis inventory state
-  const getUnitForItem = (itemName: string): string => {
-    const liveItem = inventory.find((item) => item.name === itemName)
-    return liveItem && liveItem.unit ? liveItem.unit : "kg" // Fallback unit if not found (should not happen for existing items)
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredTransactions.length)
+  const currentTransactions = filteredTransactions.slice(startIndex, endIndex)
+  const itemTypes = itemDefinitions.map((item) => item.name)
+  const getUnitForItem = (itemName: string) => {
+    const item = itemDefinitions.find((item) => item.name === itemName)
+    return item ? item.unit : "kg"
   }
 
   const exportToCSV = () => {
@@ -702,35 +579,18 @@ export default function InventorySystem() {
   }
 
   const handleRecordTransaction = async () => {
-    if (!newTransaction.itemType || !newTransaction.quantity || !newTransaction.transactionType) {
-      toast({ title: "Missing fields", description: "Please select item, quantity, and type.", variant: "destructive" })
-      return
-    }
+    if (!newTransaction.itemType || !newTransaction.quantity || !newTransaction.transactionType) return
     const quantity = Number(newTransaction.quantity)
-    if (isNaN(quantity) || quantity <= 0) {
-      toast({ title: "Invalid quantity", description: "Quantity must be a positive number.", variant: "destructive" })
-      return
-    }
-
-    const itemInRedis = inventory.find((item) => item.name === newTransaction.itemType)
-    if (!itemInRedis) {
-      toast({
-        title: "Item not found",
-        description: `Item "${newTransaction.itemType}" does not exist in inventory. Add it first.`,
-        variant: "destructive",
-      })
-      return
-    }
-
+    if (isNaN(quantity) || quantity <= 0) return
     const transaction: Transaction = {
-      id: `txn-${Date.now()}`,
+      id: Date.now().toString(),
       itemType: newTransaction.itemType,
       quantity: quantity,
       transactionType: newTransaction.transactionType,
       notes: newTransaction.notes || "",
       date: generateTimestamp(),
       user: user?.username || "unknown",
-      unit: newTransaction.selectedUnit, // This should be the unit of the item from Redis
+      unit: newTransaction.selectedUnit,
       ...(newTransaction.transactionType === "Restocking" &&
         newTransaction.price && {
           price: Number(newTransaction.price),
@@ -744,7 +604,6 @@ export default function InventorySystem() {
         description: "The transaction has been recorded successfully.",
         variant: "default",
       })
-      refreshData(true)
     } else {
       toast({
         title: "Transaction failed",
@@ -782,9 +641,30 @@ export default function InventorySystem() {
     }
   }
 
+  const handleRebuildInventory = async () => {
+    setIsRebuilding(true)
+    try {
+      const success = await rebuildInventory()
+      if (success) {
+        toast({
+          title: "Rebuild complete",
+          description: "Your inventory has been rebuilt from transaction history.",
+          variant: "default",
+        })
+      } else {
+        toast({
+          title: "Rebuild failed",
+          description: "There was an error rebuilding your inventory. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } finally {
+      setIsRebuilding(false)
+    }
+  }
+
   if (!user) return null
-  if (loading && !inventory.length && !syncError) {
-    // Show loading only on initial true load without data or error
+  if (loading) {
     return (
       <div className="w-full h-screen flex items-center justify-center">
         <div className="text-center">
@@ -817,9 +697,7 @@ export default function InventorySystem() {
           <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="text-sm text-gray-500">
               {syncError ? (
-                <span className="text-red-500 flex items-center gap-1">
-                  <AlertTriangle className="h-4 w-4" /> {syncError}
-                </span>
+                <span className="text-red-500">{syncError}</span>
               ) : lastSync ? (
                 <span>Last synced: {lastSync.toLocaleTimeString()}</span>
               ) : (
@@ -827,6 +705,18 @@ export default function InventorySystem() {
               )}
             </div>
             <div className="flex gap-2">
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRebuildInventory}
+                  disabled={isRebuilding}
+                  className="flex items-center gap-1"
+                >
+                  <RotateCw className={`h-3 w-3 ${isRebuilding ? "animate-spin" : ""}`} />
+                  {isRebuilding ? "Rebuilding..." : "Rebuild Inventory"}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -845,9 +735,9 @@ export default function InventorySystem() {
               <TabsList className="flex w-full overflow-x-auto border-b sm:justify-center">
                 <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
                 <TabsTrigger value="transactions">Transaction History</TabsTrigger>
-                <TabsTrigger value="accounts">
+                <TabsTrigger value="labor">
                   <Users className="h-4 w-4 mr-2" />
-                  Accounts
+                  Labor Deployment
                 </TabsTrigger>
                 <TabsTrigger value="ai-analysis">
                   <Brain className="h-4 w-4 mr-2" />
@@ -867,7 +757,7 @@ export default function InventorySystem() {
                         <Select
                           value={newTransaction.itemType}
                           onValueChange={(value) => {
-                            const unit = getUnitForItem(value) // Get unit from selected Redis item
+                            const unit = getUnitForItem(value)
                             setNewTransaction({ ...newTransaction, itemType: value, selectedUnit: unit })
                           }}
                         >
@@ -875,19 +765,14 @@ export default function InventorySystem() {
                             <SelectValue placeholder="Select item type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[40vh] overflow-y-auto">
-                            {itemTypesForDropdown.map(
-                              (
-                                type, // Dropdown from Redis items
-                              ) => (
-                                <SelectItem key={type} value={type}>
-                                  {type}
-                                </SelectItem>
-                              ),
-                            )}
+                            {itemTypes.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      {/* ... rest of the new transaction form ... */}
                       <div className="mb-5">
                         <label className="block text-gray-700 mb-2">Quantity</label>
                         <div className="relative">
@@ -1022,75 +907,94 @@ export default function InventorySystem() {
                     </div>
                     <div className="border-t border-gray-200 pt-5">
                       <div className="grid grid-cols-1 gap-4">
-                        {filteredAndSortedInventory.map((item) => {
-                          // Directly from Redis state
-                          const valueInfo = itemValues[item.name]
-                          const itemValue = valueInfo ? valueInfo.totalValue : 0
-                          const avgPrice = valueInfo ? valueInfo.avgPrice : 0
-                          return (
-                            <div
-                              key={item.name} // Name from Redis should be unique key
-                              className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
-                            >
-                              <div className="font-medium text-base">{item.name}</div>
-                              <div className="flex items-center gap-3">
-                                <div className="text-right">
-                                  <div className="text-base">
-                                    {item.quantity} {item.unit}
+                        {(() => {
+                          const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> =
+                            {}
+                          const chronologicalTransactions = [...transactions].reverse()
+                          for (const transaction of chronologicalTransactions) {
+                            const { itemType, quantity, transactionType, price, totalCost } = transaction
+                            if (!itemValues[itemType])
+                              itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
+                            if (transactionType === "Restocking" && price && totalCost) {
+                              itemValues[itemType].quantity += quantity
+                              itemValues[itemType].totalValue += totalCost
+                              itemValues[itemType].avgPrice =
+                                itemValues[itemType].totalValue / itemValues[itemType].quantity
+                            } else if (transactionType === "Depleting") {
+                              const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
+                              itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
+                              itemValues[itemType].totalValue = Math.max(
+                                0,
+                                itemValues[itemType].totalValue - depletedValue,
+                              )
+                              if (itemValues[itemType].quantity > 0) {
+                                itemValues[itemType].avgPrice =
+                                  itemValues[itemType].totalValue / itemValues[itemType].quantity
+                              } else {
+                                itemValues[itemType].avgPrice = 0
+                                itemValues[itemType].totalValue = 0
+                              }
+                            }
+                          }
+                          return filteredAndSortedInventory.map((item, index) => {
+                            const itemValue = itemValues[item.name]?.totalValue || 0
+                            const avgPrice = itemValues[item.name]?.avgPrice || 0
+                            return (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
+                              >
+                                <div className="font-medium text-base">{item.name}</div>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right">
+                                    <div className="text-base">
+                                      {item.quantity} {item.unit}
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                      ₹{itemValue.toFixed(2)}{" "}
+                                      {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
+                                    </div>
                                   </div>
-                                  <div className="text-sm text-gray-600">
-                                    ₹{itemValue.toFixed(2)}{" "}
-                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit || "unit"})`}
-                                  </div>
+                                  {isAdmin && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleEditInventoryItem(item)}
+                                        className="text-amber-600 p-2 h-auto"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteInventoryItem(item)}
+                                        className="text-red-600 p-2 h-auto"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
-                                {isAdmin && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleEditInventoryItem(item)}
-                                      className="text-amber-600 p-2 h-auto"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDeleteInventoryItem(item)}
-                                      className="text-red-600 p-2 h-auto"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })
+                        })()}
                       </div>
                       {filteredAndSortedInventory.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
-                          {inventorySearchTerm
-                            ? "No items match your search."
-                            : "Inventory is empty or not yet loaded."}
+                          No inventory items found matching your search.
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
               </TabsContent>
-              <TabsContent value="transactions" className="space-y-6">
+              <TabsContent value="transactions" className="space-y-8">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                  <div className="flex justify-between items-center mb-5">
-                    <h2 className="text-lg font-medium text-green-700 flex items-center">
-                      <History className="mr-2 h-5 w-5" /> Transaction History
-                    </h2>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={exportToCSV} className="h-10">
-                        <Download className="mr-2 h-4 w-4" /> Export
-                      </Button>
-                    </div>
-                  </div>
+                  <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
+                    <Clock className="mr-2 h-5 w-5" /> Transaction History
+                  </h2>
                   <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
                     <div className="flex flex-col sm:flex-row gap-3 flex-grow">
                       <div className="relative flex-grow">
@@ -1103,12 +1007,12 @@ export default function InventorySystem() {
                         />
                       </div>
                       <Select value={filterType} onValueChange={setFilterType}>
-                        <SelectTrigger className="w-full sm:w-40 h-10 border-gray-300">
+                        <SelectTrigger className="w-full sm:w-48 border-gray-300 h-10">
                           <SelectValue placeholder="All Types" />
                         </SelectTrigger>
                         <SelectContent className="max-h-[40vh] overflow-y-auto">
                           <SelectItem value="All Types">All Types</SelectItem>
-                          {itemTypesForDropdown.map((type) => (
+                          {itemTypes.map((type) => (
                             <SelectItem key={type} value={type}>
                               {type}
                             </SelectItem>
@@ -1116,39 +1020,46 @@ export default function InventorySystem() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={toggleTransactionSort}
-                      className="flex items-center gap-1 h-10 whitespace-nowrap"
-                    >
-                      {transactionSortOrder === "desc" ? (
-                        <>
-                          <SortDesc className="h-4 w-4 mr-1" /> Date: Newest First
-                        </>
-                      ) : (
-                        <>
-                          <SortAsc className="h-4 w-4 mr-1" /> Date: Oldest First
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleTransactionSort}
+                        className="flex items-center gap-1 h-10 whitespace-nowrap"
+                      >
+                        {transactionSortOrder === "asc" ? (
+                          <>
+                            <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
+                          </>
+                        ) : transactionSortOrder === "desc" ? (
+                          <>
+                            <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
+                          </>
+                        ) : (
+                          <>
+                            <SortAsc className="h-4 w-4 mr-1" /> Sort
+                          </>
+                        )}
+                      </Button>
+                      <Button className="bg-green-600 hover:bg-green-700 h-10" onClick={exportToCSV}>
+                        <Download className="mr-2 h-4 w-4" /> Export
+                      </Button>
+                    </div>
                   </div>
                   <div className="border rounded-md overflow-x-auto">
                     <table className="min-w-full">
                       <thead>
                         <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
-                          <th className="py-4 px-4 text-left">DATE</th>
+                          <th className="py-4 px-4 text-left flex items-center">
+                            DATE <ChevronDown className="ml-1 h-4 w-4" />
+                          </th>
                           <th className="py-4 px-4 text-left">ITEM TYPE</th>
                           <th className="py-4 px-4 text-left">QUANTITY</th>
+                          <th className="py-4 px-4 text-left">COST</th>
                           <th className="py-4 px-4 text-left">TRANSACTION</th>
-                          {!isMobile && (
-                            <>
-                              <th className="py-4 px-4 text-left">PRICE</th>
-                              <th className="py-4 px-4 text-left">NOTES</th>
-                              <th className="py-4 px-4 text-left">USER</th>
-                            </>
-                          )}
-                          <th className="py-4 px-4 text-left">ACTIONS</th>
+                          {!isMobile && <th className="py-4 px-4 text-left">NOTES</th>}
+                          {!isMobile && <th className="py-4 px-4 text-left">USER</th>}
+                          <th className="py-4 px-4 text-right">ACTIONS</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1160,102 +1071,95 @@ export default function InventorySystem() {
                               {transaction.quantity} {transaction.unit}
                             </td>
                             <td className="py-4 px-4">
+                              {transaction.transactionType === "Restocking" && transaction.price ? (
+                                <div>
+                                  <div className="font-medium">₹{transaction.totalCost?.toFixed(2)}</div>
+                                  <div className="text-sm text-gray-500">
+                                    ₹{transaction.price.toFixed(2)}/{transaction.unit}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-4">
                               <Badge
                                 variant="outline"
                                 className={
                                   transaction.transactionType === "Depleting"
                                     ? "bg-red-100 text-red-700 border-red-200"
-                                    : transaction.transactionType === "Restocking"
-                                      ? "bg-green-100 text-green-700 border-green-200"
-                                      : transaction.transactionType === "Item Deleted"
-                                        ? "bg-gray-100 text-gray-700 border-gray-200"
-                                        : "bg-blue-100 text-blue-700 border-blue-200" // For "Unit Change" etc.
+                                    : "bg-green-100 text-green-700 border-green-200"
                                 }
                               >
                                 {transaction.transactionType}
                               </Badge>
                             </td>
-                            {!isMobile && (
-                              <>
-                                <td className="py-4 px-4">
-                                  {transaction.price ? `₹${transaction.price.toFixed(2)}` : "-"}
-                                </td>
-                                <td className="py-4 px-4 max-w-xs truncate" title={transaction.notes}>
-                                  {transaction.notes}
-                                </td>
-                                <td className="py-4 px-4">{transaction.user}</td>
-                              </>
-                            )}
-                            <td className="py-4 px-4">
-                              {(isAdmin || user?.username === "KAB123") &&
-                                transaction.transactionType !== "Item Deleted" && // Don't allow editing of "Item Deleted" logs
-                                transaction.transactionType !== "Unit Change" && ( // Or "Unit Change" logs
-                                  <div className="flex gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleEditTransaction(transaction)}
-                                      className="text-amber-600 p-2 h-auto"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDeleteConfirm(transaction.id)}
-                                      className="text-red-600 p-2 h-auto"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                )}
+                            {!isMobile && <td className="py-4 px-4">{transaction.notes}</td>}
+                            {!isMobile && <td className="py-4 px-4">{transaction.user}</td>}
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex justify-end gap-3">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditTransaction(transaction)}
+                                  className="text-amber-600"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteConfirm(transaction.id)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    {transactions.length === 0 && (
-                      <div className="text-center py-10 text-gray-500">No transactions recorded yet.</div>
-                    )}
-                    {transactions.length > 0 && filteredTransactions.length === 0 && (
-                      <div className="text-center py-10 text-gray-500">
-                        No transactions found matching your current filters.
-                      </div>
+                    {currentTransactions.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">No transactions found matching your search.</div>
                     )}
                   </div>
-                  {filteredTransactions.length > 0 && (
-                    <div className="flex justify-between items-center mt-4">
-                      <div className="text-sm text-gray-500">
-                        Showing {Math.min(startIndex + 1, filteredTransactions.length)} to {endIndex} of{" "}
-                        {filteredTransactions.length} transactions
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                          disabled={currentPage === 1}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                          disabled={currentPage === totalPages || totalPages === 0}
-                        >
-                          Next
-                        </Button>
-                      </div>
+                  <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
+                    <div className="text-sm text-gray-500 order-2 sm:order-1">
+                      Showing {filteredTransactions.length > 0 ? `${startIndex + 1} to ${endIndex} of` : "0 of"}{" "}
+                      {filteredTransactions.length} results
                     </div>
-                  )}
+                    <div className="flex gap-3 order-1 sm:order-2">
+                      <Button
+                        variant="outline"
+                        className="text-gray-500 h-10"
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant={currentPage === 1 ? "default" : "outline"}
+                        className={currentPage === 1 ? "bg-green-700 h-10" : "text-gray-500 h-10"}
+                      >
+                        1
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="text-gray-500 h-10"
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
-              <TabsContent value="accounts" className="space-y-6">
-                <AccountsPage />
+              <TabsContent value="labor" className="space-y-6">
+                <LaborDeploymentTab />
               </TabsContent>
               <TabsContent value="ai-analysis" className="space-y-6">
-                <AiAnalysisCharts inventory={inventory} transactions={transactions} />
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
                   <div className="flex justify-between items-center mb-6">
                     <div>
@@ -1284,18 +1188,16 @@ export default function InventorySystem() {
                       )}
                     </Button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <Card>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Unique Items</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Items</CardTitle>
                         <List className="h-4 w-4 text-muted-foreground" />
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">{inventory.length}</div> {/* Directly from Redis */}
-                        <p className="text-xs text-muted-foreground">items in system</p>
+                        <div className="text-2xl font-bold">{inventory.length}</div>
                       </CardContent>
                     </Card>
-                    {/* ... other AI analysis cards ... */}
                     <Card>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
@@ -1368,14 +1270,14 @@ export default function InventorySystem() {
                   )}
                 </div>
               </TabsContent>
-            </Tabs> // Non-admin view
+            </Tabs>
           ) : (
             <Tabs defaultValue="inventory" className="w-full">
               <TabsList className="flex w-full overflow-x-auto border-b sm:justify-center">
                 <TabsTrigger value="inventory">Inventory</TabsTrigger>
-                <TabsTrigger value="accounts">
+                <TabsTrigger value="labor">
                   <Users className="h-4 w-4 mr-2" />
-                  Accounts
+                  Labor Deployment
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="inventory" className="space-y-8 pt-6">
@@ -1398,7 +1300,7 @@ export default function InventorySystem() {
                             <SelectValue placeholder="Select item type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[40vh] overflow-y-auto">
-                            {itemTypesForDropdown.map((type) => (
+                            {itemTypes.map((type) => (
                               <SelectItem key={type} value={type}>
                                 {type}
                               </SelectItem>
@@ -1406,7 +1308,6 @@ export default function InventorySystem() {
                           </SelectContent>
                         </Select>
                       </div>
-                      {/* ... rest of non-admin new transaction form ... */}
                       <div className="mb-5">
                         <label className="block text-gray-700 mb-2">Quantity</label>
                         <div className="relative">
@@ -1496,7 +1397,7 @@ export default function InventorySystem() {
                         <List className="mr-2 h-5 w-5" /> Current Inventory Levels
                       </h2>
                       <div className="flex gap-2">
-                        {user?.username === "KAB123" && ( // KAB123 can export
+                        {user?.username === "KAB123" && (
                           <Button size="sm" variant="outline" onClick={exportInventoryToCSV} className="h-10">
                             <Download className="mr-2 h-4 w-4" /> Export
                           </Button>
@@ -1513,7 +1414,7 @@ export default function InventorySystem() {
                           className="pl-10 h-10"
                         />
                       </div>
-                      {user?.username === "KAB123" && ( // KAB123 can sort
+                      {user?.username === "KAB123" && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -1538,37 +1439,83 @@ export default function InventorySystem() {
                     </div>
                     <div className="border-t border-gray-200 pt-5">
                       <div className="grid grid-cols-1 gap-4">
-                        {filteredAndSortedInventory.map((item) => {
-                          const valueInfo = itemValues[item.name]
-                          const itemValue = valueInfo ? valueInfo.totalValue : 0
-                          const avgPrice = valueInfo ? valueInfo.avgPrice : 0
-                          return (
-                            <div
-                              key={item.name}
-                              className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
-                            >
-                              <div className="font-medium text-base">{item.name}</div>
-                              <div className="flex items-center gap-3">
-                                <div className="text-right">
-                                  <div className="text-base">
-                                    {item.quantity} {item.unit}
+                        {(() => {
+                          const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> =
+                            {}
+                          const chronologicalTransactions = [...transactions].reverse()
+                          for (const transaction of chronologicalTransactions) {
+                            const { itemType, quantity, transactionType, price, totalCost } = transaction
+                            if (!itemValues[itemType])
+                              itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
+                            if (transactionType === "Restocking" && price && totalCost) {
+                              itemValues[itemType].quantity += quantity
+                              itemValues[itemType].totalValue += totalCost
+                              itemValues[itemType].avgPrice =
+                                itemValues[itemType].totalValue / itemValues[itemType].quantity
+                            } else if (transactionType === "Depleting") {
+                              const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
+                              itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
+                              itemValues[itemType].totalValue = Math.max(
+                                0,
+                                itemValues[itemType].totalValue - depletedValue,
+                              )
+                              if (itemValues[itemType].quantity > 0) {
+                                itemValues[itemType].avgPrice =
+                                  itemValues[itemType].totalValue / itemValues[itemType].quantity
+                              } else {
+                                itemValues[itemType].avgPrice = 0
+                                itemValues[itemType].totalValue = 0
+                              }
+                            }
+                          }
+                          return filteredAndSortedInventory.map((item, index) => {
+                            const itemValue = itemValues[item.name]?.totalValue || 0
+                            const avgPrice = itemValues[item.name]?.avgPrice || 0
+                            return (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
+                              >
+                                <div className="font-medium text-base">{item.name}</div>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right">
+                                    <div className="text-base">
+                                      {item.quantity} {item.unit}
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                      ₹{itemValue.toFixed(2)}{" "}
+                                      {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit})`}
+                                    </div>
                                   </div>
-                                  <div className="text-sm text-gray-600">
-                                    ₹{itemValue.toFixed(2)}{" "}
-                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit || "unit"})`}
-                                  </div>
+                                  {isAdmin && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleEditInventoryItem(item)}
+                                        className="text-amber-600 p-2 h-auto"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteInventoryItem(item)}
+                                        className="text-red-600 p-2 h-auto"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
-                                {/* Non-admins (except KAB123 if special) don't get edit/delete buttons here */}
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })
+                        })()}
                       </div>
                       {filteredAndSortedInventory.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
-                          {inventorySearchTerm
-                            ? "No items match your search."
-                            : "Inventory is empty or not yet loaded."}
+                          No inventory items found matching your search.
                         </div>
                       )}
                     </div>
@@ -1626,11 +1573,7 @@ export default function InventorySystem() {
                                   {transaction.transactionType}
                                 </Badge>
                               </td>
-                              {!isMobile && (
-                                <td className="py-4 px-4 max-w-xs truncate" title={transaction.notes}>
-                                  {transaction.notes}
-                                </td>
-                              )}
+                              {!isMobile && <td className="py-4 px-4">{transaction.notes}</td>}
                             </tr>
                           ))}
                         </tbody>
@@ -1644,21 +1587,20 @@ export default function InventorySystem() {
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="accounts" className="space-y-6 pt-6">
-                <AccountsPage />
+              <TabsContent value="labor" className="space-y-6 pt-6">
+                <LaborDeploymentTab />
               </TabsContent>
             </Tabs>
           )}
         </div>
       </div>
 
-      {/* Dialogs: Edit Transaction, Delete Confirm, Add New Item, Edit Inventory Item */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Transaction</DialogTitle>
             <DialogDescription>
-              Make changes to the transaction. This will update inventory levels accordingly after recalculation.
+              Make changes to the transaction. This will update inventory levels accordingly.
             </DialogDescription>
           </DialogHeader>
           {editingTransaction && (
@@ -1679,7 +1621,7 @@ export default function InventorySystem() {
                       <SelectValue placeholder="Select item type" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[40vh] overflow-y-auto">
-                      {itemTypesForDropdown.map((type) => (
+                      {itemTypes.map((type) => (
                         <SelectItem key={type} value={type}>
                           {type}
                         </SelectItem>
@@ -1687,7 +1629,6 @@ export default function InventorySystem() {
                     </SelectContent>
                   </Select>
                 </div>
-                {/* ... other fields in edit transaction dialog ... */}
                 <div>
                   <Label htmlFor="edit-quantity" className="mb-2 block">
                     Quantity
@@ -1710,7 +1651,7 @@ export default function InventorySystem() {
                 {editingTransaction.transactionType === "Restocking" && (
                   <div>
                     <Label htmlFor="edit-price" className="mb-2 block">
-                      Price per {editingTransaction.unit || "unit"}
+                      Price per {editingTransaction.unit}
                     </Label>
                     <div className="relative">
                       <Input
@@ -1731,7 +1672,7 @@ export default function InventorySystem() {
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
                         ₹
                       </div>
-                      {editingTransaction.price && editingTransaction.quantity > 0 && (
+                      {editingTransaction.price && (
                         <div className="mt-1 text-sm text-gray-600">
                           Total cost: ₹{(editingTransaction.quantity * editingTransaction.price).toFixed(2)}
                         </div>
@@ -1747,9 +1688,9 @@ export default function InventorySystem() {
                 <RadioGroup
                   id="edit-transaction-type"
                   value={editingTransaction.transactionType}
-                  onValueChange={(
-                    value: "Depleting" | "Restocking", // Only allow these for direct edit
-                  ) => setEditingTransaction({ ...editingTransaction, transactionType: value })}
+                  onValueChange={(value: "Depleting" | "Restocking") =>
+                    setEditingTransaction({ ...editingTransaction, transactionType: value })
+                  }
                   className="flex flex-col sm:flex-row gap-4"
                 >
                   <div className="flex items-center space-x-3">
@@ -1795,7 +1736,7 @@ export default function InventorySystem() {
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this transaction? This action will be logged and inventory recalculated.
+              Are you sure you want to delete this transaction? This will update inventory levels accordingly.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-6 gap-3 flex-col sm:flex-row">
@@ -1807,7 +1748,7 @@ export default function InventorySystem() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteTransaction} className="w-full sm:w-auto h-11">
-              Delete Transaction
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1817,9 +1758,7 @@ export default function InventorySystem() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New Inventory Item</DialogTitle>
-            <DialogDescription>
-              Create a new item to track in your inventory. It will appear in item lists after being added.
-            </DialogDescription>
+            <DialogDescription>Create a new item to track in your inventory.</DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-4">
             <div>
@@ -1830,7 +1769,7 @@ export default function InventorySystem() {
                 id="new-item-name"
                 value={newItem.name}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                placeholder="Enter unique item name"
+                placeholder="Enter item name"
                 className="h-12"
               />
             </div>
@@ -1847,8 +1786,6 @@ export default function InventorySystem() {
                   <SelectItem value="L">L</SelectItem>
                   <SelectItem value="pcs">pcs</SelectItem>
                   <SelectItem value="bags">bags</SelectItem>
-                  <SelectItem value="units">units</SelectItem>
-                  {/* Add more common units */}
                 </SelectContent>
               </Select>
             </div>
@@ -1861,7 +1798,7 @@ export default function InventorySystem() {
                 type="number"
                 value={newItem.quantity}
                 onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                placeholder="Enter initial quantity (e.g., 0)"
+                placeholder="Enter initial quantity"
                 className="h-12"
               />
             </div>
@@ -1880,18 +1817,11 @@ export default function InventorySystem() {
       <Dialog open={isInventoryEditDialogOpen} onOpenChange={setIsInventoryEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Inventory Item Details</DialogTitle>
-            <DialogDescription>
-              Update name, quantity, or unit. Changes are logged as transactions and inventory is recalculated.
-            </DialogDescription>
+            <DialogTitle>Edit Inventory Item</DialogTitle>
+            <DialogDescription>Update the name, quantity and unit for this inventory item.</DialogDescription>
           </DialogHeader>
           {editingInventoryItem && (
             <div className="space-y-5 py-4">
-              <div>
-                <Label className="mb-2 block text-sm text-gray-600">
-                  Original Name: {editingInventoryItem.originalName}
-                </Label>
-              </div>
               <div>
                 <Label htmlFor="edit-inventory-name" className="mb-2 block">
                   Item Name
@@ -1901,7 +1831,6 @@ export default function InventorySystem() {
                   value={editingInventoryItem.name}
                   onChange={(e) => setEditingInventoryItem({ ...editingInventoryItem, name: e.target.value })}
                   className="h-12"
-                  placeholder="Enter new name if changing"
                 />
               </div>
               <div>
@@ -1934,7 +1863,6 @@ export default function InventorySystem() {
                     <SelectItem value="L">L</SelectItem>
                     <SelectItem value="pcs">pcs</SelectItem>
                     <SelectItem value="bags">bags</SelectItem>
-                    <SelectItem value="units">units</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from "react"
 import type { LaborDeployment, LaborEntry } from "@/app/api/labor/route"
 import { toast } from "@/components/ui/use-toast"
 
-export type { LaborDeployment, LaborEntry }
-
 export function useLaborData() {
   const [deployments, setDeployments] = useState<LaborDeployment[]>([])
   const [loading, setLoading] = useState(true)
@@ -13,18 +11,21 @@ export function useLaborData() {
 
   const fetchDeployments = useCallback(async () => {
     setLoading(true)
-    setError(null)
     try {
       const response = await fetch("/api/labor")
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to fetch labor deployments. Status: ${response.status}`)
+        throw new Error("Failed to fetch labor deployments.")
       }
       const data = await response.json()
       setDeployments(data.deployments || [])
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred while fetching deployments."
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
       setError(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -39,10 +40,8 @@ export function useLaborData() {
     reference: string
     laborEntries: LaborEntry[]
     user: string
-    date: string // User-selected date
     notes?: string
   }) => {
-    setLoading(true)
     try {
       const response = await fetch("/api/labor", {
         method: "POST",
@@ -51,7 +50,7 @@ export function useLaborData() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorData = await response.json()
         throw new Error(errorData.error || "Failed to record labor deployment.")
       }
 
@@ -70,84 +69,8 @@ export function useLaborData() {
         variant: "destructive",
       })
       return false
-    } finally {
-      setLoading(false)
     }
   }
 
-  const updateDeployment = async (deploymentId: string, deploymentData: Partial<Omit<LaborDeployment, "id">>) => {
-    setLoading(true)
-    try {
-      const response = await fetch(`/api/labor`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: deploymentId, ...deploymentData }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to update labor deployment.")
-      }
-
-      await fetchDeployments() // Refresh data
-      toast({
-        title: "Success",
-        description: "Labor deployment updated successfully.",
-      })
-      return true
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
-      setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      })
-      return false
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const deleteDeployment = async (deploymentId: string) => {
-    setLoading(true)
-    try {
-      const response = await fetch(`/api/labor?id=${deploymentId}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to delete labor deployment.")
-      }
-
-      await fetchDeployments() // Refresh data
-      toast({
-        title: "Success",
-        description: "Labor deployment deleted successfully.",
-      })
-      return true
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
-      setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      })
-      return false
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return {
-    deployments,
-    loading,
-    error,
-    addDeployment,
-    updateDeployment,
-    deleteDeployment,
-    refreshDeployments: fetchDeployments,
-  }
+  return { deployments, loading, error, addDeployment, refreshDeployments: fetchDeployments }
 }
