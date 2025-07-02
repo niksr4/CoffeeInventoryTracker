@@ -1,17 +1,21 @@
 "use client"
 
-import type React from "react"
-import { useState, useMemo } from "react"
-import { useAuth } from "@/hooks/use-auth"
-import { useLaborData, type LaborEntry } from "@/hooks/use-labor-data"
+import { useState, useEffect, type FormEvent } from "react"
+import { useLaborData, type LaborDeployment, type LaborEntry } from "@/hooks/use-labor-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Check, Search, Users, Download, PlusCircle, XCircle, MessageSquare } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "@/hooks/use-toast"
+import { Plus, Trash2, Download } from "lucide-react"
 
-const laborCodeMap: { [key: string]: string } = {
+/* -------------------------------------------------------------------------- */
+/*                               LABOUR CODES                                 */
+/* -------------------------------------------------------------------------- */
+
+const laborCodes: Record<string, string> = {
   "101a": "Writer Wage & Benefits",
   "101b": "Supervisor",
   "102": "Provident Fund, Insurance",
@@ -27,7 +31,7 @@ const laborCodeMap: { [key: string]: string } = {
   "112": "Vehicle Running & Maint",
   "113": "Electricity",
   "115": "Machinery Maintenance",
-  "116": "Land",
+  "116": "Land Tax",
   "117": "Maint Build, Roads, Yard",
   "118": "Weather Protectives",
   "119": "Cattle Expenses",
@@ -40,7 +44,7 @@ const laborCodeMap: { [key: string]: string } = {
   "133": "Arabica Borer Tracing",
   "134": "Arabica Shade Work",
   "135": "Arabica, Cost Lime, Manure",
-  "136": "Arabica Lime, Manuring",
+  "136": "Arabica Manuring",
   "137": "Arabica Spraying",
   "138": "Arabica Fence",
   "139": "Arabica Supplies, Upkeep",
@@ -90,389 +94,232 @@ const laborCodeMap: { [key: string]: string } = {
   "245": "Organic Compost Manure",
 }
 
-const formatDate = (dateString: string) => {
-  try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
-    return new Intl.DateTimeFormat("en-GB", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }).format(date)
-  } catch (error) {
-    return dateString
-  }
-}
+/* -------------------------------------------------------------------------- */
+/*                              HELPER FUNCTIONS                              */
+/* -------------------------------------------------------------------------- */
 
-type FormLaborEntry = {
-  laborCount: string
-  costPerLabor: string
-}
+const formatDateForQIF = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`
 
-const CURRENT_YEAR = new Date().getFullYear()
-const IS_PRESET_YEAR = CURRENT_YEAR === 2025
+/* -------------------------------------------------------------------------- */
+/*                            LABOUR DEPLOYMENT TAB                           */
+/* -------------------------------------------------------------------------- */
 
-const getInitialCostForGroup = (index: number): string => {
-  if (IS_PRESET_YEAR) {
-    if (index === 0) return "475"
-    if (index === 1) return "450"
-  }
-  return "0"
-}
-
-export default function LaborDeploymentTab() {
-  const { user, isAdmin } = useAuth()
-  const { deployments, loading, addDeployment } = useLaborData()
+function LaborDeploymentTab() {
+  const { deployments, addDeployment, loading } = useLaborData()
 
   const [code, setCode] = useState("")
-  const [reference, setReference] = useState("")
-  const [laborEntries, setLaborEntries] = useState<FormLaborEntry[]>([
-    { laborCount: "", costPerLabor: getInitialCostForGroup(0) },
-  ])
+  const [description, setDescription] = useState("")
+  const [entries, setEntries] = useState<Omit<LaborEntry, "id">[]>([])
   const [notes, setNotes] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [exportStartDate, setExportStartDate] = useState<string>("")
-  const [exportEndDate, setExportEndDate] = useState<string>("")
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newCode = e.target.value
-    setCode(newCode)
-    setReference(laborCodeMap[newCode] || "")
-  }
+  /* ----- auto-update description on code change -------------------------- */
+  useEffect(() => {
+    setDescription(laborCodes[code] ?? "Custom code")
+  }, [code])
 
-  const handleLaborEntryChange = (index: number, field: keyof FormLaborEntry, value: string) => {
-    const updatedEntries = [...laborEntries]
-    updatedEntries[index][field] = value
-    setLaborEntries(updatedEntries)
-  }
+  /* ------------------------------ handlers ------------------------------- */
 
-  const addLaborEntryField = () => {
-    const newEntryIndex = laborEntries.length
-    setLaborEntries([...laborEntries, { laborCount: "", costPerLabor: getInitialCostForGroup(newEntryIndex) }])
-  }
+  const addHfLaborRow = () => setEntries((e) => [...e, { laborCount: 0, costPerLabor: 475 }])
+  const addOutsideLaborRow = () => setEntries((e) => [...e, { laborCount: 0, costPerLabor: 450 }])
 
-  const removeLaborEntryField = (index: number) => {
-    if (laborEntries.length > 1) {
-      const updatedEntries = laborEntries.filter((_, i) => i !== index)
-      setLaborEntries(updatedEntries)
-    }
-  }
+  const handleRemoveRow = (idx: number) => setEntries((e) => e.filter((_, i) => i !== idx))
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!code || !reference || !user || laborEntries.some((entry) => !entry.laborCount)) {
-      alert("Please fill in Code, Reference, and Number of Laborers for all entries.")
+  const handleEntryChange = (idx: number, key: keyof Omit<LaborEntry, "id">, value: string) =>
+    setEntries((e) => e.map((row, i) => (i === idx ? { ...row, [key]: Number(value) } : row)))
+
+  const onSubmit = async (evt: FormEvent) => {
+    evt.preventDefault()
+
+    if (!code || entries.length === 0 || entries.some((e) => e.laborCount <= 0 || e.costPerLabor <= 0)) {
+      toast({
+        title: "Invalid input",
+        description: "Please supply a labour code and valid numbers for all rows.",
+        variant: "destructive",
+      })
       return
     }
 
-    const numericLaborEntries: LaborEntry[] = laborEntries
-      .map((entry) => ({
-        laborCount: Number(entry.laborCount),
-        costPerLabor: Number(entry.costPerLabor || "0"),
-      }))
-      .filter((entry) => entry.laborCount > 0)
-
-    if (numericLaborEntries.length === 0) {
-      alert("Please provide a valid number of laborers for at least one entry.")
-      return
-    }
-
-    const success = await addDeployment({
-      code,
-      reference,
-      laborEntries: numericLaborEntries,
-      user: user.username,
+    const deployment: Omit<LaborDeployment, "id" | "totalCost"> = {
+      date: new Date().toISOString(),
+      reference: code,
+      laborEntries: entries.map((le) => ({
+        ...le,
+        id: crypto.randomUUID(),
+      })),
       notes,
-    })
+      user: "admin",
+    }
 
-    if (success) {
+    const ok = await addDeployment(deployment)
+    toast({
+      title: ok ? "Saved" : "Error",
+      description: ok ? "Deployment recorded." : "Could not record deployment.",
+      variant: ok ? "default" : "destructive",
+    })
+    if (ok) {
       setCode("")
-      setReference("")
-      setLaborEntries([{ laborCount: "", costPerLabor: getInitialCostForGroup(0) }])
+      setEntries([])
       setNotes("")
     }
   }
 
-  const totalCost = useMemo(() => {
-    return laborEntries
-      .reduce((sum, entry) => {
-        const laborCount = Number(entry.laborCount)
-        const costPerLabor = Number(entry.costPerLabor || "0")
-        if (!isNaN(laborCount) && !isNaN(costPerLabor) && laborCount > 0) {
-          return sum + laborCount * costPerLabor
-        }
-        return sum
-      }, 0)
-      .toFixed(2)
-  }, [laborEntries])
-
-  const filteredDeployments = useMemo(() => {
-    let deploymentsToFilter = deployments
-    if (!isAdmin) {
-      deploymentsToFilter = deployments.filter((d) => d.user === user?.username)
-    }
-    if (!searchTerm) {
-      return deploymentsToFilter
-    }
-    const lowercasedFilter = searchTerm.toLowerCase()
-    return deploymentsToFilter.filter(
-      (d) =>
-        d.code.toLowerCase().includes(lowercasedFilter) ||
-        d.reference.toLowerCase().includes(lowercasedFilter) ||
-        d.user.toLowerCase().includes(lowercasedFilter) ||
-        (d.notes && d.notes.toLowerCase().includes(lowercasedFilter)),
-    )
-  }, [deployments, searchTerm, isAdmin, user?.username])
-
-  const exportToCSV = () => {
-    if (!isAdmin || filteredDeployments.length === 0) return
-
-    let deploymentsToExport = filteredDeployments
-
-    if (exportStartDate && exportEndDate) {
-      const startDate = new Date(exportStartDate)
-      startDate.setHours(0, 0, 0, 0)
-      const endDate = new Date(exportEndDate)
-      endDate.setHours(23, 59, 59, 999)
-
-      if (startDate > endDate) {
-        alert("Start date cannot be after end date.")
-        return
-      }
-
-      deploymentsToExport = deploymentsToExport.filter((d) => {
-        const deploymentDate = new Date(d.date)
-        return deploymentDate >= startDate && deploymentDate <= endDate
-      })
-    } else if (exportStartDate || exportEndDate) {
-      alert("Please select both a start and end date for the range, or leave both empty to export all.")
-      return
-    }
-
-    if (deploymentsToExport.length === 0) {
-      alert("No deployments found for the selected date range.")
-      return
-    }
-
-    const headers = ["Date", "Reference", "Labor Details", "Total Cost (₹)", "Notes", "Recorded By"]
-    const rows = deploymentsToExport.map((d) => {
-      const laborDetails = d.laborEntries.map((le) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`).join("; ")
-      const notes = d.notes ? `"${d.notes.replace(/"/g, '""')}"` : ""
-      return [formatDate(d.date), d.reference, laborDetails, d.totalCost.toFixed(2), notes, d.user]
+  /* ----------------------------- export QIF ------------------------------ */
+  const exportToQIF = () => {
+    let qif = "!Type:Bank\n"
+    deployments.forEach((d) => {
+      const when = new Date(d.date)
+      qif += `D${formatDateForQIF(when)}\n`
+      qif += `T-${d.totalCost.toFixed(2)}\n`
+      qif += `P${laborCodes[d.reference] ?? d.reference}\n`
+      if (d.notes) qif += `M${d.notes}\n`
+      qif += "^\n"
     })
 
-    let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"
-    csvContent += rows.map((e) => e.join(",")).join("\n")
-
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `labor_deployment_history_${exportStartDate}_to_${exportEndDate}.csv`)
-    document.body.appendChild(link)
+    const blob = new Blob([qif], { type: "application/qif" })
+    const url = URL.createObjectURL(blob)
+    const link = Object.assign(document.createElement("a"), {
+      href: url,
+      download: `labor_${new Date().toISOString().slice(0, 10)}.qif`,
+    })
     link.click()
-    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
+  /* ------------------------------ RENDER --------------------------------- */
+
   return (
-    <div className="grid md:grid-cols-2 gap-8">
+    <div className="space-y-6">
+      {/* ------------------------------------------------------------------ */}
+      {/* ENTRY CARD                                                         */}
+      {/* ------------------------------------------------------------------ */}
       <Card>
         <CardHeader>
-          <CardTitle>Record Labor Deployment</CardTitle>
-          <CardDescription>
-            Enter the details for the labor deployed. Use '+' to add multiple labor groups for the same task.
-            {IS_PRESET_YEAR && " Costs for Group 1 (475₹) and Group 2 (450₹) are pre-filled for this year."}
-          </CardDescription>
+          <CardTitle>Add Labor Deployment</CardTitle>
+          <CardDescription>Record a new labor entry.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Code</Label>
-                <Input
-                  id="code"
-                  name="code"
-                  value={code}
-                  onChange={handleCodeChange}
-                  placeholder="e.g., 101a"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reference">Reference</Label>
-                <Input id="reference" name="reference" value={reference} readOnly placeholder="Auto-filled" />
-              </div>
+          <form className="space-y-4" onSubmit={onSubmit}>
+            <div>
+              <Label htmlFor="code">Labour Code</Label>
+              <Input id="code" placeholder="e.g. 152" value={code} onChange={(e) => setCode(e.target.value.trim())} />
+              <p className="mt-1 h-5 text-sm text-muted-foreground">{code && description}</p>
             </div>
 
-            {laborEntries.map((entry, index) => (
-              <div key={index} className="space-y-3 p-3 border rounded-md relative">
-                {laborEntries.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 text-red-500 hover:text-red-700"
-                    onClick={() => removeLaborEntryField(index)}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    <span className="sr-only">Remove labor entry</span>
-                  </Button>
-                )}
-                <p className="text-sm font-medium text-gray-600">Labor Group {index + 1}</p>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor={`laborCount-${index}`}>Number of Laborers</Label>
-                    <Input
-                      id={`laborCount-${index}`}
-                      name={`laborCount-${index}`}
-                      type="number"
-                      value={entry.laborCount}
-                      onChange={(e) => handleLaborEntryChange(index, "laborCount", e.target.value)}
-                      placeholder="e.g., 10"
-                      required
-                      min="1"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`costPerLabor-${index}`}>Cost per Laborer (₹)</Label>
-                    <Input
-                      id={`costPerLabor-${index}`}
-                      name={`costPerLabor-${index}`}
-                      type="number"
-                      value={entry.costPerLabor}
-                      onChange={(e) => handleLaborEntryChange(index, "costPerLabor", e.target.value)}
-                      placeholder={
-                        getInitialCostForGroup(index) === "0" ? "0" : `e.g., ${getInitialCostForGroup(index)}`
-                      }
-                      min="0"
-                    />
-                  </div>
+            {/* dynamic rows ------------------------------------------------ */}
+            {entries.map((row, i) => (
+              <div key={i} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Label htmlFor={`count-${i}`}># Labourers</Label>
+                  <Input
+                    id={`count-${i}`}
+                    type="number"
+                    min={0}
+                    value={row.laborCount || ""}
+                    onChange={(e) => handleEntryChange(i, "laborCount", e.target.value)}
+                  />
                 </div>
+                <div className="flex-1">
+                  <Label htmlFor={`cost-${i}`}>Cost per Labour (₹)</Label>
+                  <Input
+                    id={`cost-${i}`}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={row.costPerLabor || ""}
+                    onChange={(e) => handleEntryChange(i, "costPerLabor", e.target.value)}
+                  />
+                </div>
+                <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveRow(i)}>
+                  <Trash2 className="size-4" />
+                </Button>
               </div>
             ))}
 
-            <Button type="button" variant="outline" onClick={addLaborEntryField} className="w-full bg-transparent">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Labor Group
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={addHfLaborRow}>
+                <Plus className="mr-2 size-4" />
+                Add HF Labor (₹475)
+              </Button>
+              <Button type="button" variant="outline" onClick={addOutsideLaborRow}>
+                <Plus className="mr-2 size-4" />
+                Add Outside Labor (₹450)
+              </Button>
+            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
+            <div>
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
+                placeholder="Optional notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any relevant notes about this deployment..."
-                className="min-h-[80px]"
               />
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-md text-center">
-              <p className="text-sm text-gray-600">Total Cost</p>
-              <p className="text-2xl font-bold text-green-700">₹{totalCost}</p>
-            </div>
-            <Button type="submit" className="w-full bg-green-700 hover:bg-green-800">
-              <Check className="mr-2 h-4 w-4" /> Submit Deployment
+            <Button className="w-full" disabled={loading}>
+              {loading ? "Saving…" : "Record Deployment"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* HISTORY CARD                                                       */}
+      {/* ------------------------------------------------------------------ */}
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Deployment History</CardTitle>
-              <CardDescription>
-                {isAdmin ? "Viewing all labor deployments." : "Viewing your labor deployments."}
-              </CardDescription>
-            </div>
-            {isAdmin && (
-              <div className="flex flex-col sm:flex-row items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="date"
-                    value={exportStartDate}
-                    onChange={(e) => setExportStartDate(e.target.value)}
-                    className="h-9 text-sm"
-                    aria-label="Export start date"
-                  />
-                  <span className="text-sm">to</span>
-                  <Input
-                    type="date"
-                    value={exportEndDate}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                    className="h-9 text-sm"
-                    aria-label="Export end date"
-                  />
-                </div>
-                <Button
-                  onClick={exportToCSV}
-                  variant="outline"
-                  size="sm"
-                  disabled={filteredDeployments.length === 0}
-                  className="w-full sm:w-auto bg-transparent"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-              </div>
-            )}
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Deployment History</CardTitle>
+            <CardDescription>Recent labour deployments</CardDescription>
           </div>
+          <Button variant="outline" onClick={exportToQIF}>
+            <Download className="mr-2 size-4" />
+            Export QIF
+          </Button>
         </CardHeader>
         <CardContent>
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by code, reference, user, or notes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {loading ? (
-              <p>Loading history...</p>
-            ) : filteredDeployments.length > 0 ? (
-              filteredDeployments.map((d) => (
-                <div key={d.id} className="p-4 border rounded-md hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold">
-                        {d.code} - {d.reference}
-                      </p>
-                      <p className="text-sm text-gray-500">{formatDate(d.date)}</p>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {d.laborEntries.map((entry, idx) => (
-                          <span key={idx} className="block">
-                            {entry.laborCount} laborers @ ₹{entry.costPerLabor.toFixed(2)} each
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-green-700">₹{d.totalCost.toFixed(2)}</p>
-                    </div>
-                  </div>
-                  {d.notes && (
-                    <div className="mt-2 pt-2 border-t text-sm text-gray-600 flex items-start gap-2">
-                      <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <p className="whitespace-pre-wrap">{d.notes}</p>
-                    </div>
-                  )}
-                  {isAdmin && (
-                    <div className={`mt-2 pt-2 ${d.notes ? "" : "border-t"}`}>
-                      <p className="text-xs text-gray-500 flex items-center">
-                        <Users className="h-3 w-3 mr-1.5" />
-                        Recorded by: {d.user}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">No deployments found.</div>
-            )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>HF Labor Details</TableHead>
+                  <TableHead>Outside Labor Details</TableHead>
+                  <TableHead>Total Expenditure (₹)</TableHead>
+                  <TableHead>Notes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {deployments.map((d) => {
+                  const hfLabor = d.laborEntries
+                    .filter((le) => le.costPerLabor === 475)
+                    .map((le) => `${le.laborCount} @ ₹${le.costPerLabor.toFixed(2)}`)
+                    .join(", ")
+
+                  const outsideLabor = d.laborEntries
+                    .filter((le) => le.costPerLabor === 450)
+                    .map((le) => `${le.laborCount} @ ₹${le.costPerLabor.toFixed(2)}`)
+                    .join(", ")
+
+                  return (
+                    <TableRow key={d.id}>
+                      <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{laborCodes[d.reference] ?? d.reference}</TableCell>
+                      <TableCell>{hfLabor}</TableCell>
+                      <TableCell>{outsideLabor}</TableCell>
+                      <TableCell>₹{d.totalCost.toFixed(2)}</TableCell>
+                      <TableCell>{d.notes}</TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
     </div>
   )
 }
+
+export { LaborDeploymentTab }

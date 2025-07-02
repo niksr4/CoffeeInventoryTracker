@@ -1,122 +1,116 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, TrendingUp, Package, Calculator } from "lucide-react"
-import type { Transaction, InventoryItem } from "@/lib/storage"
+import { TrendingUp, Package, AlertTriangle, DollarSign, Users } from "lucide-react"
 
-interface InventoryValueSummaryProps {
-  inventory: InventoryItem[]
-  transactions: Transaction[]
+type InventoryItem = {
+  name: string
+  quantity: number
+  unit: string
+  price?: number
 }
 
-export default function InventoryValueSummary({ inventory, transactions }: InventoryValueSummaryProps) {
-  // Calculate inventory value using FIFO (First In, First Out) method
-  const calculateInventoryValue = () => {
-    const itemValues: Record<string, { quantity: number; totalValue: number; avgPrice: number }> = {}
+type Transaction = {
+  id: string
+  itemType: string
+  quantity: number
+  transactionType: "Depleting" | "Restocking" | "Item Deleted" | "Unit Change" | "Price Update"
+  notes: string
+  date: string
+  user: string
+  unit: string
+  price?: number
+  totalCost?: number
+}
 
-    // Process transactions chronologically (oldest first)
-    const chronologicalTransactions = [...transactions].reverse()
+interface InventoryValueSummaryProps {
+  items: InventoryItem[]
+  transactions: Transaction[]
+  totalLaborExpenses: number
+}
 
-    for (const transaction of chronologicalTransactions) {
-      const { itemType, quantity, transactionType, price, totalCost } = transaction
+export function InventoryValueSummary({ items, transactions, totalLaborExpenses }: InventoryValueSummaryProps) {
+  // Calculate total inventory value
+  const totalValue = items.reduce((sum, item) => {
+    return sum + (item.price || 0) * item.quantity
+  }, 0)
 
-      if (!itemValues[itemType]) {
-        itemValues[itemType] = { quantity: 0, totalValue: 0, avgPrice: 0 }
-      }
+  // Count low stock items (quantity < 10)
+  const lowStockItems = items.filter((item) => item.quantity > 0 && item.quantity < 10).length
 
-      if (transactionType === "Restocking" && price && totalCost) {
-        // Add to inventory with cost
-        itemValues[itemType].quantity += quantity
-        itemValues[itemType].totalValue += totalCost
-        itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
-      } else if (transactionType === "Depleting") {
-        // Remove from inventory (FIFO - use average price)
-        const depletedValue = quantity * (itemValues[itemType].avgPrice || 0)
-        itemValues[itemType].quantity = Math.max(0, itemValues[itemType].quantity - quantity)
-        itemValues[itemType].totalValue = Math.max(0, itemValues[itemType].totalValue - depletedValue)
+  // Count out of stock items
+  const outOfStockItems = items.filter((item) => item.quantity === 0).length
 
-        // Recalculate average price if quantity > 0
-        if (itemValues[itemType].quantity > 0) {
-          itemValues[itemType].avgPrice = itemValues[itemType].totalValue / itemValues[itemType].quantity
-        } else {
-          itemValues[itemType].avgPrice = 0
-          itemValues[itemType].totalValue = 0
-        }
-      }
+  // Count recent transactions (last 7 days)
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+  const recentTransactions = transactions.filter((transaction) => {
+    try {
+      // Parse the date string (format: "DD/MM/YYYY HH:MM")
+      const [datePart] = transaction.date.split(" ")
+      const [day, month, year] = datePart.split("/")
+      const transactionDate = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+      return transactionDate >= sevenDaysAgo
+    } catch {
+      return false
     }
-
-    return itemValues
-  }
-
-  const itemValues = calculateInventoryValue()
-
-  // Calculate totals
-  const totalInventoryValue = Object.values(itemValues).reduce((sum, item) => sum + item.totalValue, 0)
-  const totalRestockingCost = transactions
-    .filter((t) => t.transactionType === "Restocking" && t.totalCost)
-    .reduce((sum, t) => sum + (t.totalCost || 0), 0)
-
-  const itemsWithValue = Object.keys(itemValues).filter((key) => itemValues[key].totalValue > 0).length
-
-  // Recent restocking activity (last 30 days)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-  const recentRestockingCost = transactions
-    .filter((t) => {
-      if (t.transactionType !== "Restocking" || !t.totalCost) return false
-      try {
-        const transactionDate = new Date(t.date)
-        return transactionDate >= thirtyDaysAgo
-      } catch {
-        return false
-      }
-    })
-    .reduce((sum, t) => sum + (t.totalCost || 0), 0)
+  }).length
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Current Inventory Value</CardTitle>
+          <CardTitle className="text-sm font-medium">Total Inventory Value</CardTitle>
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">₹{totalInventoryValue.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">Based on FIFO costing method</p>
+          <div className="text-2xl font-bold">₹{totalValue.toFixed(2)}</div>
+          <p className="text-xs text-muted-foreground">Across {items.length} items</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Investment</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Total Labor Expenses</CardTitle>
+          <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">₹{totalRestockingCost.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">All-time restocking costs</p>
+          <div className="text-2xl font-bold">₹{totalLaborExpenses.toFixed(2)}</div>
+          <p className="text-xs text-muted-foreground">All time expenses</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Items with Value</CardTitle>
+          <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
+          <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{lowStockItems}</div>
+          <p className="text-xs text-muted-foreground">Items with {"<"} 10 units</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
           <Package className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{itemsWithValue}</div>
-          <p className="text-xs text-muted-foreground">Out of {inventory.length} total items</p>
+          <div className="text-2xl font-bold">{outOfStockItems}</div>
+          <p className="text-xs text-muted-foreground">Items with 0 quantity</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Recent Investment</CardTitle>
-          <Calculator className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+          <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">₹{recentRestockingCost.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">Last 30 days</p>
+          <div className="text-2xl font-bold">{recentTransactions}</div>
+          <p className="text-xs text-muted-foreground">Transactions (7 days)</p>
         </CardContent>
       </Card>
     </div>

@@ -48,34 +48,20 @@ export function useInventoryData() {
       // Update Redis connection status
       setRedisConnected(data.redis_connected)
 
-      // Check if the API data is newer than our local data
-      const apiTimestamp = data.timestamp || 0
-      const localTimestamp = lastUpdateTimestampRef.current
+      // Always update from the API to ensure the frontend reflects the source of truth (Redis).
+      // The previous timestamp comparison logic was preventing updates.
+      setInventory(data.inventory || [])
+      setTransactions(data.transactions || [])
 
-      console.log("Comparing timestamps:", {
-        api: new Date(apiTimestamp).toISOString(),
-        local: new Date(localTimestamp).toISOString(),
-        apiIsNewer: apiTimestamp > localTimestamp,
+      inventoryRef.current = data.inventory || []
+      transactionsRef.current = data.transactions || []
+
+      lastUpdateTimestampRef.current = data.timestamp || 0
+
+      console.log("Updated with API data:", {
+        inventoryCount: data.inventory?.length || 0,
+        transactionsCount: data.transactions?.length || 0,
       })
-
-      // Only update from API if it's newer or we're forcing a fetch
-      if (apiTimestamp > localTimestamp || forceFetch) {
-        // Update our state and refs with the API data
-        setInventory(data.inventory || [])
-        setTransactions(data.transactions || [])
-
-        inventoryRef.current = data.inventory || []
-        transactionsRef.current = data.transactions || []
-
-        lastUpdateTimestampRef.current = apiTimestamp
-
-        console.log("Updated with API data:", {
-          inventoryCount: data.inventory?.length || 0,
-          transactionsCount: data.transactions?.length || 0,
-        })
-      } else {
-        console.log("Local data is newer, keeping local data")
-      }
 
       setLastSync(new Date())
       setError(null)
@@ -226,7 +212,7 @@ export function useInventoryData() {
 
   // Initial data fetch
   useEffect(() => {
-    fetchData()
+    fetchData(true) // Force fetch on initial load
   }, [fetchData])
 
   // Set up polling for updates (only if enabled)
