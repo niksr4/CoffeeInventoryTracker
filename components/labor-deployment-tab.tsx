@@ -12,20 +12,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Check, Search, Users, Download, PlusCircle, XCircle, MessageSquare } from "lucide-react"
 
 const laborCodeMap: { [key: string]: string } = {
-  "101": "Salaries And Allowances",
+  "101a": "Writer Wage & Benefits",
+  "101b": "Supervisor",
   "102": "Provident Fund, Insurance",
   "103": "Bonus Staff And Labour",
   "104": "Gratuity",
   "105": "Bungalow Servants",
   "106": "Leave With Wages",
-  "107": "Sickness Benifit",
+  "107": "Sickness Benefit",
   "108": "Medical Exp Staff, Labour",
   "109": "Labour Welfare",
   "110": "Postage, Stationary",
   "111": "Watchman Estate, Drying Yard",
   "112": "Vehicle Running & Maint",
   "113": "Electricity",
-  "115": "Machinary Maintenance",
+  "115": "Machinery Maintenance",
   "116": "Land",
   "117": "Maint Build, Roads, Yard",
   "118": "Weather Protectives",
@@ -46,25 +47,29 @@ const laborCodeMap: { [key: string]: string } = {
   "140": "Arabica Harvesting",
   "141": "Arabica Processing & Drying",
   "143": "Arabica Irrigation",
-  "148": "Kgs. @Rs.190.20",
   "150": "Drip line Maintenance",
   "151": "Robusta Weeding",
   "152": "Robusta Pruning, Handling",
-  "153": "Pest Control, Berry Borer,",
+  "153": "Pest Control, Berry Borer",
   "154": "Robusta Shade Temp, Perm.",
   "155": "Robusta, Cost Lime, Manure",
   "156": "Robusta Liming, Manuring",
   "157": "Robusta Spray",
   "158": "Robusta Fence Maint",
   "159": "Supplies Planting, Upkeep",
-  "160": "Robust Harvesting",
+  "160": "Robusta Harvesting",
   "161": "Robusta Processing & Drying",
   "162": "Robusta Curing",
   "163": "Robusta Irrigation",
   "181": "Pepper Planting, Upkeep",
-  "200": "Areecanut composting",
+  "182": "Pepper Manuring",
+  "183": "Pepper Pest & Disease Cont.",
+  "184": "Pepper Harvest, Process, Pack",
+  "185": "Compost Preparation",
+  "191": "Paddy Cultivation",
+  "200": "Arecanut Composting",
   "201": "Arecanut",
-  "202": "- Orange",
+  "202": "Orange",
   "204": "Ginger",
   "206": "Other Crops",
   "210": "Nursery",
@@ -74,9 +79,11 @@ const laborCodeMap: { [key: string]: string } = {
   "214": "Pitting",
   "215": "New Planting, Clearing",
   "216": "Mulching & Staking",
+  "217": "Cover Digging",
+  "218": "Sheltering",
   "219": "Lime",
   "220": "Weeding - (New Clearing)",
-  "221": "Pests & Diseses",
+  "221": "Pests & Diseases",
   "222": "Fence (New Clearing)",
   "232": "Lent",
   "233": "Capital Account",
@@ -285,7 +292,7 @@ export default function LaborDeploymentTab() {
                   name="code"
                   value={code}
                   onChange={handleCodeChange}
-                  placeholder="e.g., 101"
+                  placeholder="e.g., 101a"
                   required
                 />
               </div>
@@ -342,7 +349,7 @@ export default function LaborDeploymentTab() {
               </div>
             ))}
 
-            <Button type="button" variant="outline" onClick={addLaborEntryField} className="w-full">
+            <Button type="button" variant="outline" onClick={addLaborEntryField} className="w-full bg-transparent">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Labor Group
             </Button>
 
@@ -401,7 +408,7 @@ export default function LaborDeploymentTab() {
                   variant="outline"
                   size="sm"
                   disabled={filteredDeployments.length === 0}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto bg-transparent"
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Export CSV
