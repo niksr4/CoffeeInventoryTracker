@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { useInventoryData } from "@/hooks/use-inventory-data"
 import { useLaborData } from "@/hooks/use-labor-data"
+import { useAuth } from "@/hooks/use-auth"
 import { InventoryValueSummary } from "./inventory-value-summary"
 import { LaborDeploymentTab } from "./labor-deployment-tab"
 
@@ -170,6 +171,7 @@ const escapeCsvField = (field: any): string => {
 
 /* ------------ component ------------- */
 export default function InventorySystem() {
+  const { isAdmin } = useAuth()
   const { inventory, transactions, loading, error, addTransaction, refreshData, redisConnected } = useInventoryData()
 
   /* --------------------- filter out deleted items --------------------- */
@@ -496,7 +498,13 @@ export default function InventorySystem() {
         </div>
       )}
 
-      <InventoryValueSummary items={items} transactions={transactions || []} totalLaborExpenses={totalLaborExpenses} />
+      {isAdmin && (
+        <InventoryValueSummary
+          items={items}
+          transactions={transactions || []}
+          totalLaborExpenses={totalLaborExpenses}
+        />
+      )}
 
       {/* ---------- main tabs ---------- */}
       <Tabs defaultValue="inventory">
