@@ -38,6 +38,7 @@ import {
   FileText,
   Coins,
 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Shared code map for both labor and consumables
 const expenditureCodeMap: { [key: string]: string } = {
@@ -73,7 +74,7 @@ const expenditureCodeMap: { [key: string]: string } = {
   "138": "Arabica Fence",
   "139": "Arabica Supplies, Upkeep",
   "140": "Arabica Harvesting",
-  "141": "Vehicle Running & Maint",
+  "141": "Arabica processing and drying",
   "143": "Arabica Irrigation",
   "150": "Drip line Maintenance",
   "151": "Robusta Weeding",
@@ -377,7 +378,7 @@ const LaborSection = () => {
                   </div>
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={addLaborEntryField} className="w-full">
+              <Button type="button" variant="outline" onClick={addLaborEntryField} className="w-full bg-transparent">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Outside Labour Group
               </Button>
             </div>
@@ -825,12 +826,15 @@ export default function AccountsPage() {
       | (ConsumableDeployment & { entryType: "Consumable"; totalCost: number })
     )[]
 
-    // Default sort by date, will be re-sorted for export if needed
     return allDeployments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [laborDeployments, consumableDeployments])
 
+  const grandTotal = useMemo(() => {
+    return combinedDeployments.reduce((total, deployment) => total + deployment.totalCost, 0)
+  }, [combinedDeployments])
+
   const getFilteredDeploymentsForExport = () => {
-    let deploymentsToExport = [...combinedDeployments] // Create a copy to sort
+    let deploymentsToExport = [...combinedDeployments]
     if (exportStartDate && exportEndDate) {
       const startDate = new Date(exportStartDate)
       startDate.setHours(0, 0, 0, 0)
@@ -867,10 +871,7 @@ export default function AccountsPage() {
     const deploymentsToExport = getFilteredDeploymentsForExport()
     if (!deploymentsToExport) return
 
-    // Sort by code, then by date (newest first)
     deploymentsToExport.sort((a, b) => {
-      if (a.code < b.code) return -1
-      if (a.code > b.code) return 1
       const dateA = new Date(a.date).getTime()
       const dateB = new Date(b.date).getTime()
       return dateB - dateA
@@ -918,7 +919,6 @@ export default function AccountsPage() {
     let csvContent = "data:text/csv;charset=utf-8," + headers.map(escapeCsvField).join(",") + "\n"
     csvContent += rows.map((row) => row.join(",")).join("\n")
 
-    // Calculate totals for summary section
     let totalHfLaborCount = 0,
       totalHfLaborCost = 0
     let totalOutsideLaborCount = 0,
@@ -946,10 +946,9 @@ export default function AccountsPage() {
         totalConsumablesCost += (d as ConsumableDeployment).amount
       }
     })
-    const grandTotal = totalHfLaborCost + totalOutsideLaborCost + totalConsumablesCost
+    const grandTotalForExport = totalHfLaborCost + totalOutsideLaborCost + totalConsumablesCost
 
-    // Add summary rows (HF, Outside, Consumables, Grand Total)
-    csvContent += "\n" // Blank line
+    csvContent += "\n"
     const summaryHeaders = ["", "", "", "Summary Category", "Count/Details", "", "Total (₹)", "", ""]
     csvContent += "\n" + summaryHeaders.map(escapeCsvField).join(",")
 
@@ -979,17 +978,16 @@ export default function AccountsPage() {
     csvContent += "\n" + outsideSummaryRow.map(escapeCsvField).join(",")
     const consumablesSummaryRow = ["", "", "", "Total Consumables", "", "", totalConsumablesCost.toFixed(2), "", ""]
     csvContent += "\n" + consumablesSummaryRow.map(escapeCsvField).join(",")
-    const totalRow = ["", "", "", "GRAND TOTAL", "", "", grandTotal.toFixed(2), "", ""]
+    const totalRow = ["", "", "", "GRAND TOTAL", "", "", grandTotalForExport.toFixed(2), "", ""]
     csvContent += "\n" + totalRow.map(escapeCsvField).join(",")
 
-    // Add Summary by Expenditure Code section
-    csvContent += "\n\n" // Two blank lines
-    csvContent += escapeCsvField("Summary by Expenditure Code") + ",,,\n" // Header for this section
+    csvContent += "\n\n"
+    csvContent += escapeCsvField("Summary by Expenditure Code") + ",,,\n"
     const codeSummaryHeaders = ["Code", "Reference", "Total Expenditure (₹)"]
     csvContent += codeSummaryHeaders.map(escapeCsvField).join(",") + "\n"
 
     Object.entries(totalsByCode)
-      .sort(([codeA], [codeB]) => codeA.localeCompare(codeB)) // Sort by code
+      .sort(([codeA], [codeB]) => codeA.localeCompare(codeB))
       .forEach(([code, totalAmount]) => {
         const reference = expenditureCodeMap[code] || "N/A"
         const codeRow = [escapeCsvField(code), escapeCsvField(reference), escapeCsvField(totalAmount.toFixed(2))]
@@ -1010,15 +1008,15 @@ export default function AccountsPage() {
     const deploymentsToExport = getFilteredDeploymentsForExport()
     if (!deploymentsToExport) return
 
-    let qifContent = "!Type:Bank\n" // Standard header for bank/cash expenses
+    let qifContent = "!Type:Bank\n"
 
     deploymentsToExport
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) // QIF often expects chronological
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .forEach((d) => {
         const date = formatDate(d.date, "qif")
         const amount = d.entryType === "Labor" ? d.totalCost : (d as ConsumableDeployment).amount
-        const payee = d.reference // Using the reference as payee
-        const category = `${d.code} ${d.reference}` // Expenditure code as category
+        const payee = d.reference
+        const category = `${d.code} ${d.reference}`
 
         let memo = ""
         if (d.entryType === "Labor" && d.laborEntries) {
@@ -1027,7 +1025,7 @@ export default function AccountsPage() {
             : ""
           const outsideDetail = d.laborEntries
             .slice(1)
-            .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`) // OS1, OS2, etc.
+            .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
             .join("; ")
 
           let laborDetails = ""
@@ -1045,16 +1043,15 @@ export default function AccountsPage() {
             memo = laborDetails
           }
         } else if (d.notes) {
-          // For consumables or labor entries without specific labor details but with notes
           memo = d.notes
         }
 
         qifContent += `D${date}\n`
-        qifContent += `T-${amount.toFixed(2)}\n` // Amount is negative for expenses
+        qifContent += `T-${amount.toFixed(2)}\n`
         qifContent += `P${payee}\n`
         qifContent += `L${category}\n`
         if (memo) qifContent += `M${memo}\n`
-        qifContent += "^\n" // End of transaction
+        qifContent += "^\n"
       })
 
     const encodedUri = encodeURI("data:application/qif;charset=utf-8," + qifContent)
@@ -1072,8 +1069,24 @@ export default function AccountsPage() {
       {isAdmin && (
         <Card>
           <CardHeader>
-            <CardTitle>Combined Accounts Export</CardTitle>
-            <CardDescription>Export both labor and consumable entries to a single CSV or QIF file.</CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Combined Accounts Export</CardTitle>
+                <CardDescription className="mt-1">
+                  Export both labor and consumable entries to a single CSV or QIF file.
+                </CardDescription>
+              </div>
+              <div className="text-right flex-shrink-0 pl-4">
+                <p className="text-sm font-medium text-muted-foreground">Grand Total</p>
+                {laborLoading || consumablesLoading ? (
+                  <Skeleton className="h-8 w-32 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold">
+                    ₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row items-center gap-2 flex-wrap">
             <Label htmlFor="exportStartDateCombined" className="text-sm font-medium">
@@ -1103,7 +1116,7 @@ export default function AccountsPage() {
               variant="outline"
               size="sm"
               disabled={combinedDeployments.length === 0 || laborLoading || consumablesLoading}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto bg-transparent"
             >
               <FileText className="mr-2 h-4 w-4" /> Export CSV
             </Button>
@@ -1112,7 +1125,7 @@ export default function AccountsPage() {
               variant="outline"
               size="sm"
               disabled={combinedDeployments.length === 0 || laborLoading || consumablesLoading}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto bg-transparent"
             >
               <Coins className="mr-2 h-4 w-4" /> Export QIF
             </Button>

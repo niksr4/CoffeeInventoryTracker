@@ -34,6 +34,7 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
 import { useInventoryData } from "@/hooks/use-inventory-data"
+import { useLaborData } from "@/hooks/use-labor-data"
 import {
   Dialog,
   DialogContent,
@@ -49,22 +50,40 @@ import AiAnalysisCharts from "@/components/ai-analysis-charts"
 import AccountsPage from "@/components/accounts-page"
 import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 
-// itemDefinitions is no longer the source of truth for item existence or names.
-// It might be used for suggesting units if needed, but Redis data is primary.
-const itemDefinitionsForUnitSuggestions = [
-  { name: "UREA", unit: "kg" },
-  { name: "MOP", unit: "kg" },
-  { name: "DAP", unit: "kg" },
-  // ... other items, primarily for their 'unit' property if needed as a suggestion
-  // For now, we will rely on units from Redis or allow manual unit entry.
-]
+// This helper function robustly parses "DD/MM/YYYY HH:MM" strings
+const parseCustomDateString = (dateString: string): Date | null => {
+  if (!dateString || typeof dateString !== "string") return null
+  const parts = dateString.split(" ")
+  const dateParts = parts[0].split("/")
+  const timeParts = parts[1] ? parts[1].split(":") : ["00", "00"]
+
+  if (dateParts.length !== 3) return null
+
+  const day = Number.parseInt(dateParts[0], 10)
+  const month = Number.parseInt(dateParts[1], 10) - 1 // JS months are 0-indexed
+  const year = Number.parseInt(dateParts[2], 10)
+  const hour = Number.parseInt(timeParts[0], 10)
+  const minute = Number.parseInt(timeParts[1], 10)
+
+  if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(hour) || isNaN(minute)) {
+    return null
+  }
+
+  const date = new Date(year, month, day, hour, minute)
+  // Final check to ensure the created date is valid (e.g., handles non-existent dates)
+  if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
+    return date
+  }
+  return null
+}
 
 const formatDate = (dateString: string) => {
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) {
-      return dateString
+    const date = parseCustomDateString(dateString)
+    if (!date || isNaN(date.getTime())) {
+      return dateString // Return original string if parsing fails
     }
+    // "en-GB" locale formats as DD/MM/YYYY
     const formattedDate = date.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "2-digit",
@@ -82,7 +101,8 @@ const formatDate = (dateString: string) => {
 
 const isWithinLast24Hours = (dateString: string) => {
   try {
-    const date = new Date(dateString)
+    const date = parseCustomDateString(dateString)
+    if (!date) return false
     const now = new Date()
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
     return date >= twentyFourHoursAgo
@@ -122,6 +142,8 @@ export default function InventorySystem() {
     error: syncError,
     lastSync,
   } = useInventoryData()
+  const { deployments: laborDeploymentsRaw } = useLaborData()
+  const laborDeployments = Array.isArray(laborDeploymentsRaw) ? laborDeploymentsRaw : []
 
   const itemValues = useInventoryValuation(transactions)
 
@@ -202,6 +224,7 @@ export default function InventorySystem() {
       const analysisData = {
         inventory: inventory, // Live inventory from Redis
         transactions: transactions.slice(0, 50),
+        laborDeployments: laborDeployments.slice(0, 50), // Include recent labor data
         totalItems: inventory.length, // Count of items directly from Redis
         totalTransactions: transactions.length,
         recentActivity: transactions.filter((t) => isWithinLast24Hours(t.date)).length,
@@ -405,23 +428,6 @@ export default function InventorySystem() {
       transactionType = quantityDifference > 0 ? "Restocking" : "Depleting"
       transactionQuantity = Math.abs(quantityDifference)
     } else if (nameChanged || unitChanged) {
-      // If only name/unit changed, but quantity is the same, log it as a 0 quantity "Restocking" or special type
-      // For simplicity, let's use "Restocking" with 0 quantity if no actual stock change.
-      // Or better, a dedicated "Unit Change" or "Metadata Change" type if backend supports it.
-      // The current `addTransaction` might not handle 0 quantity well for stock updates.
-      // Let's assume a transaction is only needed if quantity changes, or if name/unit change implies a data correction.
-      // For now, if quantity is unchanged, we might not need a stock-altering transaction,
-      // but a log of the change is good.
-      // The backend `addTransaction` should ideally handle name/unit updates without quantity change.
-      // Let's assume the backend `performBatchOperation` or a new endpoint handles this.
-      // For now, we'll create a transaction that reflects the state change.
-      // If quantity is zero, it's more of a metadata update.
-      // The current `updateInventoryFromTransaction` in service only changes quantity.
-      // This needs a more robust backend update mechanism for name/unit changes.
-
-      // For now, let's create a transaction that reflects the new state.
-      // The backend will need to be smart about this.
-      // A "Unit Change" transaction type was mentioned.
       transactionType = "Unit Change" // Or a new type like "ItemUpdate"
       transactionQuantity = quantity // The full new quantity for "Unit Change" type
       if (!transactionNotes) transactionNotes = "Item details updated."
@@ -437,40 +443,15 @@ export default function InventorySystem() {
     const transaction: Transaction = {
       id: `edit-${Date.now()}`,
       itemType: nameChanged ? name : originalName, // Use new name if it changed, for the transaction log
-      // Backend needs to know originalName to find and update/replace
       quantity: transactionQuantity,
       transactionType: transactionType,
       notes: transactionNotes,
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: unit,
-      // We might need to pass originalName to backend if itemType (name) can change
-      // For now, relying on backend to handle this via a potential rebuild or smart update.
-      // A better API would be `updateItem(originalName, newItemData)`
     }
 
-    // This is tricky: addTransaction updates based on transaction.itemType.
-    // If name changed, it will operate on the *new* name.
-    // The old item (originalName) needs to be handled (e.g., removed or its quantity set to 0 if it's a rename).
-    // This ideally requires a more specific backend operation than just `addTransaction`.
-    // E.g., an API like `/api/inventory/item/update` that takes `originalName` and `updatedItemData`.
-    // For now, we'll proceed with `addTransaction` and assume the backend's `rebuildInventoryFromTransactions`
-    // or a smarter `addTransaction` can handle it. This is a point of potential fragility.
-    // A "rename" operation is complex with the current transaction-based system.
-
-    // A temporary solution: if name changed, create two transactions:
-    // 1. Deplete originalName to 0 (if it's a pure rename)
-    // 2. Restock newName with the quantity.
-    // This is too complex for the user here.
-    // Let's assume `addTransaction` with the new name and quantity, and the notes, is sufficient for now,
-    // and `rebuildInventory` will sort it out. This implies the old item might linger if not explicitly handled.
-
-    // The most robust way is for the backend to handle an "update item" operation.
-    // Given current tools, we'll log a transaction that reflects the new state.
-    // If `rebuildInventory` is called, it should correctly establish the new state.
-
     const success = await addTransaction(transaction) // This will add a transaction for the *new* state.
-    // If name changed, the old item might still exist in Redis until rebuild.
 
     if (success) {
       toast({
@@ -510,11 +491,6 @@ export default function InventorySystem() {
       user: user?.username || "unknown",
       unit: itemToDelete.unit,
     }
-
-    // We need a way for the backend to process "Item Deleted" to actually remove the item hash or set quantity to 0.
-    // `addTransaction` followed by `rebuildInventory` should handle this if `updateInventoryFromTransaction`
-    // correctly processes "Item Deleted" (e.g., by setting quantity to 0 or removing the hash entry).
-    // The current `updateInventoryFromTransaction` sets quantity to 0 for "Item Deleted".
 
     const success = await addTransaction(transaction)
     if (success) {
@@ -600,11 +576,9 @@ export default function InventorySystem() {
     })
     .sort((a, b) => {
       try {
-        const dateA = new Date(a.date)
-        const dateB = new Date(b.date)
-        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0
-        if (isNaN(dateA.getTime())) return 1
-        if (isNaN(dateB.getTime())) return -1
+        const dateA = parseCustomDateString(a.date)
+        const dateB = parseCustomDateString(b.date)
+        if (!dateA || !dateB) return 0
         if (transactionSortOrder === "asc") {
           return dateA.getTime() - dateB.getTime()
         }
@@ -639,8 +613,9 @@ export default function InventorySystem() {
     })
     .sort((a, b) => {
       try {
-        const dateA = new Date(a.date)
-        const dateB = new Date(b.date)
+        const dateA = parseCustomDateString(a.date)
+        const dateB = parseCustomDateString(b.date)
+        if (!dateA || !dateB) return 0
         return dateB.getTime() - dateA.getTime()
       } catch (error) {
         return 0
@@ -832,7 +807,7 @@ export default function InventorySystem() {
                 size="sm"
                 onClick={handleManualSync}
                 disabled={isSyncing}
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 bg-transparent"
               >
                 <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
                 {isSyncing ? "Syncing..." : "Sync Now"}
@@ -977,7 +952,12 @@ export default function InventorySystem() {
                         <List className="mr-2 h-5 w-5" /> Current Inventory Levels
                       </h2>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={exportInventoryToCSV} className="h-10">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={exportInventoryToCSV}
+                          className="h-10 bg-transparent"
+                        >
                           <Download className="mr-2 h-4 w-4" /> Export
                         </Button>
                         <Button
@@ -1003,7 +983,7 @@ export default function InventorySystem() {
                         variant="outline"
                         size="sm"
                         onClick={toggleInventorySort}
-                        className="flex items-center gap-1 h-10 whitespace-nowrap"
+                        className="flex items-center gap-1 h-10 whitespace-nowrap bg-transparent"
                       >
                         {inventorySortOrder === "asc" ? (
                           <>
@@ -1086,7 +1066,7 @@ export default function InventorySystem() {
                       <History className="mr-2 h-5 w-5" /> Transaction History
                     </h2>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={exportToCSV} className="h-10">
+                      <Button size="sm" variant="outline" onClick={exportToCSV} className="h-10 bg-transparent">
                         <Download className="mr-2 h-4 w-4" /> Export
                       </Button>
                     </div>
@@ -1120,7 +1100,7 @@ export default function InventorySystem() {
                       variant="outline"
                       size="sm"
                       onClick={toggleTransactionSort}
-                      className="flex items-center gap-1 h-10 whitespace-nowrap"
+                      className="flex items-center gap-1 h-10 whitespace-nowrap bg-transparent"
                     >
                       {transactionSortOrder === "desc" ? (
                         <>
@@ -1497,7 +1477,12 @@ export default function InventorySystem() {
                       </h2>
                       <div className="flex gap-2">
                         {user?.username === "KAB123" && ( // KAB123 can export
-                          <Button size="sm" variant="outline" onClick={exportInventoryToCSV} className="h-10">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={exportInventoryToCSV}
+                            className="h-10 bg-transparent"
+                          >
                             <Download className="mr-2 h-4 w-4" /> Export
                           </Button>
                         )}
@@ -1518,7 +1503,7 @@ export default function InventorySystem() {
                           variant="outline"
                           size="sm"
                           onClick={toggleInventorySort}
-                          className="flex items-center gap-1 h-10 whitespace-nowrap"
+                          className="flex items-center gap-1 h-10 whitespace-nowrap bg-transparent"
                         >
                           {inventorySortOrder === "asc" ? (
                             <>
