@@ -10,14 +10,11 @@ export type Transaction = {
   id: string
   itemType: string
   quantity: number
-  transactionType: "Depleting" | "Restocking" | "Item Deleted" | "Unit Change" | "Price Update" | "Item Edit"
+  transactionType: "Depleting" | "Restocking" | "Item Deleted" | "Unit Change"
   notes: string
   date: string
   user: string
   unit: string
-  price?: number
-  totalCost?: number
-  oldItemName?: string
 }
 
 // Default inventory items to use if no data is found
@@ -103,69 +100,28 @@ async function updateInventoryFromTransaction(transaction: Transaction): Promise
   return safeRedisOperation(async () => {
     if (!redis) throw new Error("Redis client not initialized")
 
-    const { itemType, quantity, transactionType, unit, oldItemName, price, totalCost } = transaction
+    const { itemType, quantity, transactionType, unit } = transaction
 
-    if (transactionType === "Item Deleted") {
-      // For item deletion, we remove all its fields from the hash
-      await redis.hdel(KEYS.INVENTORY_HASH, `${itemType}:quantity`, `${itemType}:unit`, `${itemType}:price`)
-      return
-    }
-
-    if (transactionType === "Item Edit" && oldItemName) {
-      const [oldQuantity, oldPrice] = await redis.hmget(
-        KEYS.INVENTORY_HASH,
-        `${oldItemName}:quantity`,
-        `${oldItemName}:price`,
-      )
-
-      // If the item name is being changed, delete the old one.
-      if (oldItemName !== itemType) {
-        await redis.hdel(KEYS.INVENTORY_HASH, `${oldItemName}:quantity`, `${oldItemName}:unit`, `${oldItemName}:price`)
-      }
-
-      // Set the new/updated item details.
-      await redis.hset(KEYS.INVENTORY_HASH, {
-        [`${itemType}:quantity`]: oldQuantity || 0,
-        [`${itemType}:unit`]: unit,
-        [`${itemType}:price`]: oldPrice || 0,
-      })
-      return
-    }
-
-    if (transactionType === "Price Update" && price !== undefined) {
-      await redis.hset(KEYS.INVENTORY_HASH, { [`${itemType}:price`]: price })
-      return
-    }
-
-    // Handle Restocking and Depleting
+    // Get current quantity from Redis hash
     const currentQuantity = Number.parseInt((await redis.hget(KEYS.INVENTORY_HASH, `${itemType}:quantity`)) || "0")
-    let newQuantity = currentQuantity
+    const currentUnit = (await redis.hget(KEYS.INVENTORY_HASH, `${itemType}:unit`)) || unit
 
+    // Calculate new quantity based on transaction type
+    let newQuantity = currentQuantity
     if (transactionType === "Restocking") {
       newQuantity += quantity
     } else if (transactionType === "Depleting") {
       newQuantity = Math.max(0, currentQuantity - quantity)
+    } else if (transactionType === "Item Deleted") {
+      // For item deletion, we'll set quantity to 0
+      newQuantity = 0
     }
 
-    const fieldsToUpdate: Record<string, any> = {
+    // Update inventory in Redis hash
+    await redis.hset(KEYS.INVENTORY_HASH, {
       [`${itemType}:quantity`]: newQuantity,
       [`${itemType}:unit`]: unit,
-    }
-
-    // Update average price on restocking
-    if (transactionType === "Restocking" && price !== undefined && totalCost !== undefined) {
-      const currentPrice = Number((await redis.hget(KEYS.INVENTORY_HASH, `${itemType}:price`)) || "0")
-      const currentValuation = currentPrice * currentQuantity
-      const newTotalQuantity = currentQuantity + quantity
-      if (newTotalQuantity > 0) {
-        const newAvgPrice = (currentValuation + totalCost) / newTotalQuantity
-        fieldsToUpdate[`${itemType}:price`] = newAvgPrice
-      } else {
-        fieldsToUpdate[`${itemType}:price`] = price
-      }
-    }
-
-    await redis.hset(KEYS.INVENTORY_HASH, fieldsToUpdate)
+    })
   }, undefined)
 }
 

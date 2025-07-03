@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import type { LaborDeployment, LaborEntry } from "@/app/api/labor/route"
+import type { ConsumableDeployment } from "@/app/api/consumables/route"
 import { toast } from "@/components/ui/use-toast"
 
-export type { LaborDeployment, LaborEntry }
+export type { ConsumableDeployment }
 
-export function useLaborData() {
-  const [deployments, setDeployments] = useState<LaborDeployment[]>([])
+export function useConsumablesData() {
+  const [deployments, setDeployments] = useState<ConsumableDeployment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -15,15 +15,15 @@ export function useLaborData() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch("/api/labor")
+      const response = await fetch("/api/consumables")
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to fetch labor deployments. Status: ${response.status}`)
+        throw new Error(errorData.error || `Failed to fetch consumable entries. Status: ${response.status}`)
       }
       const data = await response.json()
       setDeployments(data.deployments || [])
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred while fetching deployments."
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -34,17 +34,10 @@ export function useLaborData() {
     fetchDeployments()
   }, [fetchDeployments])
 
-  const addDeployment = async (deploymentData: {
-    code: string
-    reference: string
-    laborEntries: LaborEntry[]
-    user: string
-    date: string // User-selected date
-    notes?: string
-  }) => {
+  const addDeployment = async (deploymentData: Omit<ConsumableDeployment, "id" | "user"> & { user: string }) => {
     setLoading(true)
     try {
-      const response = await fetch("/api/labor", {
+      const response = await fetch("/api/consumables", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(deploymentData),
@@ -52,33 +45,26 @@ export function useLaborData() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to record labor deployment.")
+        throw new Error(errorData.error || "Failed to record consumable entry.")
       }
 
-      await fetchDeployments() // Refresh data
-      toast({
-        title: "Success",
-        description: "Labor deployment recorded successfully.",
-      })
+      await fetchDeployments()
+      toast({ title: "Success", description: "Consumable entry recorded successfully." })
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
       setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: errorMessage, variant: "destructive" })
       return false
     } finally {
       setLoading(false)
     }
   }
 
-  const updateDeployment = async (deploymentId: string, deploymentData: Partial<Omit<LaborDeployment, "id">>) => {
+  const updateDeployment = async (deploymentId: string, deploymentData: Partial<Omit<ConsumableDeployment, "id">>) => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/labor`, {
+      const response = await fetch(`/api/consumables`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: deploymentId, ...deploymentData }),
@@ -86,23 +72,16 @@ export function useLaborData() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to update labor deployment.")
+        throw new Error(errorData.error || "Failed to update consumable entry.")
       }
 
-      await fetchDeployments() // Refresh data
-      toast({
-        title: "Success",
-        description: "Labor deployment updated successfully.",
-      })
+      await fetchDeployments()
+      toast({ title: "Success", description: "Consumable entry updated successfully." })
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
       setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: errorMessage, variant: "destructive" })
       return false
     } finally {
       setLoading(false)
@@ -112,29 +91,22 @@ export function useLaborData() {
   const deleteDeployment = async (deploymentId: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/labor?id=${deploymentId}`, {
+      const response = await fetch(`/api/consumables?id=${deploymentId}`, {
         method: "DELETE",
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to delete labor deployment.")
+        throw new Error(errorData.error || "Failed to delete consumable entry.")
       }
 
-      await fetchDeployments() // Refresh data
-      toast({
-        title: "Success",
-        description: "Labor deployment deleted successfully.",
-      })
+      await fetchDeployments()
+      toast({ title: "Success", description: "Consumable entry deleted successfully." })
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
       setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: errorMessage, variant: "destructive" })
       return false
     } finally {
       setLoading(false)

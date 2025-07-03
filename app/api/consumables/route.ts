@@ -1,22 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { redis, KEYS, getRedisAvailability, setRedisAvailability, checkRedisConnection } from "@/lib/redis"
 
-// Define the structure for individual labor entries
-export type LaborEntry = {
-  laborCount: number
-  costPerLabor: number
-}
-
-// Define the structure for a full labor deployment record
-export type LaborDeployment = {
+// Define the structure for a consumable deployment record
+export type ConsumableDeployment = {
   id: string
+  date: string // User-selected date in ISO string format
   code: string
   reference: string
-  laborEntries: LaborEntry[]
-  totalCost: number // Will now include labor only
-  date: string // User-selected date in ISO string format
-  user: string
+  amount: number // Direct amount input by user
   notes?: string
+  user: string
 }
 
 // Helper to ensure Redis is connected
@@ -30,11 +23,11 @@ async function ensureRedis() {
   }
 }
 
-// GET all labor deployments
+// GET all consumable deployments
 export async function GET() {
   try {
     await ensureRedis()
-    const deployments = await redis.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)
+    const deployments = await redis.get<ConsumableDeployment[]>(KEYS.CONSUMABLE_DEPLOYMENTS)
     if (!deployments) {
       return NextResponse.json({ deployments: [] })
     }
@@ -42,7 +35,7 @@ export async function GET() {
     const sortedDeployments = [...deployments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     return NextResponse.json({ deployments: sortedDeployments })
   } catch (error) {
-    console.error("Error fetching labor deployments from Redis:", error)
+    console.error("Error fetching consumable deployments from Redis:", error)
     if (error instanceof Error && error.message === "Database not available") {
       return NextResponse.json({ deployments: [], error: "Database not available" }, { status: 503 })
     }
@@ -51,7 +44,7 @@ export async function GET() {
   }
 }
 
-// POST a new labor deployment
+// POST a new consumable deployment
 export async function POST(request: NextRequest) {
   try {
     await ensureRedis()
@@ -59,51 +52,34 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (
+      !body.date ||
       !body.code ||
       !body.reference ||
-      !body.laborEntries ||
-      !Array.isArray(body.laborEntries) ||
-      body.laborEntries.length === 0 ||
-      !body.user ||
-      !body.date // User-selected date is now required
+      typeof body.amount !== "number" ||
+      body.amount < 0 ||
+      !body.user
     ) {
       return NextResponse.json({ success: false, error: "Missing or invalid required fields" }, { status: 400 })
     }
 
-    let calculatedTotalCost = 0
-
-    // Validate and calculate cost for labor entries
-    for (const entry of body.laborEntries) {
-      if (
-        typeof entry.laborCount !== "number" ||
-        typeof entry.costPerLabor !== "number" ||
-        entry.laborCount <= 0 ||
-        entry.costPerLabor < 0
-      ) {
-        return NextResponse.json({ success: false, error: "Invalid labor entry data" }, { status: 400 })
-      }
-      calculatedTotalCost += entry.laborCount * entry.costPerLabor
-    }
-
-    const newDeployment: LaborDeployment = {
-      id: `labor-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    const newDeployment: ConsumableDeployment = {
+      id: `consumable-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      date: new Date(body.date).toISOString(),
       code: body.code,
       reference: body.reference,
-      laborEntries: body.laborEntries,
-      totalCost: calculatedTotalCost,
-      date: new Date(body.date).toISOString(), // Store user-selected date as ISO string
-      user: body.user,
+      amount: body.amount,
       notes: body.notes || undefined,
+      user: body.user,
     }
 
-    const currentDeployments = (await redis.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)) || []
-    currentDeployments.unshift(newDeployment) // Add to the beginning
+    const currentDeployments = (await redis.get<ConsumableDeployment[]>(KEYS.CONSUMABLE_DEPLOYMENTS)) || []
+    currentDeployments.unshift(newDeployment)
 
-    await redis.set(KEYS.LABOR_DEPLOYMENTS, currentDeployments)
+    await redis.set(KEYS.CONSUMABLE_DEPLOYMENTS, currentDeployments)
 
     return NextResponse.json({ success: true, deployment: newDeployment })
   } catch (error) {
-    console.error("Error in POST /api/labor:", error)
+    console.error("Error in POST /api/consumables:", error)
     if (error instanceof SyntaxError) {
       return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 })
     }
@@ -115,7 +91,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT (update) an existing labor deployment
+// PUT (update) an existing consumable deployment
 export async function PUT(request: NextRequest) {
   try {
     await ensureRedis()
@@ -126,27 +102,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Deployment ID is required for update" }, { status: 400 })
     }
 
-    let calculatedTotalCost = 0
-    if (updateData.laborEntries && Array.isArray(updateData.laborEntries)) {
-      for (const entry of updateData.laborEntries) {
-        if (
-          typeof entry.laborCount !== "number" ||
-          typeof entry.costPerLabor !== "number" ||
-          entry.laborCount <= 0 ||
-          entry.costPerLabor < 0
-        ) {
-          return NextResponse.json({ success: false, error: "Invalid labor entry data in update" }, { status: 400 })
-        }
-        calculatedTotalCost += entry.laborCount * entry.costPerLabor
-      }
-      updateData.totalCost = calculatedTotalCost
-    }
-
     if (updateData.date) {
       updateData.date = new Date(updateData.date).toISOString()
     }
 
-    const currentDeployments = await redis.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)
+    const currentDeployments = await redis.get<ConsumableDeployment[]>(KEYS.CONSUMABLE_DEPLOYMENTS)
     if (!currentDeployments) {
       return NextResponse.json({ success: false, error: "No deployments found" }, { status: 404 })
     }
@@ -158,11 +118,11 @@ export async function PUT(request: NextRequest) {
 
     currentDeployments[deploymentIndex] = { ...currentDeployments[deploymentIndex], ...updateData }
 
-    await redis.set(KEYS.LABOR_DEPLOYMENTS, currentDeployments)
+    await redis.set(KEYS.CONSUMABLE_DEPLOYMENTS, currentDeployments)
 
     return NextResponse.json({ success: true, deployment: currentDeployments[deploymentIndex] })
   } catch (error) {
-    console.error("Error in PUT /api/labor:", error)
+    console.error("Error in PUT /api/consumables:", error)
     if (error instanceof SyntaxError) {
       return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 })
     }
@@ -174,7 +134,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE a labor deployment
+// DELETE a consumable deployment
 export async function DELETE(request: NextRequest) {
   try {
     await ensureRedis()
@@ -185,7 +145,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Deployment ID is required for deletion" }, { status: 400 })
     }
 
-    const currentDeployments = await redis.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)
+    const currentDeployments = await redis.get<ConsumableDeployment[]>(KEYS.CONSUMABLE_DEPLOYMENTS)
     if (!currentDeployments) {
       return NextResponse.json({ success: false, error: "No deployments found" }, { status: 404 })
     }
@@ -196,11 +156,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Deployment not found" }, { status: 404 })
     }
 
-    await redis.set(KEYS.LABOR_DEPLOYMENTS, updatedDeployments)
+    await redis.set(KEYS.CONSUMABLE_DEPLOYMENTS, updatedDeployments)
 
     return NextResponse.json({ success: true, message: "Deployment deleted successfully" })
   } catch (error) {
-    console.error("Error in DELETE /api/labor:", error)
+    console.error("Error in DELETE /api/consumables:", error)
     if (error instanceof Error && error.message === "Database not available") {
       return NextResponse.json({ success: false, error: "Database not available" }, { status: 503 })
     }
