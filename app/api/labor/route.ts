@@ -102,3 +102,64 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Failed to save data to database" }, { status: 500 })
   }
 }
+
+export async function PUT(request: NextRequest) {
+  if (!redis || !getRedisAvailability()) {
+    return NextResponse.json({ success: false, error: "Database not available" }, { status: 503 })
+  }
+
+  try {
+    const updatedDeployment: LaborDeployment = await request.json()
+    if (!updatedDeployment.id) {
+      return NextResponse.json({ success: false, error: "Deployment ID is required" }, { status: 400 })
+    }
+
+    const deployments = (await redis.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)) || []
+    const index = deployments.findIndex((d) => d.id === updatedDeployment.id)
+
+    if (index === -1) {
+      return NextResponse.json({ success: false, error: "Deployment not found" }, { status: 404 })
+    }
+
+    // Recalculate total cost
+    updatedDeployment.totalCost = updatedDeployment.laborEntries.reduce(
+      (sum, entry) => sum + entry.laborCount * entry.costPerLabor,
+      0,
+    )
+
+    deployments[index] = updatedDeployment
+    await redis.set(KEYS.LABOR_DEPLOYMENTS, deployments)
+
+    return NextResponse.json({ success: true, deployment: updatedDeployment })
+  } catch (error) {
+    console.error("Error in PUT /api/labor:", error)
+    return NextResponse.json({ success: false, error: "Failed to update deployment" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!redis || !getRedisAvailability()) {
+    return NextResponse.json({ success: false, error: "Database not available" }, { status: 503 })
+  }
+
+  try {
+    const { id } = await request.json()
+    if (!id) {
+      return NextResponse.json({ success: false, error: "Deployment ID is required" }, { status: 400 })
+    }
+
+    const deployments = (await redis.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)) || []
+    const updatedDeployments = deployments.filter((d) => d.id !== id)
+
+    if (deployments.length === updatedDeployments.length) {
+      return NextResponse.json({ success: false, error: "Deployment not found" }, { status: 404 })
+    }
+
+    await redis.set(KEYS.LABOR_DEPLOYMENTS, updatedDeployments)
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error in DELETE /api/labor:", error)
+    return NextResponse.json({ success: false, error: "Failed to delete deployment" }, { status: 500 })
+  }
+}

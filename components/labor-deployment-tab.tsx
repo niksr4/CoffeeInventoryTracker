@@ -2,18 +2,34 @@
 
 import { useState, useEffect, type FormEvent } from "react"
 import { useLaborData, type LaborDeployment, type LaborEntry } from "@/hooks/use-labor-data"
+import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { toast } from "@/hooks/use-toast"
-import { Plus, Trash2, Download } from "lucide-react"
-
-/* -------------------------------------------------------------------------- */
-/*                               LABOUR CODES                                 */
-/* -------------------------------------------------------------------------- */
+import { Plus, Trash2, Download, Pencil } from "lucide-react"
 
 const laborCodes: Record<string, string> = {
   "101a": "Writer Wage & Benefits",
@@ -94,43 +110,75 @@ const laborCodes: Record<string, string> = {
   "245": "Organic Compost Manure",
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              HELPER FUNCTIONS                              */
-/* -------------------------------------------------------------------------- */
-
 const formatDateForQIF = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`
 
-/* -------------------------------------------------------------------------- */
-/*                            LABOUR DEPLOYMENT TAB                           */
-/* -------------------------------------------------------------------------- */
-
 function LaborDeploymentTab() {
-  const { deployments, addDeployment, loading } = useLaborData()
+  const { deployments, addDeployment, updateDeployment, deleteDeployment, loading } = useLaborData()
+  const { isAdmin } = useAuth()
 
   const [code, setCode] = useState("")
   const [description, setDescription] = useState("")
   const [entries, setEntries] = useState<Omit<LaborEntry, "id">[]>([])
   const [notes, setNotes] = useState("")
 
-  /* ----- auto-update description on code change -------------------------- */
+  // State for editing
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedDeployment, setSelectedDeployment] = useState<LaborDeployment | null>(null)
+  const [editedEntries, setEditedEntries] = useState<LaborEntry[]>([])
+  const [editedNotes, setEditedNotes] = useState("")
+
   useEffect(() => {
     setDescription(laborCodes[code] ?? "Custom code")
   }, [code])
 
-  /* ------------------------------ handlers ------------------------------- */
-
   const addHfLaborRow = () => setEntries((e) => [...e, { laborCount: 0, costPerLabor: 475 }])
   const addOutsideLaborRow = () => setEntries((e) => [...e, { laborCount: 0, costPerLabor: 450 }])
-
   const handleRemoveRow = (idx: number) => setEntries((e) => e.filter((_, i) => i !== idx))
-
   const handleEntryChange = (idx: number, key: keyof Omit<LaborEntry, "id">, value: string) =>
     setEntries((e) => e.map((row, i) => (i === idx ? { ...row, [key]: Number(value) } : row)))
 
+  const handleEditEntryChange = (idx: number, key: keyof LaborEntry, value: string) => {
+    setEditedEntries((current) => current.map((entry, i) => (i === idx ? { ...entry, [key]: Number(value) } : entry)))
+  }
+  const addEditedHfLaborRow = () => setEditedEntries((e) => [...e, { laborCount: 0, costPerLabor: 475 }])
+  const addEditedOutsideLaborRow = () => setEditedEntries((e) => [...e, { laborCount: 0, costPerLabor: 450 }])
+  const handleRemoveEditedRow = (idx: number) => setEditedEntries((e) => e.filter((_, i) => i !== idx))
+
+  const handleEditClick = (deployment: LaborDeployment) => {
+    setSelectedDeployment(deployment)
+    setEditedEntries(deployment.laborEntries)
+    setEditedNotes(deployment.notes || "")
+    setIsEditDialogOpen(true)
+  }
+
+  const handleEditSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!selectedDeployment) return
+
+    const updatedDeployment = {
+      ...selectedDeployment,
+      laborEntries: editedEntries,
+      notes: editedNotes,
+    }
+
+    const ok = await updateDeployment(updatedDeployment)
+    if (ok) {
+      toast({ title: "Success", description: "Deployment updated successfully." })
+      setIsEditDialogOpen(false)
+      setSelectedDeployment(null)
+    }
+  }
+
+  const handleDeleteConfirm = async (id: string) => {
+    const ok = await deleteDeployment(id)
+    if (ok) {
+      toast({ title: "Success", description: "Deployment deleted successfully." })
+    }
+  }
+
   const onSubmit = async (evt: FormEvent) => {
     evt.preventDefault()
-
-    if (!code || entries.length === 0 || entries.some((e) => e.laborCount <= 0 || e.costPerLabor <= 0)) {
+    if (!code || entries.length === 0 || entries.some((e) => e.laborCount <= 0 || e.costPerLabor < 0)) {
       toast({
         title: "Invalid input",
         description: "Please supply a labour code and valid numbers for all rows.",
@@ -138,24 +186,7 @@ function LaborDeploymentTab() {
       })
       return
     }
-
-    const deployment: Omit<LaborDeployment, "id" | "totalCost"> = {
-      date: new Date().toISOString(),
-      reference: code,
-      laborEntries: entries.map((le) => ({
-        ...le,
-        id: crypto.randomUUID(),
-      })),
-      notes,
-      user: "admin",
-    }
-
-    const ok = await addDeployment(deployment)
-    toast({
-      title: ok ? "Saved" : "Error",
-      description: ok ? "Deployment recorded." : "Could not record deployment.",
-      variant: ok ? "default" : "destructive",
-    })
+    const ok = await addDeployment({ code, reference: code, laborEntries: entries, notes, user: "admin" })
     if (ok) {
       setCode("")
       setEntries([])
@@ -163,7 +194,6 @@ function LaborDeploymentTab() {
     }
   }
 
-  /* ----------------------------- export QIF ------------------------------ */
   const exportToQIF = () => {
     let qif = "!Type:Bank\n"
     deployments.forEach((d) => {
@@ -174,7 +204,6 @@ function LaborDeploymentTab() {
       if (d.notes) qif += `M${d.notes}\n`
       qif += "^\n"
     })
-
     const blob = new Blob([qif], { type: "application/qif" })
     const url = URL.createObjectURL(blob)
     const link = Object.assign(document.createElement("a"), {
@@ -185,13 +214,8 @@ function LaborDeploymentTab() {
     URL.revokeObjectURL(url)
   }
 
-  /* ------------------------------ RENDER --------------------------------- */
-
   return (
     <div className="space-y-6">
-      {/* ------------------------------------------------------------------ */}
-      {/* ENTRY CARD                                                         */}
-      {/* ------------------------------------------------------------------ */}
       <Card>
         <CardHeader>
           <CardTitle>Add Labor Deployment</CardTitle>
@@ -204,8 +228,6 @@ function LaborDeploymentTab() {
               <Input id="code" placeholder="e.g. 152" value={code} onChange={(e) => setCode(e.target.value.trim())} />
               <p className="mt-1 h-5 text-sm text-muted-foreground">{code && description}</p>
             </div>
-
-            {/* dynamic rows ------------------------------------------------ */}
             {entries.map((row, i) => (
               <div key={i} className="flex items-end gap-2">
                 <div className="flex-1">
@@ -234,18 +256,14 @@ function LaborDeploymentTab() {
                 </Button>
               </div>
             ))}
-
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={addHfLaborRow}>
-                <Plus className="mr-2 size-4" />
-                Add HF Labor (₹475)
+                <Plus className="mr-2 size-4" /> Add HF Labor (₹475)
               </Button>
               <Button type="button" variant="outline" onClick={addOutsideLaborRow}>
-                <Plus className="mr-2 size-4" />
-                Add Outside Labor (₹450)
+                <Plus className="mr-2 size-4" /> Add Outside Labor (₹450)
               </Button>
             </div>
-
             <div>
               <Label htmlFor="notes">Notes</Label>
               <Textarea
@@ -255,7 +273,6 @@ function LaborDeploymentTab() {
                 onChange={(e) => setNotes(e.target.value)}
               />
             </div>
-
             <Button className="w-full" disabled={loading}>
               {loading ? "Saving…" : "Record Deployment"}
             </Button>
@@ -263,9 +280,6 @@ function LaborDeploymentTab() {
         </CardContent>
       </Card>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* HISTORY CARD                                                       */}
-      {/* ------------------------------------------------------------------ */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -273,8 +287,7 @@ function LaborDeploymentTab() {
             <CardDescription>Recent labour deployments</CardDescription>
           </div>
           <Button variant="outline" onClick={exportToQIF}>
-            <Download className="mr-2 size-4" />
-            Export QIF
+            <Download className="mr-2 size-4" /> Export QIF
           </Button>
         </CardHeader>
         <CardContent>
@@ -284,10 +297,11 @@ function LaborDeploymentTab() {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Reference</TableHead>
-                  <TableHead>HF Labor Details</TableHead>
-                  <TableHead>Outside Labor Details</TableHead>
-                  <TableHead>Total Expenditure (₹)</TableHead>
+                  <TableHead>HF Labor</TableHead>
+                  <TableHead>Outside Labor</TableHead>
+                  <TableHead>Total (₹)</TableHead>
                   <TableHead>Notes</TableHead>
+                  {isAdmin && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -296,12 +310,10 @@ function LaborDeploymentTab() {
                     .filter((le) => le.costPerLabor === 475)
                     .map((le) => `${le.laborCount} @ ₹${le.costPerLabor.toFixed(2)}`)
                     .join(", ")
-
                   const outsideLabor = d.laborEntries
                     .filter((le) => le.costPerLabor === 450)
                     .map((le) => `${le.laborCount} @ ₹${le.costPerLabor.toFixed(2)}`)
                     .join(", ")
-
                   return (
                     <TableRow key={d.id}>
                       <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
@@ -310,6 +322,32 @@ function LaborDeploymentTab() {
                       <TableCell>{outsideLabor}</TableCell>
                       <TableCell>₹{d.totalCost.toFixed(2)}</TableCell>
                       <TableCell>{d.notes}</TableCell>
+                      {isAdmin && (
+                        <TableCell className="space-x-2">
+                          <Button variant="outline" size="icon" onClick={() => handleEditClick(d)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="icon">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the deployment record.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteConfirm(d.id)}>Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TableCell>
+                      )}
                     </TableRow>
                   )
                 })}
@@ -318,6 +356,71 @@ function LaborDeploymentTab() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Deployment</DialogTitle>
+            <DialogDescription>
+              Editing deployment for {selectedDeployment ? laborCodes[selectedDeployment.reference] : ""} on{" "}
+              {selectedDeployment ? new Date(selectedDeployment.date).toLocaleDateString() : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleEditSubmit}>
+            {editedEntries.map((row, i) => (
+              <div key={i} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Label htmlFor={`edit-count-${i}`}># Labourers</Label>
+                  <Input
+                    id={`edit-count-${i}`}
+                    type="number"
+                    min={0}
+                    value={row.laborCount || ""}
+                    onChange={(e) => handleEditEntryChange(i, "laborCount", e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`edit-cost-${i}`}>Cost per Labour (₹)</Label>
+                  <Input
+                    id={`edit-cost-${i}`}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={row.costPerLabor || ""}
+                    onChange={(e) => handleEditEntryChange(i, "costPerLabor", e.target.value)}
+                  />
+                </div>
+                <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveEditedRow(i)}>
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={addEditedHfLaborRow}>
+                <Plus className="mr-2 size-4" /> Add HF Labor (₹475)
+              </Button>
+              <Button type="button" variant="outline" onClick={addEditedOutsideLaborRow}>
+                <Plus className="mr-2 size-4" /> Add Outside Labor (₹450)
+              </Button>
+            </div>
+            <div>
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                placeholder="Optional notes"
+                value={editedNotes}
+                onChange={(e) => setEditedNotes(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
