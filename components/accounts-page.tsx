@@ -627,9 +627,9 @@ const ConsumablesSection = () => {
     <div className="grid md:grid-cols-2 gap-8">
       <Card>
         <CardHeader>
-          <CardTitle>{isEditing ? "Edit Consumable Entry" : "Record Consumable Entry"}</CardTitle>
+          <CardTitle>{isEditing ? "Edit Other Expense" : "Record Other Expense"}</CardTitle>
           <CardDescription>
-            {isEditing ? "Modify the details." : "Enter details for consumables or other expenditures."}
+            {isEditing ? "Modify the details." : "Enter details for other expenditures."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -703,14 +703,14 @@ const ConsumablesSection = () => {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Consumables History</CardTitle>
+          <CardTitle>Other Expenses History</CardTitle>
           <CardDescription>{isAdmin ? "All entries." : "Your entries."}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search consumables history..."
+              placeholder="Search other expenses..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -760,7 +760,7 @@ const ConsumablesSection = () => {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently delete this consumable entry.
+                                  This will permanently delete this expense entry.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -796,7 +796,7 @@ const ConsumablesSection = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500">No consumable entries found.</div>
+              <div className="text-center py-8 text-gray-500">No expense entries found.</div>
             )}
           </div>
         </CardContent>
@@ -816,14 +816,14 @@ export default function AccountsPage() {
 
   const combinedDeployments = useMemo(() => {
     const typedLaborDeployments = laborDeployments.map((d) => ({ ...d, entryType: "Labor" }))
-    const typedConsumableDeployments = consumableDeployments.map((d) => ({ ...d, entryType: "Consumable" }))
+    const typedConsumableDeployments = consumableDeployments.map((d) => ({ ...d, entryType: "Other Expense" }))
 
     const allDeployments = [
       ...typedLaborDeployments,
       ...typedConsumableDeployments.map((cd) => ({ ...cd, totalCost: cd.amount })),
     ] as (
       | (LaborDeployment & { entryType: "Labor"; totalCost: number })
-      | (ConsumableDeployment & { entryType: "Consumable"; totalCost: number })
+      | (ConsumableDeployment & { entryType: "Other Expense"; totalCost: number })
     )[]
 
     return allDeployments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -976,7 +976,7 @@ export default function AccountsPage() {
       "",
     ]
     csvContent += "\n" + outsideSummaryRow.map(escapeCsvField).join(",")
-    const consumablesSummaryRow = ["", "", "", "Total Consumables", "", "", totalConsumablesCost.toFixed(2), "", ""]
+    const consumablesSummaryRow = ["", "", "", "Total Other Expenses", "", "", totalConsumablesCost.toFixed(2), "", ""]
     csvContent += "\n" + consumablesSummaryRow.map(escapeCsvField).join(",")
     const totalRow = ["", "", "", "GRAND TOTAL", "", "", grandTotalForExport.toFixed(2), "", ""]
     csvContent += "\n" + totalRow.map(escapeCsvField).join(",")
@@ -1139,7 +1139,7 @@ export default function AccountsPage() {
             <ClipboardList className="mr-2 h-4 w-4" /> Labor Deployments
           </TabsTrigger>
           <TabsTrigger value="consumables">
-            <Droplets className="mr-2 h-4 w-4" /> Consumable Entries
+            <Droplets className="mr-2 h-4 w-4" /> Other Expenses
           </TabsTrigger>
         </TabsList>
         <TabsContent value="labor" className="mt-4">
