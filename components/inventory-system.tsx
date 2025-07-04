@@ -622,8 +622,16 @@ export default function InventorySystem() {
       }
     })
 
-  // Item types for dropdowns are derived from current Redis inventory
-  const itemTypesForDropdown = Array.from(new Set(inventory.map((item) => item.name))).sort()
+  // Item types for dropdowns are derived from current Redis inventory and transaction history
+  const activeItemTypesForDropdown = Array.from(
+    new Set(inventory.filter((item) => item.quantity > 0).map((item) => item.name)),
+  ).sort()
+
+  const allItemTypesForDropdown = Array.from(
+    new Set([...inventory.map((item) => item.name), ...transactions.map((t) => t.itemType)]),
+  )
+    .sort()
+    .filter(Boolean) // Filter out any null or empty strings
 
   // Get unit for an item directly from Redis inventory state
   const getUnitForItem = (itemName: string): string => {
@@ -850,7 +858,7 @@ export default function InventorySystem() {
                             <SelectValue placeholder="Select item type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[40vh] overflow-y-auto">
-                            {itemTypesForDropdown.map(
+                            {activeItemTypesForDropdown.map(
                               (
                                 type, // Dropdown from Redis items
                               ) => (
@@ -1088,7 +1096,7 @@ export default function InventorySystem() {
                         </SelectTrigger>
                         <SelectContent className="max-h-[40vh] overflow-y-auto">
                           <SelectItem value="All Types">All Types</SelectItem>
-                          {itemTypesForDropdown.map((type) => (
+                          {allItemTypesForDropdown.map((type) => (
                             <SelectItem key={type} value={type}>
                               {type}
                             </SelectItem>
@@ -1378,7 +1386,7 @@ export default function InventorySystem() {
                             <SelectValue placeholder="Select item type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[40vh] overflow-y-auto">
-                            {itemTypesForDropdown.map((type) => (
+                            {activeItemTypesForDropdown.map((type) => (
                               <SelectItem key={type} value={type}>
                                 {type}
                               </SelectItem>
@@ -1664,7 +1672,7 @@ export default function InventorySystem() {
                       <SelectValue placeholder="Select item type" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[40vh] overflow-y-auto">
-                      {itemTypesForDropdown.map((type) => (
+                      {allItemTypesForDropdown.map((type) => (
                         <SelectItem key={type} value={type}>
                           {type}
                         </SelectItem>
