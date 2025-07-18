@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import {
   Check,
   Download,
@@ -20,7 +20,6 @@ import {
   AlertTriangle,
   BarChart3,
   Users,
-  PlusCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -158,8 +157,6 @@ export default function InventorySystem() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisError, setAnalysisError] = useState<string>("")
 
-  const newTransactionFormRef = useRef<HTMLDivElement>(null)
-
   const [newTransaction, setNewTransaction] = useState<{
     itemType: string
     quantity: string
@@ -181,12 +178,10 @@ export default function InventorySystem() {
     name: string
     unit: string
     quantity: string
-    price: string
   }>({
     name: "",
     unit: "kg", // Default unit for new item dialog
     quantity: "0",
-    price: "",
   })
 
   const [editingInventoryItem, setEditingInventoryItem] = useState<{
@@ -349,8 +344,6 @@ export default function InventorySystem() {
       return
     }
 
-    const price = newItem.price ? Number(newItem.price) : undefined
-
     const transaction: Transaction = {
       id: `new-${Date.now()}`,
       itemType: newItem.name,
@@ -360,11 +353,6 @@ export default function InventorySystem() {
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: newItem.unit,
-      ...(price !== undefined &&
-        quantity > 0 && {
-          price: price,
-          totalCost: quantity * price,
-        }),
     }
 
     const success = await addTransaction(transaction) // This will update Redis
@@ -382,7 +370,7 @@ export default function InventorySystem() {
         variant: "destructive",
       })
     }
-    setNewItem({ name: "", unit: "kg", quantity: "0", price: "" })
+    setNewItem({ name: "", unit: "kg", quantity: "0" })
     setIsNewItemDialogOpen(false)
   }
 
@@ -519,22 +507,6 @@ export default function InventorySystem() {
         variant: "destructive",
       })
     }
-  }
-
-  const handlePriceUpdateClick = (item: InventoryItem) => {
-    // Pre-fill the new transaction form for restocking this item
-    setNewTransaction({
-      itemType: item.name,
-      transactionType: "Restocking",
-      selectedUnit: item.unit,
-      quantity: "", // Let user enter new quantity
-      notes: `Updating price for ${item.name}`,
-      price: "", // Let user enter new price
-    })
-    // Scroll to the form
-    newTransactionFormRef.current?.scrollIntoView({ behavior: "smooth" })
-    // Maybe focus the quantity or price input
-    // This requires another ref, for now scroll is good enough
   }
 
   const toggleInventorySort = () => {
@@ -868,7 +840,7 @@ export default function InventorySystem() {
               <TabsContent value="inventory" className="space-y-8">
                 <InventoryValueSummary inventory={inventory} transactions={transactions} />
                 <div className="grid md:grid-cols-2 gap-8">
-                  <div ref={newTransactionFormRef} className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
                     <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
                       <span className="mr-2">+</span> New Inventory Transaction
                     </h2>
@@ -1054,19 +1026,9 @@ export default function InventorySystem() {
                                   <div className="text-base">
                                     {item.quantity} {item.unit}
                                   </div>
-                                  <div className="text-sm text-gray-600 flex items-center justify-end gap-1">
-                                    <span>
-                                      ₹{itemValue.toFixed(2)} {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)})`}
-                                    </span>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => handlePriceUpdateClick(item)}
-                                      className="h-5 w-5 text-blue-500 hover:text-blue-700"
-                                      title="Restock and update price"
-                                    >
-                                      <PlusCircle className="h-4 w-4" />
-                                    </Button>
+                                  <div className="text-sm text-gray-600">
+                                    ₹{itemValue.toFixed(2)}{" "}
+                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit || "unit"})`}
                                   </div>
                                 </div>
                                 {isAdmin && (
@@ -1895,24 +1857,6 @@ export default function InventorySystem() {
                 placeholder="Enter initial quantity (e.g., 0)"
                 className="h-12"
               />
-            </div>
-            <div>
-              <Label htmlFor="new-item-price" className="mb-2 block">
-                Initial Purchase Price (per unit, optional)
-              </Label>
-              <div className="relative">
-                <Input
-                  id="new-item-price"
-                  type="number"
-                  value={newItem.price}
-                  onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
-                  placeholder="e.g., 150"
-                  className="h-12 pl-8"
-                />
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                  ₹
-                </div>
-              </div>
             </div>
           </div>
           <DialogFooter className="mt-6 gap-3 flex-col sm:flex-row">
