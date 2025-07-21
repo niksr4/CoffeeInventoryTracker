@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   BarChart3,
   Users,
+  Cloudy,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,6 +50,7 @@ import InventoryValueSummary from "@/components/inventory-value-summary"
 import AiAnalysisCharts from "@/components/ai-analysis-charts"
 import AccountsPage from "@/components/accounts-page"
 import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
+import WeatherTab from "@/components/weather-tab"
 
 // This helper function robustly parses "DD/MM/YYYY HH:MM" strings
 const parseCustomDateString = (dateString: string): Date | null => {
@@ -836,6 +838,10 @@ export default function InventorySystem() {
                   <Brain className="h-4 w-4 mr-2" />
                   AI Analysis
                 </TabsTrigger>
+                <TabsTrigger value="weather">
+                  <Cloudy className="h-4 w-4 mr-2" />
+                  Weather
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="inventory" className="space-y-8">
                 <InventoryValueSummary inventory={inventory} transactions={transactions} />
@@ -1356,6 +1362,9 @@ export default function InventorySystem() {
                   )}
                 </div>
               </TabsContent>
+              <TabsContent value="weather" className="space-y-6">
+                <WeatherTab />
+              </TabsContent>
             </Tabs> // Non-admin view
           ) : (
             <Tabs defaultValue="inventory" className="w-full">
@@ -1364,6 +1373,10 @@ export default function InventorySystem() {
                 <TabsTrigger value="accounts">
                   <Users className="h-4 w-4 mr-2" />
                   Accounts
+                </TabsTrigger>
+                <TabsTrigger value="weather">
+                  <Cloudy className="h-4 w-4 mr-2" />
+                  Weather
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="inventory" className="space-y-8 pt-6">
@@ -1639,6 +1652,9 @@ export default function InventorySystem() {
               </TabsContent>
               <TabsContent value="accounts" className="space-y-6 pt-6">
                 <AccountsPage />
+              </TabsContent>
+              <TabsContent value="weather" className="space-y-6 pt-6">
+                <WeatherTab />
               </TabsContent>
             </Tabs>
           )}
