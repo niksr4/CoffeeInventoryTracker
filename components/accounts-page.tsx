@@ -361,7 +361,8 @@ const LaborSection = () => {
                         onChange={(e) => handleLaborEntryChange(index, "laborCount", e.target.value)}
                         placeholder="e.g., 10"
                         required
-                        min="1"
+                        min="0.01"
+                        step="any"
                       />
                     </div>
                     <div className="space-y-2">
