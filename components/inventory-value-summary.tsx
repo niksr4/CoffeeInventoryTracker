@@ -1,89 +1,76 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, TrendingUp, Package, Calculator } from "lucide-react"
-import type { Transaction, InventoryItem } from "@/lib/storage"
-import { useInventoryValuation } from "@/hooks/use-inventory-valuation" // Import the new hook
+import { DollarSign, List, TrendingUp, TrendingDown } from "lucide-react"
+import type { InventoryItem, Transaction } from "@/lib/storage"
+import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 
 interface InventoryValueSummaryProps {
-  inventory: InventoryItem[] // Still useful for 'total items' count
+  inventory: InventoryItem[]
   transactions: Transaction[]
 }
 
 export default function InventoryValueSummary({ inventory, transactions }: InventoryValueSummaryProps) {
-  const itemValues = useInventoryValuation(transactions) // Use the new hook
+  const itemValues = useInventoryValuation(transactions)
 
-  // Calculate totals based on the output of useInventoryValuation
-  const totalInventoryValue = Object.values(itemValues).reduce((sum, item) => sum + item.totalValue, 0)
+  // Filter for items with quantity > 0
+  const activeInventory = inventory.filter((item) => item.quantity > 0)
 
-  // Total Investment (all-time restocking costs)
-  // This needs to be calculated directly from transactions as before,
-  // as the hook focuses on current value, not historical spend.
-  const totalRestockingCost = transactions
+  const totalValue = activeInventory.reduce((sum, item) => {
+    const valueInfo = itemValues[item.name]
+    return sum + (valueInfo ? valueInfo.totalValue : 0)
+  }, 0)
+
+  // Use the length of the filtered array
+  const totalItemsInStock = activeInventory.length
+
+  const recentTransactions = transactions.slice(0, 20) // Look at last 20 transactions for trends
+  const restockingValue = recentTransactions
     .filter((t) => t.transactionType === "Restocking" && t.totalCost)
     .reduce((sum, t) => sum + (t.totalCost || 0), 0)
 
-  const itemsWithValue = Object.keys(itemValues).filter((key) => itemValues[key]?.totalValue > 0).length
-
-  // Recent restocking activity (last 30 days)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-  const recentRestockingCost = transactions
-    .filter((t) => {
-      if (t.transactionType !== "Restocking" || !t.totalCost) return false
-      try {
-        const transactionDate = new Date(t.date)
-        return transactionDate >= thirtyDaysAgo
-      } catch {
-        return false // Handle invalid date strings gracefully
-      }
-    })
-    .reduce((sum, t) => sum + (t.totalCost || 0), 0)
+  const depletionCount = recentTransactions.filter((t) => t.transactionType === "Depleting").length
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Current Inventory Value</CardTitle>
+          <CardTitle className="text-sm font-medium">Total Inventory Value</CardTitle>
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">₹{totalInventoryValue.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">Based on FIFO & base prices</p>
+          <div className="text-2xl font-bold">₹{totalValue.toFixed(2)}</div>
+          <p className="text-xs text-muted-foreground">Across {totalItemsInStock} items in stock</p>
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Investment</CardTitle>
+          <CardTitle className="text-sm font-medium">Items in Stock</CardTitle>
+          <List className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{totalItemsInStock}</div>
+          <p className="text-xs text-muted-foreground">Unique items with quantity greater than zero</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Recent Restocking Value</CardTitle>
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">₹{totalRestockingCost.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">All-time restocking costs</p>
+          <div className="text-2xl font-bold">+₹{restockingValue.toFixed(2)}</div>
+          <p className="text-xs text-muted-foreground">Based on last 20 transactions</p>
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Items with Value</CardTitle>
-          <Package className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Recent Depletions</CardTitle>
+          <TrendingDown className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{itemsWithValue}</div>
-          <p className="text-xs text-muted-foreground">Out of {inventory.length} total defined items</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Recent Investment</CardTitle>
-          <Calculator className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">₹{recentRestockingCost.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">Last 30 days restocking</p>
+          <div className="text-2xl font-bold">{depletionCount}</div>
+          <p className="text-xs text-muted-foreground">Based on last 20 transactions</p>
         </CardContent>
       </Card>
     </div>

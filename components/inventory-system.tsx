@@ -223,11 +223,12 @@ export default function InventorySystem() {
     setIsAnalyzing(true)
     setAnalysisError("")
     try {
+      const activeInventory = inventory.filter((item) => item.quantity > 0)
       const analysisData = {
-        inventory: inventory, // Live inventory from Redis
+        inventory: activeInventory, // Send only active inventory
         transactions: transactions.slice(0, 50),
-        laborDeployments: laborDeployments.slice(0, 50), // Include recent labor data
-        totalItems: inventory.length, // Count of items directly from Redis
+        laborDeployments: laborDeployments.slice(0, 50),
+        totalItems: activeInventory.length, // Count only active items
         totalTransactions: transactions.length,
         recentActivity: transactions.filter((t) => isWithinLast24Hours(t.date)).length,
       }
@@ -1285,8 +1286,8 @@ export default function InventorySystem() {
                         <List className="h-4 w-4 text-muted-foreground" />
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">{inventory.length}</div> {/* Directly from Redis */}
-                        <p className="text-xs text-muted-foreground">items in system</p>
+                        <div className="text-2xl font-bold">{inventory.filter((item) => item.quantity > 0).length}</div>
+                        <p className="text-xs text-muted-foreground">items with stock</p>
                       </CardContent>
                     </Card>
                     {/* ... other AI analysis cards ... */}
