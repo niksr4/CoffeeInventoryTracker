@@ -237,18 +237,27 @@ const LaborSection = () => {
       alert("Please fill in Date, Code, Reference, and at least one Labor Group.")
       return
     }
-    if (laborEntries.some((entry) => !entry.laborCount || Number(entry.laborCount) <= 0)) {
-      alert("Please ensure all labor groups have a valid number of laborers.")
+    if (
+      laborEntries.some((entry, index) => {
+        const count = Number(entry.laborCount || "0")
+        // Allow 0 for HF labor (index 0), but require > 0 for outside labor
+        return index === 0 ? count < 0 : !entry.laborCount || count <= 0
+      })
+    ) {
+      alert("Please ensure all outside labor groups have a valid number of laborers. HF labor can be 0.")
       return
     }
 
     setIsSubmitting(true)
     const numericLaborEntries: LaborEntry[] = laborEntries
       .map((entry) => ({
-        laborCount: Number(entry.laborCount),
+        laborCount: Number(entry.laborCount || "0"),
         costPerLabor: Number(entry.costPerLabor || "0"),
       }))
-      .filter((entry) => entry.laborCount > 0)
+      .filter((entry, index) => {
+        // Keep HF labor even if 0, filter out outside labor if 0
+        return index === 0 || entry.laborCount > 0
+      })
 
     const payload = {
       code,
@@ -361,7 +370,7 @@ const LaborSection = () => {
                         onChange={(e) => handleLaborEntryChange(index, "laborCount", e.target.value)}
                         placeholder="e.g., 10"
                         required
-                        min="0.01"
+                        min={index === 0 ? "0" : "0.01"}
                         step="any"
                       />
                     </div>
@@ -895,10 +904,14 @@ export default function AccountsPage() {
       let outsideLaborDetails = ""
       if (d.entryType === "Labor" && d.laborEntries && d.laborEntries.length > 0) {
         const hfEntry = d.laborEntries[0]
-        hfLaborDetails = `${hfEntry.laborCount} @ ${hfEntry.costPerLabor.toFixed(2)}`
+        // Only show HF details if count > 0
+        if (hfEntry.laborCount > 0) {
+          hfLaborDetails = `${hfEntry.laborCount} @ ${hfEntry.costPerLabor.toFixed(2)}`
+        }
         if (d.laborEntries.length > 1) {
           outsideLaborDetails = d.laborEntries
             .slice(1)
+            .filter((le: LaborEntry) => le.laborCount > 0)
             .map((le: LaborEntry) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`)
             .join("; ")
         }
@@ -934,8 +947,11 @@ export default function AccountsPage() {
       if (d.entryType === "Labor") {
         if (d.laborEntries && d.laborEntries.length > 0) {
           const hfEntry = d.laborEntries[0]
-          totalHfLaborCount += hfEntry.laborCount
-          totalHfLaborCost += hfEntry.laborCount * hfEntry.costPerLabor
+          // Only count HF labor if > 0
+          if (hfEntry.laborCount > 0) {
+            totalHfLaborCount += hfEntry.laborCount
+            totalHfLaborCost += hfEntry.laborCount * hfEntry.costPerLabor
+          }
         }
         if (d.laborEntries && d.laborEntries.length > 1) {
           d.laborEntries.slice(1).forEach((le) => {
@@ -1021,9 +1037,10 @@ export default function AccountsPage() {
 
         let memo = ""
         if (d.entryType === "Labor" && d.laborEntries) {
-          const hfDetail = d.laborEntries[0]
-            ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
-            : ""
+          const hfDetail =
+            d.laborEntries[0] && d.laborEntries[0].laborCount > 0
+              ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
+              : ""
           const outsideDetail = d.laborEntries
             .slice(1)
             .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
