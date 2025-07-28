@@ -902,16 +902,17 @@ export default function AccountsPage() {
       let hfLaborDetails = ""
       let outsideLaborDetails = ""
       if (d.entryType === "Labor" && d.laborEntries && d.laborEntries.length > 0) {
-        const hfEntry = d.laborEntries[0]
-        // Only show HF details if count > 0
-        if (hfEntry.laborCount > 0) {
-          hfLaborDetails = `${hfEntry.laborCount} @ ${hfEntry.costPerLabor.toFixed(2)}`
+        // Categorize labor based on cost, not array position
+        const hfEntries = d.laborEntries.filter((le) => le.costPerLabor === 475 && le.laborCount > 0)
+        const outsideEntries = d.laborEntries.filter((le) => le.costPerLabor !== 475 && le.laborCount > 0)
+
+        if (hfEntries.length > 0) {
+          hfLaborDetails = hfEntries.map((le) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`).join("; ")
         }
-        if (d.laborEntries.length > 1) {
-          outsideLaborDetails = d.laborEntries
-            .slice(1)
-            .filter((le: LaborEntry) => le.laborCount > 0)
-            .map((le: LaborEntry) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`)
+
+        if (outsideEntries.length > 0) {
+          outsideLaborDetails = outsideEntries
+            .map((le) => `${le.laborCount} @ ${le.costPerLabor.toFixed(2)}`)
             .join("; ")
         }
       }
@@ -944,20 +945,19 @@ export default function AccountsPage() {
       totalsByCode[d.code] = (totalsByCode[d.code] || 0) + expenditureAmount
 
       if (d.entryType === "Labor") {
-        if (d.laborEntries && d.laborEntries.length > 0) {
-          const hfEntry = d.laborEntries[0]
-          // Only count HF labor if > 0
-          if (hfEntry.laborCount > 0) {
-            totalHfLaborCount += hfEntry.laborCount
-            totalHfLaborCost += hfEntry.laborCount * hfEntry.costPerLabor
-          }
-        }
-        if (d.laborEntries && d.laborEntries.length > 1) {
-          d.laborEntries.slice(1).forEach((le) => {
-            totalOutsideLaborCount += le.laborCount
-            totalOutsideLaborCost += le.laborCount * le.costPerLabor
-          })
-        }
+        // Correctly categorize for summary as well
+        const hfEntries = d.laborEntries.filter((le) => le.costPerLabor === 475 && le.laborCount > 0)
+        const outsideEntries = d.laborEntries.filter((le) => le.costPerLabor !== 475 && le.laborCount > 0)
+
+        hfEntries.forEach((le) => {
+          totalHfLaborCount += le.laborCount
+          totalHfLaborCost += le.laborCount * le.costPerLabor
+        })
+
+        outsideEntries.forEach((le) => {
+          totalOutsideLaborCount += le.laborCount
+          totalOutsideLaborCost += le.laborCount * le.costPerLabor
+        })
       } else {
         totalConsumablesCost += (d as ConsumableDeployment).amount
       }
@@ -1036,14 +1036,18 @@ export default function AccountsPage() {
 
         let memo = ""
         if (d.entryType === "Labor" && d.laborEntries) {
+          const hfEntries = d.laborEntries.filter((le) => le.costPerLabor === 475 && le.laborCount > 0)
+          const outsideEntries = d.laborEntries.filter((le) => le.costPerLabor !== 475 && le.laborCount > 0)
+
           const hfDetail =
-            d.laborEntries[0] && d.laborEntries[0].laborCount > 0
-              ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
+            hfEntries.length > 0
+              ? "HF: " + hfEntries.map((le) => `${le.laborCount}@${le.costPerLabor.toFixed(2)}`).join("; ")
               : ""
-          const outsideDetail = d.laborEntries
-            .slice(1)
-            .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
-            .join("; ")
+
+          const outsideDetail =
+            outsideEntries.length > 0
+              ? "OS: " + outsideEntries.map((le) => `${le.laborCount}@${le.costPerLabor.toFixed(2)}`).join("; ")
+              : ""
 
           let laborDetails = ""
           if (hfDetail && outsideDetail) {
