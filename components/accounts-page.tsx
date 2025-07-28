@@ -238,13 +238,12 @@ const LaborSection = () => {
       return
     }
     if (
-      laborEntries.some((entry, index) => {
+      laborEntries.every((entry) => {
         const count = Number(entry.laborCount || "0")
-        // Allow 0 for HF labor (index 0), but require > 0 for outside labor
-        return index === 0 ? count < 0 : !entry.laborCount || count <= 0
+        return count <= 0
       })
     ) {
-      alert("Please ensure all outside labor groups have a valid number of laborers. HF labor can be 0.")
+      alert("Please ensure at least one labor group has a valid number of laborers greater than 0.")
       return
     }
 
@@ -369,8 +368,8 @@ const LaborSection = () => {
                         value={entry.laborCount}
                         onChange={(e) => handleLaborEntryChange(index, "laborCount", e.target.value)}
                         placeholder="e.g., 10"
-                        required
-                        min={index === 0 ? "0" : "0.01"}
+                        required={false} // Remove required for all labor entries
+                        min="0"
                         step="any"
                       />
                     </div>
