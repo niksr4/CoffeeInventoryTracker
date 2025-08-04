@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { redis, KEYS, getRedisAvailability, checkRedisConnection, setRedisAvailability } from "@/lib/redis"
 
 /* ────────────────────────────────────────────────────────────────────────────
-  Types
+Types
 ─────────────────────────────────────────────────────────────────────────────*/
 export type LaborEntry = {
   laborCount: number
@@ -21,7 +21,7 @@ export type LaborDeployment = {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-  In-memory fallback store
+In-memory fallback store
 ─────────────────────────────────────────────────────────────────────────────*/
 let inMemoryStore: LaborDeployment[] = []
 
@@ -35,7 +35,7 @@ async function ensureRedisConnected() {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-  Helper functions
+Helper functions
 ─────────────────────────────────────────────────────────────────────────────*/
 async function readDeployments(): Promise<LaborDeployment[]> {
   if (usingRedis()) {
@@ -54,7 +54,7 @@ async function writeDeployments(deployments: LaborDeployment[]) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-  Route handlers
+Route handlers
 ─────────────────────────────────────────────────────────────────────────────*/
 export async function GET() {
   try {
@@ -86,12 +86,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing or invalid required fields" }, { status: 400 })
     }
 
+    if (body.laborEntries.every((e: LaborEntry) => e.laborCount <= 0)) {
+      return NextResponse.json(
+        { success: false, error: "At least one labor entry must have a count greater than 0." },
+        { status: 400 },
+      )
+    }
+
     let totalCost = 0
     for (const entry of body.laborEntries) {
       if (
         typeof entry.laborCount !== "number" ||
         typeof entry.costPerLabor !== "number" ||
-        entry.laborCount <= 0 ||
+        entry.laborCount < 0 ||
         entry.costPerLabor < 0
       ) {
         return NextResponse.json({ success: false, error: "Invalid labor entry data" }, { status: 400 })
@@ -134,12 +141,19 @@ export async function PUT(request: NextRequest) {
 
     /* ── Re-calculate totalCost if laborEntries provided ─*/
     if (Array.isArray(updates.laborEntries)) {
+      if (updates.laborEntries.every((e: LaborEntry) => e.laborCount <= 0)) {
+        return NextResponse.json(
+          { success: false, error: "At least one labor entry must have a count greater than 0." },
+          { status: 400 },
+        )
+      }
+
       let totalCost = 0
       for (const entry of updates.laborEntries) {
         if (
           typeof entry.laborCount !== "number" ||
           typeof entry.costPerLabor !== "number" ||
-          entry.laborCount <= 0 ||
+          entry.laborCount < 0 ||
           entry.costPerLabor < 0
         ) {
           return NextResponse.json({ success: false, error: "Invalid labor entry data" }, { status: 400 })
