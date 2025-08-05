@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import OpenAI from "openai"
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+import { generateText } from "ai"
+import { groq } from "@ai-sdk/groq"
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,16 +38,17 @@ export async function POST(request: NextRequest) {
      - Highlighting any unusual or concerning patterns.
    `
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 500,
+    const { text } = await generateText({
+      model: groq("llama3-70b-8192"), // This line uses the Groq model
+      prompt,
+      maxTokens: 2500,
+      temperature: 0.7,
     })
 
-    const analysis = completion.choices[0].message.content
+    const analysis = text
     return NextResponse.json({ analysis })
   } catch (error) {
-    console.error("OpenAI Error:", error)
+    console.error("AI Error:", error)
     return NextResponse.json({ analysis: "Error generating AI analysis." }, { status: 500 })
   }
 }
