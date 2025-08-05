@@ -70,5 +70,11 @@
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ai-sdk/groq": "1.2.9",
+      "ai": "4.3.16"
+    }
   }
 }
