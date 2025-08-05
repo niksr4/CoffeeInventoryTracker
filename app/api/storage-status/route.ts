@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { checkStorageStatus } from "@/lib/storage"
 import { checkRedisConnection } from "@/lib/redis"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Check Redis connection
     const redisConnected = await checkRedisConnection()
@@ -32,15 +32,7 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error("Storage status error:", error)
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error checking storage status",
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
+    console.error("Storage Status API error:", error)
+    return NextResponse.json({ error: "Failed to retrieve storage status" }, { status: 500 })
   }
 }

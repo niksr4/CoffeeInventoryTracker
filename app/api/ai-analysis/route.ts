@@ -1,138 +1,56 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateText } from "ai"
-import { groq } from "@ai-sdk/groq"
+import OpenAI from "openai"
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
   try {
-    const {
-      inventory = [],
-      transactions = [],
-      laborDeployments = [],
-      totalItems = inventory.length,
-      totalTransactions = transactions.length,
-      recentActivity = 0,
-    } = await request.json()
+    const body = await request.json()
+    const { inventory, transactions, laborDeployments, totalItems, totalTransactions, recentActivity } = body
 
-    // ---------------------------------------------
-    // Fetch external market context (weather + news)
-    // ---------------------------------------------
-    let marketContext: any = null
-    try {
-      // Build the origin of the current request (e.g. https://your-site.vercel.app)
-      const currentUrl = new URL(request.url)
-      const origin = `${currentUrl.protocol}//${currentUrl.host}`
-
-      const marketNewsResponse = await fetch(`${origin}/api/market-news`, {
-        // Revalidate every 10 minutes
-        next: { revalidate: 600 },
-      })
-
-      if (marketNewsResponse.ok) {
-        marketContext = await marketNewsResponse.json()
-      } else {
-        console.error(`Failed to fetch market news, status: ${marketNewsResponse.status}`)
-      }
-    } catch (err) {
-      console.error("Could not fetch market news:", err)
-      // Proceed without market context if it fails
+    if (!inventory || !transactions || !laborDeployments) {
+      return NextResponse.json({ analysis: "Insufficient data for analysis." }, { status: 400 })
     }
 
-    // Prepare analysis prompt
     const prompt = `
-    You are an AI inventory and operations analyst for a honey farm in Kodagu, India. Analyze the following internal farm data in conjunction with global market context to provide comprehensive, strategic insights.
+     Analyze the following inventory, transaction, and labor deployment data to identify trends,
+     potential issues, and optimization opportunities for a honey farm. Provide specific, actionable
+     recommendations. Be concise.
 
-    INTERNAL FARM DATA:
-    - **Current Inventory (${totalItems} items):**
-    ${
-      inventory.length > 0
-        ? inventory.map((item: any) => `  - ${item.name}: ${item.quantity.toFixed(2)} ${item.unit}`).join("\n")
-        : "  No inventory data available."
-    }
-    - **Recent Inventory Transactions (Last ${transactions?.length ?? 0} of ${totalTransactions} total):**
-    ${
-      Array.isArray(transactions) && transactions.length > 0
-        ? transactions
-            .slice(0, 15)
-            .map((t: any) => `  - ${t.date}: ${t.transactionType} ${t.quantity} ${t.unit} of ${t.itemType} (${t.user})`)
-            .join("\n")
-        : "  No recent transactions."
-    }
-    - **Recent Labor Deployments (Last ${laborDeployments?.length ?? 0}):**
-    ${
-      Array.isArray(laborDeployments) && laborDeployments.length > 0
-        ? laborDeployments
-            .slice(0, 15)
-            .map(
-              (l: any) =>
-                `  - ${l.date}: ${l.laborEntries
-                  .map((e: any) => `${e.laborCount} laborers`)
-                  .join(" & ")} for "${l.reference}" (Code: ${l.code}) costing ₹${l.totalCost.toFixed(2)} (${l.user})`,
-            )
-            .join("\n")
-        : "  No recent labor deployments."
-    }
+     Inventory Data:
+     ${JSON.stringify(inventory)}
 
-    GLOBAL COFFEE MARKET CONTEXT:
-    ${
-      marketContext
-        ? `
-- **Brazil Weather (Major Competitor Region):**
-  - Location: ${marketContext.brazilWeather.location}
-${
-  marketContext.brazilWeather.error
-    ? `  - Note: ${marketContext.brazilWeather.error}`
-    : `  - Current: ${marketContext.brazilWeather.currentTempC}°C, ${marketContext.brazilWeather.condition}
-  - 3-Day Forecast: ${marketContext.brazilWeather.forecast
-    .map(
-      (f: any) =>
-        `${new Date(f.date + "T00:00:00").toLocaleDateString("en-GB", {
-          weekday: "short",
-        })}: ${f.condition}, ${f.minTempC}°C - ${f.maxTempC}°C`,
-    )
-    .join("; ")}`
-}
-- **Recent Market News/Trends:**
-  ${marketContext.marketNews.map((n: string) => `- ${n}`).join("\n  ")}
-`
-        : "Could not load external market data."
-    }
+     Transaction Data (last 50 transactions):
+     ${JSON.stringify(transactions)}
 
-    Please provide a comprehensive analysis covering the following areas:
+     Labor Deployment Data (last 50 deployments):
+     ${JSON.stringify(laborDeployments)}
 
-    1.  **Inventory Health**:
-        - Identify items that are running low (potential stockout risk).
-        - Note any items that appear overstocked or have low turnover.
+     Key Metrics:
+     - Total Unique Items: ${totalItems}
+     - Total Transactions: ${totalTransactions}
+     - Recent Activity (last 24 hours): ${recentActivity}
 
-    2.  **Usage & Consumption Patterns**:
-        - Which items are most frequently depleted?
-        - Are there any noticeable trends in restocking?
+     Focus on:
+     - Identifying potential overstocking or understocking situations.
+     - Analyzing transaction patterns to understand usage trends.
+     - Correlating labor deployments with inventory changes.
+     - Suggesting ways to improve efficiency and reduce waste.
+     - Highlighting any unusual or concerning patterns.
+   `
 
-    3.  **Labor Deployment Insights**:
-        - Analyze recent labor deployments. Which activities are consuming the most labor cost?
-        - Correlate labor activities with inventory consumption where possible.
-
-    4.  **Operational Recommendations**:
-        - Suggest items that need immediate restocking.
-        - Provide recommendations for operational efficiency based on both inventory and labor data.
-
-    5.  **Market Context & Strategic Advice**:
-        - Based on the global market context (e.g., Brazil's weather, market news), what strategic advice can you offer this specific farm in Kodagu?
-        - For example, if Brazil is expecting poor weather that could impact their harvest, should this farm consider holding onto its coffee stock for potentially better prices?
-        - How do the farm's current operations (e.g., spending on specific fertilizers) align with or diverge from broader market trends (e.g., trend towards organic/specialty coffee)?
-
-    Format your response in clear, actionable sections using markdown.
-    `
-
-    const { text } = await generateText({
-      model: groq("llama3-70b-8192"),
-      prompt,
-      maxTokens: 2500,
-      temperature: 0.7,
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 500,
     })
 
-    return NextResponse.json({ analysis: text })
+    const analysis = completion.choices[0].message.content
+    return NextResponse.json({ analysis })
   } catch (error) {
-    console.error("AI Analysis error:", error)
-    return NextResponse.json({ error: "Failed to generate analysis" }, { status: 500 })
+    console.error("OpenAI Error:", error)
+    return NextResponse.json({ analysis: "Error generating AI analysis." }, { status: 500 })
   }
 }

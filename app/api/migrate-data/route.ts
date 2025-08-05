@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { redis, KEYS } from "@/lib/redis"
 import { performBatchOperation } from "@/lib/inventory-service"
+import { initializeDefaultDataIfEmpty } from "@/lib/storage"
 import type { Transaction, InventoryItem } from "@/lib/inventory-service"
 
 // Default inventory items to use if no data is found
@@ -29,55 +30,17 @@ const defaultInventoryItems = [
   { name: "Polyhalite", quantity: 0, unit: "kg" },
 ]
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Check if Redis already has data
-    const existingTransactions = await redis.get<Transaction[]>(KEYS.TRANSACTIONS)
-
-    if (existingTransactions && existingTransactions.length > 0) {
-      return NextResponse.json({
-        success: false,
-        message:
-          "Migration skipped: Data already exists in Redis. To force migration, use POST request with force=true.",
-        existingCount: existingTransactions.length,
-      })
-    }
-
-    // Get source data from query parameters or use defaults
-    const { searchParams } = new URL(request.url)
-    const source = searchParams.get("source") || "default"
-
-    // Generate initial transactions based on source
-    const initialTransactions = await generateInitialTransactions(source)
-
-    // Perform the migration
-    const success = await performBatchOperation(initialTransactions)
-
+    const success = await initializeDefaultDataIfEmpty()
     if (success) {
-      return NextResponse.json({
-        success: true,
-        message: "Data successfully migrated to Redis",
-        transactionsCount: initialTransactions.length,
-      })
+      return NextResponse.json({ message: "Data migration completed successfully." })
     } else {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Failed to migrate data to Redis",
-        },
-        { status: 500 },
-      )
+      return NextResponse.json({ message: "Data migration not needed." })
     }
   } catch (error) {
-    console.error("Migration error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error during migration",
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
+    console.error("Data migration error:", error)
+    return NextResponse.json({ message: "Data migration failed." }, { status: 500 })
   }
 }
 

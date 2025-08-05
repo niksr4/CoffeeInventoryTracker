@@ -14,10 +14,14 @@ export default function DataMigration() {
   const [source, setSource] = useState<"default" | "api">("default")
   const [forceOverwrite, setForceOverwrite] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [message, setMessage] = useState("")
+  const [isMigrating, setIsMigrating] = useState(false)
 
   const handleMigration = async () => {
     setIsLoading(true)
     setResult(null)
+    setIsMigrating(true)
+    setMessage("Migrating data...")
 
     try {
       const response = await fetch("/api/migrate-data", {
@@ -33,6 +37,7 @@ export default function DataMigration() {
 
       const data = await response.json()
       setResult(data)
+      setMessage(data.message)
 
       if (data.success) {
         toast({
@@ -55,8 +60,10 @@ export default function DataMigration() {
         variant: "destructive",
       })
       setResult({ success: false, error: String(error) })
+      setMessage("Migration failed. Check the console for details.")
     } finally {
       setIsLoading(false)
+      setIsMigrating(false)
     }
   }
 
@@ -142,18 +149,24 @@ export default function DataMigration() {
             {result.error && <p className="text-red-600 mt-1">{result.error}</p>}
           </div>
         )}
+        {message && <p className="mt-4">{message}</p>}
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row gap-3">
-        <Button variant="outline" onClick={handleTestConnection} disabled={isLoading} className="w-full sm:w-auto">
+        <Button
+          variant="outline"
+          onClick={handleTestConnection}
+          disabled={isLoading}
+          className="w-full sm:w-auto bg-transparent"
+        >
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
           Test Connection
         </Button>
         <Button
           onClick={handleMigration}
-          disabled={isLoading}
+          disabled={isLoading || isMigrating}
           className="w-full sm:w-auto bg-green-700 hover:bg-green-800"
         >
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+          {isMigrating ? "Migrating..." : <ArrowRight className="mr-2 h-4 w-4" />}
           Migrate Data
         </Button>
       </CardFooter>

@@ -1,9 +1,10 @@
-import DataMigration from "@/components/data-migration"
+"use client"
+import { DataMigration } from "@/components/data-migration"
 
-export default function MigrationPage() {
+export default function MigratePage() {
   return (
-    <div className="container py-10">
-      <h1 className="text-2xl font-bold mb-6 text-center text-green-700">Database Migration Tool</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen py-2">
+      <h1 className="text-2xl font-bold mb-4">Data Migration Tool</h1>
       <DataMigration />
     </div>
   )

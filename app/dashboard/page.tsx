@@ -1,5 +1,9 @@
 import InventorySystem from "@/components/inventory-system"
 
-export default function DashboardPage() {
-  return <InventorySystem />
+export default function Dashboard() {
+  return (
+    <main className="flex-1">
+      <InventorySystem />
+    </main>
+  )
 }

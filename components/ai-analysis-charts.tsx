@@ -14,14 +14,83 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
+  Tooltip,
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+
+interface DataPoint {
+  name: string
+  value: number
+}
 
 interface AiAnalysisChartsProps {
-  inventory: InventoryItem[]
-  transactions: Transaction[]
+  inventory: { name: string; quantity: number }[]
+  transactions: { itemType: string; quantity: number }[]
+}
+
+const ItemQuantityChart: React.FC<AiAnalysisChartsProps> = ({ inventory }) => {
+  const data: DataPoint[] = inventory.map((item) => ({
+    name: item.name,
+    value: item.quantity,
+  }))
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Item Quantities</CardTitle>
+        <CardDescription>Current quantities of each item in inventory</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="value" fill="#82ca9d" />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}
+
+const TransactionVolumeChart: React.FC<AiAnalysisChartsProps> = ({ transactions }) => {
+  // Aggregate transaction data by item type
+  const transactionData: { [key: string]: number } = {}
+  transactions.forEach((transaction) => {
+    const { itemType, quantity } = transaction
+    transactionData[itemType] = (transactionData[itemType] || 0) + quantity
+  })
+
+  // Convert aggregated data to array of DataPoint
+  const data: DataPoint[] = Object.entries(transactionData).map(([name, value]) => ({
+    name,
+    value,
+  }))
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Transaction Volume by Item</CardTitle>
+        <CardDescription>Volume of transactions for each item type</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="value" fill="#8884d8" />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
 }
 
 const COLORS = ["#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"] // Green palette
@@ -39,7 +108,7 @@ const parseTransactionDate = (dateString: string): Date | null => {
   return isNaN(date.getTime()) ? null : date
 }
 
-export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysisChartsProps) {
+const AiAnalysisCharts: React.FC<AiAnalysisChartsProps> = ({ inventory, transactions }) => {
   React.useEffect(() => {
     console.log("AiAnalysisCharts received transactions:", transactions)
     console.log("AiAnalysisCharts received inventory:", inventory)
@@ -200,7 +269,9 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <ItemQuantityChart inventory={inventory} />
+      <TransactionVolumeChart transactions={transactions} />
       <Card className="xl:col-span-1">
         <CardHeader>
           <CardTitle>Monthly Consumption</CardTitle>
@@ -329,3 +400,5 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
     </div>
   )
 }
+
+export default AiAnalysisCharts
