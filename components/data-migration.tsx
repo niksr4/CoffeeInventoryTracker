@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, Database, ArrowRight } from "lucide-react"
 
-export default function DataMigration() {
+export function DataMigration() {
   const [isLoading, setIsLoading] = useState(false)
   const [source, setSource] = useState<"default" | "api">("default")
   const [forceOverwrite, setForceOverwrite] = useState(false)
