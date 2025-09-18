@@ -988,15 +988,17 @@ export default function InventorySystem() {
                         Current Inventory
                       </h2>
                       <div className="flex gap-2 w-full sm:w-auto">
+                        {/* Enhanced the Add Item button with better styling and prominence */}
                         <Button
-                          variant="outline"
+                          variant="default"
                           size="sm"
                           onClick={() => setIsNewItemDialogOpen(true)}
-                          className="flex-1 sm:flex-none h-9 bg-transparent text-xs sm:text-sm"
+                          className="flex-1 sm:flex-none h-9 bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
                         >
                           <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                          Add Item
+                          Add New Item
                         </Button>
+
                         <Button
                           variant="outline"
                           size="sm"
@@ -1174,7 +1176,7 @@ export default function InventorySystem() {
                     </Button>
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:gap-0 sm:flex-row justify-between mb-4 sm:mb-5">
+                  <div className="flex flex-col sm:flex-row justify-between mb-4 sm:mb-5">
                     <div className="flex flex-col sm:flex-row gap-3 flex-grow">
                       <div className="relative flex-grow">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -1869,36 +1871,45 @@ export default function InventorySystem() {
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Add New Inventory Item</DialogTitle>
             <DialogDescription className="text-sm">
-              Create a new item to track in your inventory. It will appear in item lists after being added.
+              Create a new item to track in your inventory. Choose from common units or add your own.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 sm:space-y-5 py-4">
             <div>
               <Label htmlFor="new-item-name" className="mb-2 block text-sm sm:text-base">
-                Item Name
+                Item Name *
               </Label>
               <Input
                 id="new-item-name"
                 value={newItem.name}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                placeholder="Enter unique item name"
+                placeholder="e.g., Fertilizer, Seeds, Tools"
                 className="h-12"
+                maxLength={50}
               />
             </div>
             <div>
               <Label htmlFor="new-item-unit" className="mb-2 block text-sm sm:text-base">
-                Unit
+                Unit of Measurement *
               </Label>
               <Select value={newItem.unit} onValueChange={(value) => setNewItem({ ...newItem, unit: value })}>
                 <SelectTrigger id="new-item-unit" className="h-12">
                   <SelectValue placeholder="Select unit" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[40vh] overflow-y-auto">
-                  <SelectItem value="kg">kg</SelectItem>
-                  <SelectItem value="L">L</SelectItem>
-                  <SelectItem value="pcs">pcs</SelectItem>
+                  <SelectItem value="kg">kg (Kilograms)</SelectItem>
+                  <SelectItem value="L">L (Liters)</SelectItem>
                   <SelectItem value="bags">bags</SelectItem>
+                  <SelectItem value="pcs">pcs (Pieces)</SelectItem>
                   <SelectItem value="units">units</SelectItem>
+                  <SelectItem value="boxes">boxes</SelectItem>
+                  <SelectItem value="bottles">bottles</SelectItem>
+                  <SelectItem value="packets">packets</SelectItem>
+                  <SelectItem value="tons">tons</SelectItem>
+                  <SelectItem value="ml">ml (Milliliters)</SelectItem>
+                  <SelectItem value="g">g (Grams)</SelectItem>
+                  <SelectItem value="m">m (Meters)</SelectItem>
+                  <SelectItem value="ft">ft (Feet)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1911,20 +1922,33 @@ export default function InventorySystem() {
                 type="number"
                 value={newItem.quantity}
                 onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                placeholder="Enter initial quantity (e.g., 0)"
+                placeholder="Enter starting quantity (default: 0)"
                 className="h-12"
+                min="0"
+                step="0.01"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave as 0 if you're just setting up the item for future use
+              </p>
             </div>
           </div>
           <DialogFooter className="mt-6 gap-3 flex-col sm:flex-row">
             <Button
               variant="outline"
-              onClick={() => setIsNewItemDialogOpen(false)}
+              onClick={() => {
+                setIsNewItemDialogOpen(false)
+                setNewItem({ name: "", unit: "kg", quantity: "0" })
+              }}
               className="w-full sm:w-auto h-12 sm:h-11"
             >
               Cancel
             </Button>
-            <Button onClick={handleAddNewItem} className="w-full sm:w-auto h-12 sm:h-11">
+            <Button
+              onClick={handleAddNewItem}
+              className="w-full sm:w-auto h-12 sm:h-11 bg-green-600 hover:bg-green-700"
+              disabled={!newItem.name || !newItem.unit}
+            >
+              <Plus className="mr-2 h-4 w-4" />
               Add Item
             </Button>
           </DialogFooter>

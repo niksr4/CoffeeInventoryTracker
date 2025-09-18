@@ -1,6 +1,15 @@
 "use client"
 
 import { AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { toast } from "@/components/ui/use-toast"
 
 import type React from "react"
 import { useState, useMemo, useEffect } from "react"
@@ -1095,12 +1104,20 @@ export default function AccountsPage() {
 
   const handleAddCategory = () => {
     if (!newCategoryCode || !newCategoryName) {
-      alert("Please fill in both code and category name.")
+      toast({
+        title: "Missing fields",
+        description: "Please fill in both code and category name.",
+        variant: "destructive",
+      })
       return
     }
 
     if (allExpenditureCodeMap[newCategoryCode]) {
-      alert("This code already exists. Please use a different code.")
+      toast({
+        title: "Code exists",
+        description: "This code already exists. Please use a different code.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -1108,6 +1125,11 @@ export default function AccountsPage() {
       ...prev,
       [newCategoryCode]: newCategoryName,
     }))
+
+    toast({
+      title: "Category added",
+      description: `Category "${newCategoryName}" (${newCategoryCode}) has been added.`,
+    })
 
     setNewCategoryCode("")
     setNewCategoryName("")
@@ -1228,36 +1250,38 @@ export default function AccountsPage() {
       </Card>
 
       {showAddCategoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Add New Category</h3>
+        <Dialog open={showAddCategoryModal} onOpenChange={setShowAddCategoryModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Expense Category</DialogTitle>
+              <DialogDescription>
+                Create a new expense category that can be used for both labor and consumable entries.
+              </DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="categoryCode">Category Code</Label>
+                <Label htmlFor="categoryCode">Category Code *</Label>
                 <Input
                   id="categoryCode"
                   value={newCategoryCode}
                   onChange={(e) => setNewCategoryCode(e.target.value)}
-                  placeholder="e.g., 555"
-                  required
+                  placeholder="e.g., 600"
+                  maxLength={10}
                 />
+                <p className="text-xs text-muted-foreground">Use a unique numeric code (e.g., 600, 601, etc.)</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="categoryName">Category Name</Label>
+                <Label htmlFor="categoryName">Category Name *</Label>
                 <Input
                   id="categoryName"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="e.g., Electric Fence"
-                  required
+                  placeholder="e.g., Solar Panel Maintenance"
+                  maxLength={50}
                 />
               </div>
             </div>
-            <div className="flex gap-2 mt-6">
-              <Button onClick={handleAddCategory} className="flex-1 bg-purple-600 hover:bg-purple-700">
-                <Check className="mr-2 h-4 w-4" />
-                Add Category
-              </Button>
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1265,13 +1289,16 @@ export default function AccountsPage() {
                   setNewCategoryCode("")
                   setNewCategoryName("")
                 }}
-                className="flex-1"
               >
                 Cancel
               </Button>
-            </div>
-          </div>
-        </div>
+              <Button onClick={handleAddCategory} className="bg-purple-600 hover:bg-purple-700">
+                <Check className="mr-2 h-4 w-4" />
+                Add Category
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       <Tabs defaultValue="labor" className="w-full">
