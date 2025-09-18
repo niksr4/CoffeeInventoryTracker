@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { validateEmail } from "@/lib/auth-service"
+import { useIsMobile } from "@/hooks/use-mobile"
 import Link from "next/link"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const [step, setStep] = useState<"email" | "sent">("email")
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
@@ -65,25 +67,30 @@ export default function ForgotPasswordPage() {
 
   if (step === "sent") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-3 sm:px-4 py-6">
         <div className="w-full max-w-md">
-          <Card>
-            <CardHeader className="text-center">
+          <Card className="border-0 sm:border shadow-none sm:shadow-md">
+            <CardHeader className="text-center px-4 sm:px-6">
               <div className="flex items-center justify-center mb-4">
-                <CheckCircle className="h-12 w-12 text-green-500" />
+                <CheckCircle className="h-10 w-10 sm:h-12 sm:w-12 text-green-500" />
               </div>
-              <CardTitle className="text-2xl">Check Your Email</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-xl sm:text-2xl">Check Your Email</CardTitle>
+              <CardDescription className="text-sm sm:text-base">
                 We've sent password reset instructions to <strong>{email}</strong>
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-4 sm:px-6">
               <div className="text-center text-sm text-muted-foreground">
                 <p>Click the link in the email to reset your password.</p>
                 <p className="mt-2">Didn't receive the email? Check your spam folder.</p>
               </div>
 
-              <Button variant="outline" className="w-full bg-transparent" onClick={handleResend} disabled={loading}>
+              <Button
+                variant="outline"
+                className="w-full h-12 sm:h-11 bg-transparent"
+                onClick={handleResend}
+                disabled={loading}
+              >
                 {loading ? "Sending..." : "Resend Email"}
               </Button>
 
@@ -101,41 +108,47 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-3 sm:px-4 py-6">
       <div className="w-full max-w-md">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Reset Password</CardTitle>
-            <CardDescription>Enter your email address and we'll send you a link to reset your password</CardDescription>
+        <Card className="border-0 sm:border shadow-none sm:shadow-md">
+          <CardHeader className="text-center px-4 sm:px-6">
+            <CardTitle className="text-xl sm:text-2xl">Reset Password</CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Enter your email address and we'll send you a link to reset your password
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             {error && (
               <div className="bg-destructive/10 text-destructive p-3 rounded-md mb-4 text-sm border border-destructive/20">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div>
-                <Label htmlFor="email">Email Address</Label>
-                <div className="relative">
+                <Label htmlFor="email" className="text-sm sm:text-base">
+                  Email Address
+                </Label>
+                <div className="relative mt-1 sm:mt-2">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
+                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
+                    className="pl-9 sm:pl-10 h-12 sm:h-11 text-base sm:text-sm"
                     placeholder="Enter your email"
                     required
                     disabled={loading}
+                    autoComplete="email"
+                    inputMode="email"
                   />
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full h-12 sm:h-11 text-base sm:text-sm" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
               </Button>
             </form>
