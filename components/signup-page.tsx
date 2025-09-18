@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Building2, Mail, Lock, Eye, EyeOff, CheckCircle, XCircle } from "lucide-react"
+import { Building2, Mail, Lock, Eye, EyeOff, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -53,11 +53,11 @@ export default function SignupPage() {
   const validatePasswordStrength = (password: string) => {
     const validation = validatePassword(password)
     setPasswordValidation({
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      length: true,
+      uppercase: true,
+      lowercase: true,
+      number: true,
+      special: true,
     })
     return validation.valid
   }
@@ -332,52 +332,6 @@ export default function SignupPage() {
                       )}
                     </button>
                   </div>
-                  {formData.password && (
-                    <div className="mt-2 space-y-1">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                        <div className="flex items-center">
-                          {passwordValidation.length ? (
-                            <CheckCircle className="h-3 w-3 text-green-500 mr-1 flex-shrink-0" />
-                          ) : (
-                            <XCircle className="h-3 w-3 text-muted-foreground mr-1 flex-shrink-0" />
-                          )}
-                          At least 8 characters
-                        </div>
-                        <div className="flex items-center">
-                          {passwordValidation.uppercase ? (
-                            <CheckCircle className="h-3 w-3 text-green-500 mr-1 flex-shrink-0" />
-                          ) : (
-                            <XCircle className="h-3 w-3 text-muted-foreground mr-1 flex-shrink-0" />
-                          )}
-                          One uppercase letter
-                        </div>
-                        <div className="flex items-center">
-                          {passwordValidation.lowercase ? (
-                            <CheckCircle className="h-3 w-3 text-green-500 mr-1 flex-shrink-0" />
-                          ) : (
-                            <XCircle className="h-3 w-3 text-muted-foreground mr-1 flex-shrink-0" />
-                          )}
-                          One lowercase letter
-                        </div>
-                        <div className="flex items-center">
-                          {passwordValidation.number ? (
-                            <CheckCircle className="h-3 w-3 text-green-500 mr-1 flex-shrink-0" />
-                          ) : (
-                            <XCircle className="h-3 w-3 text-muted-foreground mr-1 flex-shrink-0" />
-                          )}
-                          One number
-                        </div>
-                        <div className="flex items-center sm:col-span-2">
-                          {passwordValidation.special ? (
-                            <CheckCircle className="h-3 w-3 text-green-500 mr-1 flex-shrink-0" />
-                          ) : (
-                            <XCircle className="h-3 w-3 text-muted-foreground mr-1 flex-shrink-0" />
-                          )}
-                          One special character
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
                 </div>
 

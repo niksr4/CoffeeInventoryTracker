@@ -61,11 +61,11 @@ export default function ResetPasswordPage() {
   const validatePasswordStrength = (password: string) => {
     const validation = validatePassword(password)
     setPasswordValidation({
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      length: true,
+      uppercase: true,
+      lowercase: true,
+      number: true,
+      special: true,
     })
     return validation.valid
   }
@@ -233,50 +233,6 @@ export default function ResetPasswordPage() {
                     )}
                   </button>
                 </div>
-                {password && (
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center text-xs">
-                      {passwordValidation.length ? (
-                        <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-muted-foreground mr-1" />
-                      )}
-                      At least 8 characters
-                    </div>
-                    <div className="flex items-center text-xs">
-                      {passwordValidation.uppercase ? (
-                        <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-muted-foreground mr-1" />
-                      )}
-                      One uppercase letter
-                    </div>
-                    <div className="flex items-center text-xs">
-                      {passwordValidation.lowercase ? (
-                        <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-muted-foreground mr-1" />
-                      )}
-                      One lowercase letter
-                    </div>
-                    <div className="flex items-center text-xs">
-                      {passwordValidation.number ? (
-                        <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-muted-foreground mr-1" />
-                      )}
-                      One number
-                    </div>
-                    <div className="flex items-center text-xs">
-                      {passwordValidation.special ? (
-                        <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-muted-foreground mr-1" />
-                      )}
-                      One special character
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div>
