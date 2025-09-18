@@ -117,6 +117,7 @@ const expenditureCodeMap: { [key: string]: string } = {
   "232": "Lent",
   "233": "Capital Account",
   "245": "Organic Compost Manure",
+  "555": "Electric Fence",
 }
 
 const formatDate = (dateString?: string, style: "short" | "long" | "date-only" | "qif" = "short") => {
@@ -160,7 +161,7 @@ const getInitialCostForLaborGroup = (index: number): string => {
 const initialLaborEntry = (): FormLaborEntry => ({ laborCount: "", costPerLabor: getInitialCostForLaborGroup(0) })
 
 // --- Labor Deployment Component ---
-const LaborSection = () => {
+const LaborSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: { [key: string]: string } }) => {
   const { user, isAdmin } = useAuth()
   const {
     deployments: laborDeployments,
@@ -212,7 +213,7 @@ const LaborSection = () => {
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newCode = e.target.value
     setCode(newCode)
-    setReference(expenditureCodeMap[newCode] || "")
+    setReference(allExpenditureCodeMap[newCode] || "")
   }
 
   const handleLaborEntryChange = (index: number, field: keyof FormLaborEntry, value: string) => {
@@ -541,7 +542,7 @@ const LaborSection = () => {
 }
 
 // --- Consumables Component ---
-const ConsumablesSection = () => {
+const ConsumablesSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: { [key: string]: string } }) => {
   const { user, isAdmin } = useAuth()
   const {
     deployments: consumableDeployments,
@@ -588,7 +589,7 @@ const ConsumablesSection = () => {
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newCode = e.target.value
     setCode(newCode)
-    setReference(expenditureCodeMap[newCode] || "")
+    setReference(allExpenditureCodeMap[newCode] || "")
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -820,8 +821,15 @@ export default function AccountsPage() {
   const { deployments: laborDeployments, loading: laborLoading } = useLaborData()
   const { deployments: consumableDeployments, loading: consumablesLoading } = useConsumablesData()
 
+  const [customCategories, setCustomCategories] = useState<{ [key: string]: string }>({})
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [newCategoryCode, setNewCategoryCode] = useState("")
+  const [newCategoryName, setNewCategoryName] = useState("")
+
   const [exportStartDate, setExportStartDate] = useState<string>("")
   const [exportEndDate, setExportEndDate] = useState<string>("")
+
+  const allExpenditureCodeMap = { ...expenditureCodeMap, ...customCategories }
 
   const combinedDeployments = useMemo(() => {
     const typedLaborDeployments = laborDeployments.map((d) => ({ ...d, entryType: "Labor" }))
@@ -1085,8 +1093,30 @@ export default function AccountsPage() {
     document.body.removeChild(link)
   }
 
+  const handleAddCategory = () => {
+    if (!newCategoryCode || !newCategoryName) {
+      alert("Please fill in both code and category name.")
+      return
+    }
+
+    if (allExpenditureCodeMap[newCategoryCode]) {
+      alert("This code already exists. Please use a different code.")
+      return
+    }
+
+    setCustomCategories((prev) => ({
+      ...prev,
+      [newCategoryCode]: newCategoryName,
+    }))
+
+    setNewCategoryCode("")
+    setNewCategoryName("")
+    setShowAddCategoryModal(false)
+  }
+
   return (
     <div className="space-y-6">
+      {/* Category Management and Export sections remain the same */}
       {isAdmin && (
         <Card>
           <CardHeader>
@@ -1154,6 +1184,96 @@ export default function AccountsPage() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Category Management</CardTitle>
+              <CardDescription>Manage expense categories for labor and consumables</CardDescription>
+            </div>
+            <Button onClick={() => setShowAddCategoryModal(true)} className="bg-purple-600 hover:bg-purple-700">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Category
+            </Button>
+          </div>
+        </CardHeader>
+        {Object.keys(customCategories).length > 0 && (
+          <CardContent>
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm text-gray-600">Custom Categories:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {Object.entries(customCategories).map(([code, name]) => (
+                  <div key={code} className="flex items-center justify-between p-2 bg-purple-50 rounded border">
+                    <span className="text-sm font-mono">
+                      {code} - {name}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newCustomCategories = { ...customCategories }
+                        delete newCustomCategories[code]
+                        setCustomCategories(newCustomCategories)
+                      }}
+                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                    >
+                      <XCircle className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Add New Category</h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="categoryCode">Category Code</Label>
+                <Input
+                  id="categoryCode"
+                  value={newCategoryCode}
+                  onChange={(e) => setNewCategoryCode(e.target.value)}
+                  placeholder="e.g., 555"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="categoryName">Category Name</Label>
+                <Input
+                  id="categoryName"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="e.g., Electric Fence"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <Button onClick={handleAddCategory} className="flex-1 bg-purple-600 hover:bg-purple-700">
+                <Check className="mr-2 h-4 w-4" />
+                Add Category
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddCategoryModal(false)
+                  setNewCategoryCode("")
+                  setNewCategoryName("")
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Tabs defaultValue="labor" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="labor">
@@ -1164,10 +1284,10 @@ export default function AccountsPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="labor" className="mt-4">
-          <LaborSection />
+          <LaborSection allExpenditureCodeMap={allExpenditureCodeMap} />
         </TabsContent>
         <TabsContent value="consumables" className="mt-4">
-          <ConsumablesSection />
+          <ConsumablesSection allExpenditureCodeMap={allExpenditureCodeMap} />
         </TabsContent>
       </Tabs>
     </div>

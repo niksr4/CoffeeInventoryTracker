@@ -1344,7 +1344,30 @@ export default function InventorySystem() {
                       </CardHeader>
                       <CardContent>
                         <div className="prose max-w-none">
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed">{aiAnalysis}</div>
+                          <div
+                            className="whitespace-pre-wrap text-sm leading-relaxed"
+                            style={{
+                              fontFamily: "inherit",
+                              lineHeight: "1.6",
+                            }}
+                          >
+                            {aiAnalysis.split("\n").map((line, index) => {
+                              // Check if line is a section header (all caps followed by colon)
+                              if (line.match(/^[A-Z\s&]+:$/)) {
+                                return (
+                                  <div key={index} className="font-bold text-green-700 mt-4 mb-2 text-base">
+                                    {line}
+                                  </div>
+                                )
+                              }
+                              // Regular line
+                              return (
+                                <div key={index} className={line.trim() === "" ? "mb-2" : ""}>
+                                  {line}
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

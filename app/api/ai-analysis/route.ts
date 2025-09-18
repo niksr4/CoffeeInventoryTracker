@@ -42,13 +42,13 @@ export async function POST(request: NextRequest) {
     You are an AI inventory and operations analyst for a honey farm in Kodagu, India. Analyze the following internal farm data in conjunction with global market context to provide comprehensive, strategic insights.
 
     INTERNAL FARM DATA:
-    - **Current Inventory (${totalItems} items):**
+    - Current Inventory (${totalItems} items):
     ${
       inventory.length > 0
         ? inventory.map((item: any) => `  - ${item.name}: ${item.quantity.toFixed(2)} ${item.unit}`).join("\n")
         : "  No inventory data available."
     }
-    - **Recent Inventory Transactions (Last ${transactions?.length ?? 0} of ${totalTransactions} total):**
+    - Recent Inventory Transactions (Last ${transactions?.length ?? 0} of ${totalTransactions} total):
     ${
       Array.isArray(transactions) && transactions.length > 0
         ? transactions
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
             .join("\n")
         : "  No recent transactions."
     }
-    - **Recent Labor Deployments (Last ${laborDeployments?.length ?? 0}):**
+    - Recent Labor Deployments (Last ${laborDeployments?.length ?? 0}):
     ${
       Array.isArray(laborDeployments) && laborDeployments.length > 0
         ? laborDeployments
@@ -76,55 +76,55 @@ export async function POST(request: NextRequest) {
     ${
       marketContext
         ? `
-- **Brazil Weather (Major Competitor Region):**
-  - Location: ${marketContext.brazilWeather.location}
-${
-  marketContext.brazilWeather.error
-    ? `  - Note: ${marketContext.brazilWeather.error}`
-    : `  - Current: ${marketContext.brazilWeather.currentTempC}°C, ${marketContext.brazilWeather.condition}
-  - 3-Day Forecast: ${marketContext.brazilWeather.forecast
-    .map(
-      (f: any) =>
-        `${new Date(f.date + "T00:00:00").toLocaleDateString("en-GB", {
-          weekday: "short",
-        })}: ${f.condition}, ${f.minTempC}°C - ${f.maxTempC}°C`,
-    )
-    .join("; ")}`
-}
-- **Recent Market News/Trends:**
-  ${marketContext.marketNews.map((n: string) => `- ${n}`).join("\n  ")}
-`
+    Brazil Weather (Major Competitor Region):
+    - Location: ${marketContext.brazilWeather.location}
+    ${
+      marketContext.brazilWeather.error
+        ? `  - Note: ${marketContext.brazilWeather.error}`
+        : `  - Current: ${marketContext.brazilWeather.currentTempC}°C, ${marketContext.brazilWeather.condition}
+    - 3-Day Forecast: ${marketContext.brazilWeather.forecast
+      .map(
+        (f: any) =>
+          `${new Date(f.date + "T00:00:00").toLocaleDateString("en-GB", {
+            weekday: "short",
+          })}: ${f.condition}, ${f.minTempC}°C - ${f.maxTempC}°C`,
+      )
+      .join("; ")}`
+    }
+    Recent Market News/Trends:
+    ${marketContext.marketNews.map((n: string) => `- ${n}`).join("\n  ")}
+    `
         : "Could not load external market data."
     }
 
-    Please provide a comprehensive analysis covering the following areas:
+    Please provide a comprehensive analysis covering the following areas. Use clear section titles in CAPITAL LETTERS followed by a colon, and organize your response with bullet points and clear paragraphs:
 
-    1.  **Inventory Health**:
-        - Identify items that are running low (potential stockout risk).
-        - Note any items that appear overstocked or have low turnover.
+    INVENTORY HEALTH:
+    - Identify items that are running low (potential stockout risk).
+    - Note any items that appear overstocked or have low turnover.
 
-    2.  **Usage & Consumption Patterns**:
-        - Which items are most frequently depleted?
-        - Are there any noticeable trends in restocking?
+    USAGE & CONSUMPTION PATTERNS:
+    - Which items are most frequently depleted?
+    - Are there any noticeable trends in restocking?
 
-    3.  **Labor Deployment Insights**:
-        - Analyze recent labor deployments. Which activities are consuming the most labor cost?
-        - Correlate labor activities with inventory consumption where possible.
+    LABOR DEPLOYMENT INSIGHTS:
+    - Analyze recent labor deployments. Which activities are consuming the most labor cost?
+    - Correlate labor activities with inventory consumption where possible.
 
-    4.  **Operational Recommendations**:
-        - Suggest items that need immediate restocking.
-        - Provide recommendations for operational efficiency based on both inventory and labor data.
+    OPERATIONAL RECOMMENDATIONS:
+    - Suggest items that need immediate restocking.
+    - Provide recommendations for operational efficiency based on both inventory and labor data.
 
-    5.  **Market Context & Strategic Advice**:
-        - Based on the global market context (e.g., Brazil's weather, market news), what strategic advice can you offer this specific farm in Kodagu?
-        - For example, if Brazil is expecting poor weather that could impact their harvest, should this farm consider holding onto its coffee stock for potentially better prices?
-        - How do the farm's current operations (e.g., spending on specific fertilizers) align with or diverge from broader market trends (e.g., trend towards organic/specialty coffee)?
+    MARKET CONTEXT & STRATEGIC ADVICE:
+    - Based on the global market context (e.g., Brazil's weather, market news), what strategic advice can you offer this specific farm in Kodagu?
+    - For example, if Brazil is expecting poor weather that could impact their harvest, should this farm consider holding onto its coffee stock for potentially better prices?
+    - How do the farm's current operations (e.g., spending on specific fertilizers) align with or diverge from broader market trends (e.g., trend towards organic/specialty coffee)?
 
-    Format your response in clear, actionable sections using markdown.
+    Format your response with clear section headings in CAPITAL LETTERS and use bullet points for easy reading. Do not use markdown formatting like ** or ###.
     `
 
     const { text } = await generateText({
-      model: groq("llama3-70b-8192"),
+      model: groq("llama-3.3-70b-versatile"),
       prompt,
       maxTokens: 2500,
       temperature: 0.7,
