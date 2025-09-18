@@ -58,9 +58,21 @@ function getFromLocalStorage<T>(key: string, defaultValue: T): T {
 
   try {
     const item = localStorage.getItem(key)
-    return item ? JSON.parse(item) : defaultValue
+    if (!item) {
+      return defaultValue
+    }
+
+    if (!item.trim().startsWith("{") && !item.trim().startsWith("[")) {
+      console.warn(`Invalid JSON format in localStorage key: ${key}, clearing...`)
+      localStorage.removeItem(key)
+      return defaultValue
+    }
+
+    return JSON.parse(item)
   } catch (error) {
     console.error(`Error getting ${key} from localStorage:`, error)
+    // Clear the corrupted data
+    localStorage.removeItem(key)
     return defaultValue
   }
 }

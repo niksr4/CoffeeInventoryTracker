@@ -25,7 +25,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if user is stored in localStorage
     const storedUser = localStorage.getItem("inventorySystemUser")
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      try {
+        // Check if the stored data looks like JSON before parsing
+        if (storedUser.trim().startsWith("{") && storedUser.trim().endsWith("}")) {
+          const parsed = JSON.parse(storedUser)
+
+          // Validate the parsed data structure
+          if (parsed && typeof parsed === "object" && parsed.username && parsed.role) {
+            setUser(parsed)
+          } else {
+            console.warn("Invalid user data structure, clearing user data")
+            localStorage.removeItem("inventorySystemUser")
+          }
+        } else {
+          console.warn("User data is not valid JSON, clearing user data")
+          localStorage.removeItem("inventorySystemUser")
+        }
+      } catch (error) {
+        console.error("Error parsing stored user:", error)
+        localStorage.removeItem("inventorySystemUser")
+      }
     }
     setLoading(false)
   }, [])

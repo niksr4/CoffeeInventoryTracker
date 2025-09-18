@@ -91,13 +91,44 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
     const storedSession = localStorage.getItem("tenantAuthSession")
     if (storedSession) {
       try {
-        const { tenant: storedTenant, user: storedUser } = JSON.parse(storedSession)
-        setTenant(storedTenant)
-        setUser(storedUser)
-        setCurrentTenant(storedTenant, storedUser)
+        // Check if the stored data looks like JSON before parsing
+        if (storedSession.trim().startsWith("{") && storedSession.trim().endsWith("}")) {
+          const parsed = JSON.parse(storedSession)
+
+          // Validate the parsed data structure
+          if (parsed && typeof parsed === "object" && parsed.tenant && parsed.user) {
+            const { tenant: storedTenant, user: storedUser } = parsed
+            setTenant(storedTenant)
+            setUser(storedUser)
+            setCurrentTenant(storedTenant, storedUser)
+          } else {
+            console.warn("Invalid session data structure, clearing session")
+            localStorage.removeItem("tenantAuthSession")
+          }
+        } else {
+          console.warn("Session data is not valid JSON, clearing session")
+          localStorage.removeItem("tenantAuthSession")
+        }
       } catch (error) {
         console.error("Error parsing stored session:", error)
+        // Clear all potentially corrupted auth data
         localStorage.removeItem("tenantAuthSession")
+        localStorage.removeItem("inventorySystemUser")
+        // Clear any other auth-related localStorage keys that might be corrupted
+        Object.keys(localStorage).forEach((key) => {
+          if (key.includes("auth") || key.includes("session") || key.includes("user")) {
+            try {
+              const value = localStorage.getItem(key)
+              if (value && !value.trim().startsWith("{")) {
+                console.warn(`Clearing corrupted localStorage key: ${key}`)
+                localStorage.removeItem(key)
+              }
+            } catch (e) {
+              console.warn(`Clearing potentially corrupted localStorage key: ${key}`)
+              localStorage.removeItem(key)
+            }
+          }
+        })
       }
     }
     setLoading(false)
