@@ -120,16 +120,37 @@ export default function SignupPage() {
 
     setLoading(true)
     try {
-      // In production, this would call your signup API
-      console.log("Creating account:", formData)
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          organizationName: formData.organizationName,
+          organizationType: formData.organizationType,
+          plan: formData.plan,
+          acceptTerms: formData.acceptTerms,
+          acceptPrivacy: formData.acceptPrivacy,
+        }),
+      })
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const data = await response.json()
 
+      if (!response.ok) {
+        setErrors({ general: data.error || "Failed to create account" })
+        return
+      }
+
+      // Success - move to verification step
       setStep("verification")
     } catch (error) {
       console.error("Signup error:", error)
-      setErrors({ general: "Failed to create account. Please try again." })
+      setErrors({ general: "Network error. Please try again." })
     } finally {
       setLoading(false)
     }

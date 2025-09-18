@@ -25,11 +25,51 @@ export default function SignupPage() {
     agreeToTerms: false,
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle signup logic here
-    console.log("Signup form submitted:", formData)
+
+    setLoading(true)
+    setErrors({})
+
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          organizationName: formData.farmName,
+          organizationType: formData.farmSize,
+          plan: formData.plan,
+          acceptTerms: formData.agreeToTerms,
+          acceptPrivacy: formData.agreeToTerms, // Using same checkbox for both
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setErrors({ general: data.error || "Failed to create account" })
+        return
+      }
+
+      // Success - redirect to login or dashboard
+      window.location.href = "/auth/login?message=Account created successfully"
+    } catch (error) {
+      console.error("Signup error:", error)
+      setErrors({ general: "Network error. Please try again." })
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -163,8 +203,14 @@ export default function SignupPage() {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full" disabled={!formData.agreeToTerms}>
-                Start Free Trial
+              {errors.general && (
+                <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm border border-destructive/20">
+                  {errors.general}
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={!formData.agreeToTerms || loading}>
+                {loading ? "Creating Account..." : "Start Free Trial"}
               </Button>
             </form>
 
