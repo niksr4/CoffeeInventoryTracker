@@ -1,16 +1,12 @@
 export type Tenant = {
   id: string
   name: string
-  slug: string
   plan: "starter" | "professional" | "enterprise"
   status: "active" | "suspended" | "trial"
   createdAt: string
-  updatedAt: string
-  settings: {
-    maxUsers: number
-    maxInventoryItems: number
-    features: string[]
-  }
+  trialEndsAt?: string
+  maxUsers: number
+  features: string[]
 }
 
 export type TenantUser = {
@@ -19,118 +15,89 @@ export type TenantUser = {
   email: string
   firstName: string
   lastName: string
-  role: "owner" | "admin" | "user"
+  role: "admin" | "user" | "viewer"
   status: "active" | "invited" | "suspended"
   createdAt: string
   lastLoginAt?: string
 }
 
-// Tenant-scoped Redis key generator
-export function getTenantKey(tenantId: string, key: string): string {
-  return `tenant:${tenantId}:${key}`
+// Plan configurations
+export const PLAN_CONFIGS = {
+  starter: {
+    maxUsers: 5,
+    maxInventoryItems: 100,
+    features: ["basic_inventory", "basic_labor", "standard_reports", "email_support"],
+    price: 29,
+  },
+  professional: {
+    maxUsers: 25,
+    maxInventoryItems: -1, // unlimited
+    features: [
+      "unlimited_inventory",
+      "advanced_labor",
+      "ai_analytics",
+      "priority_support",
+      "custom_integrations",
+      "advanced_reports",
+    ],
+    price: 79,
+  },
+  enterprise: {
+    maxUsers: -1, // unlimited
+    maxInventoryItems: -1, // unlimited
+    features: [
+      "everything_professional",
+      "multi_location",
+      "dedicated_support",
+      "custom_training",
+      "api_access",
+      "white_label",
+    ],
+    price: 199,
+  },
 }
 
-// Extract tenant ID from various sources
-export function extractTenantId(request: Request): string | null {
-  // Try to get tenant ID from subdomain
-  const url = new URL(request.url)
-  const hostname = url.hostname
+// Tenant context for current session
+let currentTenant: Tenant | null = null
+let currentTenantUser: TenantUser | null = null
 
-  // Check for subdomain pattern: {tenant}.farmflow.com
-  const subdomainMatch = hostname.match(/^([^.]+)\.farmflow\./)
-  if (subdomainMatch && subdomainMatch[1] !== "www" && subdomainMatch[1] !== "api") {
-    return subdomainMatch[1]
-  }
-
-  // Try to get from custom header (for API calls)
-  const headers = request.headers
-  if (headers instanceof Headers) {
-    const tenantHeader = headers.get("x-tenant-id")
-    if (tenantHeader) {
-      return tenantHeader
-    }
-  }
-
-  // Try to get from path parameter
-  const pathMatch = url.pathname.match(/^\/tenant\/([^/]+)/)
-  if (pathMatch) {
-    return pathMatch[1]
-  }
-
-  return null
+export function setCurrentTenant(tenant: Tenant, user: TenantUser) {
+  currentTenant = tenant
+  currentTenantUser = user
 }
 
-// Validate tenant access
-export async function validateTenantAccess(tenantId: string, userId: string): Promise<boolean> {
-  // TODO: Implement actual tenant validation logic
-  // For now, return true for development
-  return true
+export function getCurrentTenant(): Tenant | null {
+  return currentTenant
 }
 
-// Get tenant by ID
-export async function getTenantById(tenantId: string): Promise<Tenant | null> {
-  // TODO: Implement actual tenant lookup
-  // For now, return a mock tenant for development
-  return {
-    id: tenantId,
-    name: `Farm ${tenantId}`,
-    slug: tenantId,
-    plan: "professional",
-    status: "active",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    settings: {
-      maxUsers: 10,
-      maxInventoryItems: 1000,
-      features: ["inventory", "labor", "analytics", "ai-insights"],
-    },
-  }
+export function getCurrentTenantUser(): TenantUser | null {
+  return currentTenantUser
 }
 
-// Create new tenant
-export async function createTenant(data: {
-  name: string
-  slug: string
-  ownerEmail: string
-  ownerFirstName: string
-  ownerLastName: string
-  plan: "starter" | "professional" | "enterprise"
-}): Promise<{ tenant: Tenant; user: TenantUser }> {
-  const tenantId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-  const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+export function clearTenantContext() {
+  currentTenant = null
+  currentTenantUser = null
+}
 
-  const tenant: Tenant = {
-    id: tenantId,
-    name: data.name,
-    slug: data.slug,
-    plan: data.plan,
-    status: "trial",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    settings: {
-      maxUsers: data.plan === "starter" ? 3 : data.plan === "professional" ? 10 : 50,
-      maxInventoryItems: data.plan === "starter" ? 100 : data.plan === "professional" ? 1000 : -1,
-      features:
-        data.plan === "starter"
-          ? ["inventory", "labor"]
-          : data.plan === "professional"
-            ? ["inventory", "labor", "analytics", "ai-insights"]
-            : ["inventory", "labor", "analytics", "ai-insights", "multi-farm", "api-access"],
-    },
+// Helper to check if tenant has feature
+export function tenantHasFeature(feature: string): boolean {
+  if (!currentTenant) return false
+  const config = PLAN_CONFIGS[currentTenant.plan]
+  return config.features.includes(feature) || config.features.includes("everything_professional")
+}
+
+// Helper to check user limits
+export function canAddMoreUsers(): boolean {
+  if (!currentTenant) return false
+  const config = PLAN_CONFIGS[currentTenant.plan]
+  return config.maxUsers === -1 // unlimited for now, would need to check actual count
+}
+
+// Generate tenant-specific Redis keys
+export function getTenantKey(baseKey: string, tenantId?: string): string {
+  const tenant = tenantId || currentTenant?.id
+  if (!tenant) {
+    throw new Error("No tenant context available")
   }
-
-  const user: TenantUser = {
-    id: userId,
-    tenantId,
-    email: data.ownerEmail,
-    firstName: data.ownerFirstName,
-    lastName: data.ownerLastName,
-    role: "owner",
-    status: "active",
-    createdAt: new Date().toISOString(),
-  }
-
-  // TODO: Save tenant and user to database
-
-  return { tenant, user }
+  return `tenant:${tenant}:${baseKey}`
 }

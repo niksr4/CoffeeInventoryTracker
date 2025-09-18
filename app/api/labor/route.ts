@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { redis, getRedisAvailability, checkRedisConnection } from "@/lib/redis"
-import { createTenantRedis, TENANT_KEYS } from "@/lib/tenant-redis"
+import { redis, KEYS, getRedisAvailability, checkRedisConnection, setRedisAvailability } from "@/lib/redis"
 
 /* ────────────────────────────────────────────────────────────────────────────
 Types
@@ -24,7 +23,7 @@ export type LaborDeployment = {
 /* ────────────────────────────────────────────────────────────────────────────
 In-memory fallback store
 ─────────────────────────────────────────────────────────────────────────────*/
-const inMemoryStore: { [tenantId: string]: LaborDeployment[] } = {}
+let inMemoryStore: LaborDeployment[] = []
 
 function usingRedis() {
   return getRedisAvailability() && redis
@@ -38,53 +37,40 @@ async function ensureRedisConnected() {
 /* ────────────────────────────────────────────────────────────────────────────
 Helper functions
 ─────────────────────────────────────────────────────────────────────────────*/
-async function readDeployments(tenantId: string): Promise<LaborDeployment[]> {
+async function readDeployments(): Promise<LaborDeployment[]> {
   if (usingRedis()) {
-    const tenantRedis = createTenantRedis(tenantId)
-    const data = await tenantRedis.get<LaborDeployment[]>(TENANT_KEYS.LABOR_DEPLOYMENTS)
+    const data = await redis!.get<LaborDeployment[]>(KEYS.LABOR_DEPLOYMENTS)
     return data || []
   }
-  return inMemoryStore[tenantId] || []
+  return inMemoryStore
 }
 
-async function writeDeployments(tenantId: string, deployments: LaborDeployment[]) {
+async function writeDeployments(deployments: LaborDeployment[]) {
   if (usingRedis()) {
-    const tenantRedis = createTenantRedis(tenantId)
-    await tenantRedis.set(TENANT_KEYS.LABOR_DEPLOYMENTS, deployments)
+    await redis!.set(KEYS.LABOR_DEPLOYMENTS, deployments)
   } else {
-    inMemoryStore[tenantId] = deployments
+    inMemoryStore = deployments
   }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
 Route handlers
 ─────────────────────────────────────────────────────────────────────────────*/
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Extract tenant ID from headers
-    const tenantId = request.headers.get("x-tenant-id")
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant context required" }, { status: 400 })
-    }
-
     await ensureRedisConnected()
-    const deployments = await readDeployments(tenantId)
+    const deployments = await readDeployments()
     const sorted = deployments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     return NextResponse.json({ deployments: sorted })
   } catch (error) {
     console.error("GET /api/labor →", error)
+    setRedisAvailability(false)
     return NextResponse.json({ deployments: [], error: "Failed to fetch labor deployments" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Extract tenant ID from headers
-    const tenantId = request.headers.get("x-tenant-id")
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant context required" }, { status: 400 })
-    }
-
     await ensureRedisConnected()
     const body = await request.json()
 
@@ -131,25 +117,20 @@ export async function POST(request: NextRequest) {
       notes: body.notes || undefined,
     }
 
-    const existing = await readDeployments(tenantId)
+    const existing = await readDeployments()
     existing.unshift(newDeployment)
-    await writeDeployments(tenantId, existing)
+    await writeDeployments(existing)
 
     return NextResponse.json({ success: true, deployment: newDeployment })
   } catch (error) {
     console.error("POST /api/labor →", error)
+    setRedisAvailability(false)
     return NextResponse.json({ success: false, error: "Failed to save labor deployment" }, { status: 500 })
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    // Extract tenant ID from headers
-    const tenantId = request.headers.get("x-tenant-id")
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant context required" }, { status: 400 })
-    }
-
     await ensureRedisConnected()
     const body = await request.json()
     const { id, ...updates } = body
@@ -186,30 +167,25 @@ export async function PUT(request: NextRequest) {
       updates.date = new Date(updates.date).toISOString()
     }
 
-    const deployments = await readDeployments(tenantId)
+    const deployments = await readDeployments()
     const idx = deployments.findIndex((d) => d.id === id)
     if (idx === -1) {
       return NextResponse.json({ success: false, error: "Deployment not found" }, { status: 404 })
     }
 
     deployments[idx] = { ...deployments[idx], ...updates }
-    await writeDeployments(tenantId, deployments)
+    await writeDeployments(deployments)
 
     return NextResponse.json({ success: true, deployment: deployments[idx] })
   } catch (error) {
     console.error("PUT /api/labor →", error)
+    setRedisAvailability(false)
     return NextResponse.json({ success: false, error: "Failed to update deployment" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Extract tenant ID from headers
-    const tenantId = request.headers.get("x-tenant-id")
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant context required" }, { status: 400 })
-    }
-
     await ensureRedisConnected()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
@@ -218,17 +194,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Deployment ID is required" }, { status: 400 })
     }
 
-    const deployments = await readDeployments(tenantId)
+    const deployments = await readDeployments()
     const filtered = deployments.filter((d) => d.id !== id)
 
     if (filtered.length === deployments.length) {
       return NextResponse.json({ success: false, error: "Deployment not found" }, { status: 404 })
     }
 
-    await writeDeployments(tenantId, filtered)
+    await writeDeployments(filtered)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("DELETE /api/labor →", error)
+    setRedisAvailability(false)
     return NextResponse.json({ success: false, error: "Failed to delete deployment" }, { status: 500 })
   }
 }

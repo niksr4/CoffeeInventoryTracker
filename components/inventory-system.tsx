@@ -6,7 +6,6 @@ import {
   Download,
   List,
   Clock,
-  LogOut,
   Edit,
   Trash2,
   Plus,
@@ -32,9 +31,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useMediaQuery } from "@/hooks/use-media-query"
-import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
-import { useInventoryData } from "@/hooks/use-inventory-data"
 import { useLaborData } from "@/hooks/use-labor-data"
 import {
   Dialog,
@@ -51,6 +48,9 @@ import AiAnalysisCharts from "@/components/ai-analysis-charts"
 import AccountsPage from "@/components/accounts-page"
 import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 import WeatherTab from "@/components/weather-tab"
+import TenantDashboardHeader from "@/components/tenant-dashboard-header"
+import { useTenantAuth } from "@/hooks/use-tenant-auth"
+import { useTenantInventoryData } from "@/hooks/use-tenant-inventory-data"
 
 // This helper function robustly parses "DD/MM/YYYY HH:MM" strings
 const parseCustomDateString = (dateString: string): Date | null => {
@@ -131,7 +131,7 @@ const generateTimestamp = () => {
 
 export default function InventorySystem() {
   const isMobile = useMediaQuery("(max-width: 768px)")
-  const { user, logout, isAdmin } = useAuth()
+  const { tenant, user, logout, isAdmin } = useTenantAuth()
   const router = useRouter()
 
   const {
@@ -143,7 +143,7 @@ export default function InventorySystem() {
     loading,
     error: syncError,
     lastSync,
-  } = useInventoryData()
+  } = useTenantInventoryData()
   const { deployments: laborDeploymentsRaw } = useLaborData()
   const laborDeployments = Array.isArray(laborDeploymentsRaw) ? laborDeploymentsRaw : []
 
@@ -785,20 +785,7 @@ export default function InventorySystem() {
     <>
       <div className="w-full px-4 py-6 mx-auto">
         <div className="max-w-7xl mx-auto">
-          <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <h1 className="text-2xl font-medium text-green-700">Honey Farm Inventory System</h1>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center">
-                <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200 mr-2">
-                  {user.role}
-                </Badge>
-                <span className="text-gray-700">{user.username}</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" /> Logout
-              </Button>
-            </div>
-          </header>
+          <TenantDashboardHeader />
 
           <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="text-sm text-gray-500">

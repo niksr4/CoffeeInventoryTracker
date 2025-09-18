@@ -3,13 +3,13 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/hooks/use-auth"
+import { TenantAuthProvider } from "@/hooks/use-tenant-auth"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "FarmFlow - Smart Farm Management Platform",
-  description: "Transform your farm operations with AI-powered inventory tracking, labor management, and analytics",
+  title: "FarmTrack Pro - Smart Farm Management",
+  description: "Professional farm inventory and management system",
   generator: "v0.dev",
 }
 
@@ -22,7 +22,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <AuthProvider>{children}</AuthProvider>
+          <TenantAuthProvider>{children}</TenantAuthProvider>
         </ThemeProvider>
       </body>
     </html>
