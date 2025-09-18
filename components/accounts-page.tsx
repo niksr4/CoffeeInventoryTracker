@@ -4,7 +4,7 @@ import { AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 import type React from "react"
 import { useState, useMemo, useEffect } from "react"
-import { useAuth } from "@/hooks/use-auth"
+import { useTenantAuth } from "@/hooks/use-tenant-auth"
 import { useLaborData, type LaborEntry, type LaborDeployment } from "@/hooks/use-labor-data"
 import { useConsumablesData, type ConsumableDeployment } from "@/hooks/use-consumables-data"
 import { Button } from "@/components/ui/button"
@@ -162,7 +162,7 @@ const initialLaborEntry = (): FormLaborEntry => ({ laborCount: "", costPerLabor:
 
 // --- Labor Deployment Component ---
 const LaborSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: { [key: string]: string } }) => {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin } = useTenantAuth()
   const {
     deployments: laborDeployments,
     loading: laborLoading,
@@ -543,7 +543,7 @@ const LaborSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: { [key
 
 // --- Consumables Component ---
 const ConsumablesSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: { [key: string]: string } }) => {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin } = useTenantAuth()
   const {
     deployments: consumableDeployments,
     loading: consumablesLoading,
@@ -817,7 +817,7 @@ const ConsumablesSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: 
 
 // --- Main Accounts Page Component ---
 export default function AccountsPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin } = useTenantAuth()
   const { deployments: laborDeployments, loading: laborLoading } = useLaborData()
   const { deployments: consumableDeployments, loading: consumablesLoading } = useConsumablesData()
 
