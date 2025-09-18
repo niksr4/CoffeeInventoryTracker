@@ -6,6 +6,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
+    console.log("[v0] Signup API received body:", JSON.stringify(body, null, 2))
+
     const {
       firstName,
       lastName,
@@ -19,9 +21,20 @@ export async function POST(request: NextRequest) {
       acceptPrivacy,
     } = body
 
-    // Validate required fields
     if (!firstName || !lastName || !email || !password || !organizationName) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      console.log("[v0] Missing fields:", {
+        firstName: !!firstName,
+        lastName: !!lastName,
+        email: !!email,
+        password: !!password,
+        organizationName: !!organizationName,
+      })
+      return NextResponse.json(
+        {
+          error: "Missing required fields: firstName, lastName, email, password, and organizationName are required",
+        },
+        { status: 400 },
+      )
     }
 
     // Validate email format
