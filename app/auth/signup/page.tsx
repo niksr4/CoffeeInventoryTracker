@@ -11,8 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import { useTenantAuth } from "@/hooks/use-tenant-auth"
+import { setCurrentTenant } from "@/lib/tenant"
 
 export default function SignupPage() {
+  const { login } = useTenantAuth()
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -58,8 +62,25 @@ export default function SignupPage() {
         return
       }
 
-      // Success - redirect to login or dashboard
-      window.location.href = "/auth/login?message=Account created successfully"
+      if (data.success && data.tenant && data.user) {
+        // Set the tenant context directly
+        setCurrentTenant(data.tenant, data.user)
+
+        // Store session in localStorage (same as login flow)
+        localStorage.setItem(
+          "tenantAuthSession",
+          JSON.stringify({
+            tenant: data.tenant,
+            user: data.user,
+          }),
+        )
+
+        // Redirect to dashboard
+        window.location.href = "/dashboard"
+      } else {
+        // Fallback to login page if tenant/user data is missing
+        window.location.href = "/auth/login?message=Account created successfully"
+      }
     } catch (error) {
       console.error("Signup error:", error)
       setErrors({ general: "Network error. Please try again." })

@@ -77,12 +77,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error || "Failed to create account" }, { status: 400 })
     }
 
-    // Return success response (don't include sensitive data)
     return NextResponse.json({
       success: true,
       message: "Account created successfully",
-      tenantId: result.tenant?.id,
-      userId: result.user?.id,
+      tenant: result.tenant,
+      user: result.user,
     })
   } catch (error) {
     console.error("Signup API error:", error)

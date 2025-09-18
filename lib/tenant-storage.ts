@@ -15,7 +15,8 @@ export const TENANT_KEYS = {
 export async function getTenantTransactions(): Promise<Transaction[]> {
   const tenant = getCurrentTenant()
   if (!tenant) {
-    throw new Error("No tenant context available")
+    console.warn("No tenant context available, returning empty transactions array")
+    return []
   }
 
   const tenantKey = getTenantKey(TENANT_KEYS.TRANSACTIONS)
@@ -60,9 +61,15 @@ export async function addTenantTransaction(transaction: Transaction): Promise<bo
 
 // Function to get inventory items for current tenant
 export async function getTenantInventoryItems(includeZeroQuantity = true): Promise<InventoryItem[]> {
+  const tenant = getCurrentTenant()
+  if (!tenant) {
+    console.warn("No tenant context available, returning empty inventory array")
+    return []
+  }
+
   const transactions = await getTenantTransactions()
 
-  if (transactions.length === 0) {
+  if (!transactions || transactions.length === 0) {
     return []
   }
 
@@ -103,7 +110,8 @@ export async function getTenantInventoryItems(includeZeroQuantity = true): Promi
 export async function getTenantLastUpdate(): Promise<number> {
   const tenant = getCurrentTenant()
   if (!tenant) {
-    throw new Error("No tenant context available")
+    console.warn("No tenant context available, returning current timestamp")
+    return Date.now()
   }
 
   const lastUpdateKey = getTenantKey(TENANT_KEYS.LAST_UPDATE)
