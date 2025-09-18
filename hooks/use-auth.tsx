@@ -1,52 +1,96 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type { Tenant } from "@/lib/tenant"
 
 type User = {
-  username: string
-  role: "admin" | "user"
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  role: "owner" | "admin" | "user"
+  tenantId: string
+  tenant?: Tenant
 }
 
 type AuthContextType = {
   user: User | null
-  login: (username: string, role: "admin" | "user") => void
-  logout: () => void
+  tenant: Tenant | null
+  login: (user: User, tenant: Tenant) => void
+  logout: () => Promise<void>
   isAuthenticated: boolean
   isAdmin: boolean
+  isOwner: boolean
+  loading: boolean
+  checkAuth: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [tenant, setTenant] = useState<Tenant | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem("inventorySystemUser")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+  const checkAuth = async () => {
+    try {
+      const response = await fetch("/api/auth/me")
+      if (response.ok) {
+        const data = await response.json()
+        setUser(data.user)
+        setTenant(data.tenant)
+      } else {
+        setUser(null)
+        setTenant(null)
+      }
+    } catch (error) {
+      console.error("Auth check failed:", error)
+      setUser(null)
+      setTenant(null)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
+  }
+
+  useEffect(() => {
+    checkAuth()
   }, [])
 
-  const login = (username: string, role: "admin" | "user") => {
-    const newUser = { username, role }
+  const login = (newUser: User, newTenant: Tenant) => {
     setUser(newUser)
-    localStorage.setItem("inventorySystemUser", JSON.stringify(newUser))
+    setTenant(newTenant)
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("inventorySystemUser")
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+    } catch (error) {
+      console.error("Logout error:", error)
+    } finally {
+      setUser(null)
+      setTenant(null)
+    }
   }
 
-  const isAuthenticated = !!user
-  const isAdmin = user?.role === "admin"
+  const isAuthenticated = !!user && !!tenant
+  const isAdmin = user?.role === "admin" || user?.role === "owner"
+  const isOwner = user?.role === "owner"
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated, isAdmin }}>
-      {!loading && children}
+    <AuthContext.Provider
+      value={{
+        user,
+        tenant,
+        login,
+        logout,
+        isAuthenticated,
+        isAdmin,
+        isOwner,
+        loading,
+        checkAuth,
+      }}
+    >
+      {children}
     </AuthContext.Provider>
   )
 }

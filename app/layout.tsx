@@ -8,9 +8,9 @@ import { AuthProvider } from "@/hooks/use-auth"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Honey Farm Inventory System",
-  description: "Track your inventory with ease",
-    generator: 'v0.dev'
+  title: "FarmFlow - Smart Farm Management Platform",
+  description: "Transform your farm operations with AI-powered inventory tracking, labor management, and analytics",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
