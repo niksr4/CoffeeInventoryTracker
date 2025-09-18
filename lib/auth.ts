@@ -8,88 +8,107 @@ export type CreateTenantRequest = {
   plan: "starter" | "professional" | "enterprise"
   adminFirstName?: string
   adminLastName?: string
+  password?: string
 }
 
 export type CreateTenantResponse = {
-  tenant: Tenant
-  adminUser: TenantUser
+  success: boolean
+  tenant?: Tenant
+  user?: TenantUser
+  error?: string
   invitationToken?: string
 }
 
 export async function createTenant(request: CreateTenantRequest): Promise<CreateTenantResponse> {
-  const { name, email, plan, adminFirstName = "Admin", adminLastName = "User" } = request
+  try {
+    const { name, email, plan, adminFirstName = "Admin", adminLastName = "User", password } = request
 
-  // Validate input
-  if (!name || !email || !plan) {
-    throw new Error("Missing required fields: name, email, and plan are required")
-  }
+    // Validate input
+    if (!name || !email || !plan) {
+      return {
+        success: false,
+        error: "Missing required fields: name, email, and plan are required",
+      }
+    }
 
-  if (!PLAN_CONFIGS[plan]) {
-    throw new Error(`Invalid plan: ${plan}`)
-  }
+    if (!PLAN_CONFIGS[plan]) {
+      return {
+        success: false,
+        error: `Invalid plan: ${plan}`,
+      }
+    }
 
-  // Generate unique IDs
-  const tenantId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2)}`
-  const adminUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2)}`
+    // Generate unique IDs
+    const tenantId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2)}`
+    const adminUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2)}`
 
-  // Create tenant object
-  const tenant: Tenant = {
-    id: tenantId,
-    name,
-    plan,
-    status: "trial", // Start with trial
-    createdAt: new Date().toISOString(),
-    trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days trial
-    maxUsers: PLAN_CONFIGS[plan].maxUsers,
-    features: PLAN_CONFIGS[plan].features,
-  }
+    // Create tenant object
+    const tenant: Tenant = {
+      id: tenantId,
+      name,
+      plan,
+      status: "trial", // Start with trial
+      createdAt: new Date().toISOString(),
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days trial
+      maxUsers: PLAN_CONFIGS[plan].maxUsers,
+      features: PLAN_CONFIGS[plan].features,
+    }
 
-  // Create admin user
-  const adminUser: TenantUser = {
-    id: adminUserId,
-    tenantId,
-    email,
-    firstName: adminFirstName,
-    lastName: adminLastName,
-    role: "admin",
-    status: "active",
-    createdAt: new Date().toISOString(),
-  }
+    // Create admin user
+    const adminUser: TenantUser = {
+      id: adminUserId,
+      tenantId,
+      email,
+      firstName: adminFirstName,
+      lastName: adminLastName,
+      role: "admin",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      password: password, // Include password field
+    }
 
-  // Store tenant and user in Redis
-  await safeRedisOperation(async () => {
-    if (!redis) throw new Error("Redis not available")
+    // Store tenant and user in Redis
+    await safeRedisOperation(async () => {
+      if (!redis) throw new Error("Redis not available")
 
-    // Store tenant
-    const tenantKey = `tenant:${tenantId}`
-    await redis.set(tenantKey, JSON.stringify(tenant))
+      // Store tenant
+      const tenantKey = `tenant:${tenantId}`
+      await redis.set(tenantKey, JSON.stringify(tenant))
 
-    // Store user
-    const userKey = getTenantKey(`user:${adminUserId}`, tenantId)
-    await redis.set(userKey, JSON.stringify(adminUser))
+      // Store user
+      const userKey = getTenantKey(`user:${adminUserId}`, tenantId)
+      await redis.set(userKey, JSON.stringify(adminUser))
 
-    // Store user email mapping for login
-    const emailKey = getTenantKey(`user_email:${email}`, tenantId)
-    await redis.set(emailKey, adminUserId)
+      // Store user email mapping for login
+      const emailKey = getTenantKey(`user_email:${email}`, tenantId)
+      await redis.set(emailKey, adminUserId)
 
-    // Initialize tenant storage
-    const inventoryKey = getTenantKey("inventory", tenantId)
-    await redis.set(inventoryKey, JSON.stringify([]))
+      // Initialize tenant storage
+      const inventoryKey = getTenantKey("inventory", tenantId)
+      await redis.set(inventoryKey, JSON.stringify([]))
 
-    const laborKey = getTenantKey("labor", tenantId)
-    await redis.set(laborKey, JSON.stringify([]))
+      const laborKey = getTenantKey("labor", tenantId)
+      await redis.set(laborKey, JSON.stringify([]))
 
-    const transactionsKey = getTenantKey("transactions", tenantId)
-    await redis.set(transactionsKey, JSON.stringify([]))
-  })
+      const transactionsKey = getTenantKey("transactions", tenantId)
+      await redis.set(transactionsKey, JSON.stringify([]))
+    })
 
-  // Create invitation token for setup
-  const invitation = await createUserInvitation(tenantId, email, "admin", "system")
+    // Create invitation token for setup
+    const invitation = await createUserInvitation(tenantId, email, "admin", "system")
 
-  return {
-    tenant,
-    adminUser,
-    invitationToken: invitation.token,
+    return {
+      success: true,
+      tenant,
+      user: adminUser,
+      invitationToken: invitation.token,
+    }
+  } catch (error) {
+    console.error("Create tenant error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create tenant",
+    }
   }
 }
 

@@ -67,14 +67,10 @@ export async function POST(request: NextRequest) {
     // Create the tenant and user account
     const result = await createTenant({
       name: organizationName,
-      type: organizationType || "small_farm",
+      email,
       plan,
-      adminUser: {
-        firstName,
-        lastName,
-        email,
-        password: hashedPassword,
-      },
+      adminFirstName: firstName,
+      adminLastName: lastName,
     })
 
     if (!result.success) {
