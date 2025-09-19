@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// The location is hardcoded to Kodagu as requested.
-const LOCATION = "Kodagu"
 const FORECAST_DAYS = "8"
 
 export async function GET(request: NextRequest) {
@@ -12,7 +10,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Weather service not configured. API key is missing." }, { status: 500 })
   }
 
-  const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${LOCATION}&days=${FORECAST_DAYS}&aqi=no&alerts=no`
+  const { searchParams } = new URL(request.url)
+  const city = searchParams.get("city") || "Kodagu"
+
+  const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(city)}&days=${FORECAST_DAYS}&aqi=no&alerts=no`
 
   try {
     const response = await fetch(url, {

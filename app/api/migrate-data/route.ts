@@ -85,7 +85,38 @@ export async function POST(request: Request) {
   try {
     // Parse request body
     const body = await request.json()
-    const { force = false, source = "default" } = body
+    const { force = false, source = "default", clearLabor = false, clearConsumables = false, clearAll = false } = body
+
+    if (clearAll) {
+      await redis.del(KEYS.TRANSACTIONS)
+      await redis.del(KEYS.INVENTORY_HASH)
+      await redis.del(KEYS.LAST_UPDATE)
+      await redis.del(KEYS.LABOR_DEPLOYMENTS)
+      await redis.del(KEYS.CONSUMABLE_DEPLOYMENTS)
+
+      return NextResponse.json({
+        success: true,
+        message: "All transaction history cleared successfully",
+      })
+    }
+
+    if (clearLabor) {
+      await redis.del(KEYS.LABOR_DEPLOYMENTS)
+
+      return NextResponse.json({
+        success: true,
+        message: "Labor deployment history cleared successfully",
+      })
+    }
+
+    if (clearConsumables) {
+      await redis.del(KEYS.CONSUMABLE_DEPLOYMENTS)
+
+      return NextResponse.json({
+        success: true,
+        message: "Consumable deployment history cleared successfully",
+      })
+    }
 
     // Check if Redis already has data and we're not forcing
     if (!force) {
@@ -106,7 +137,7 @@ export async function POST(request: Request) {
       await redis.del(KEYS.LAST_UPDATE)
     }
 
-    // Generate initial transactions based on source
+    // Get source data from query parameters or use defaults
     const initialTransactions = await generateInitialTransactions(source)
 
     // Perform the migration

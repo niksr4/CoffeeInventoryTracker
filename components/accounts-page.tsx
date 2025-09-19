@@ -45,7 +45,7 @@ import {
   ClipboardList,
   Droplets,
   FileText,
-  Coins,
+  Download,
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -178,6 +178,7 @@ const LaborSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: { [key
     addDeployment: addLaborDeployment,
     updateDeployment: updateLaborDeployment,
     deleteDeployment: deleteLaborDeployment,
+    refreshData: refreshLaborData, // Added for clearing history
   } = useLaborData()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -559,6 +560,7 @@ const ConsumablesSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: 
     addDeployment: addConsumableDeployment,
     updateDeployment: updateConsumableDeployment,
     deleteDeployment: deleteConsumableDeployment,
+    refreshData: refreshConsumablesData, // Added for clearing history
   } = useConsumablesData()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -827,8 +829,12 @@ const ConsumablesSection = ({ allExpenditureCodeMap }: { allExpenditureCodeMap: 
 // --- Main Accounts Page Component ---
 export default function AccountsPage() {
   const { isAdmin } = useTenantAuth()
-  const { deployments: laborDeployments, loading: laborLoading } = useLaborData()
-  const { deployments: consumableDeployments, loading: consumablesLoading } = useConsumablesData()
+  const { deployments: laborDeployments, loading: laborLoading, refreshData: refreshLaborData } = useLaborData()
+  const {
+    deployments: consumableDeployments,
+    loading: consumablesLoading,
+    refreshData: refreshConsumablesData,
+  } = useConsumablesData()
 
   const [customCategories, setCustomCategories] = useState<{ [key: string]: string }>({})
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
@@ -858,6 +864,85 @@ export default function AccountsPage() {
   const grandTotal = useMemo(() => {
     return combinedDeployments.reduce((total, deployment) => total + deployment.totalCost, 0)
   }, [combinedDeployments])
+
+  const handleClearLaborHistory = async () => {
+    try {
+      const response = await fetch("/api/migrate-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true, clearLabor: true }),
+      })
+
+      if (response.ok) {
+        await refreshLaborData()
+        toast({
+          title: "Labor history cleared",
+          description: "All labor deployment records have been cleared successfully.",
+        })
+      } else {
+        throw new Error("Failed to clear labor history")
+      }
+    } catch (error) {
+      toast({
+        title: "Clear failed",
+        description: "Failed to clear labor history. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleClearConsumablesHistory = async () => {
+    try {
+      const response = await fetch("/api/migrate-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true, clearConsumables: true }),
+      })
+
+      if (response.ok) {
+        await refreshConsumablesData()
+        toast({
+          title: "Other expenses history cleared",
+          description: "All other expense records have been cleared successfully.",
+        })
+      } else {
+        throw new Error("Failed to clear consumables history")
+      }
+    } catch (error) {
+      toast({
+        title: "Clear failed",
+        description: "Failed to clear other expenses history. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleClearAllHistory = async () => {
+    try {
+      const response = await fetch("/api/migrate-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true, clearAll: true }),
+      })
+
+      if (response.ok) {
+        await refreshLaborData()
+        await refreshConsumablesData()
+        toast({
+          title: "All history cleared",
+          description: "All transaction records have been cleared successfully.",
+        })
+      } else {
+        throw new Error("Failed to clear all history")
+      }
+    } catch (error) {
+      toast({
+        title: "Clear failed",
+        description: "Failed to clear transaction history. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
 
   const getFilteredDeploymentsForExport = () => {
     let deploymentsToExport = [...combinedDeployments]
@@ -1200,8 +1285,103 @@ export default function AccountsPage() {
               disabled={combinedDeployments.length === 0 || laborLoading || consumablesLoading}
               className="w-full sm:w-auto bg-transparent"
             >
-              <Coins className="mr-2 h-4 w-4" /> Export QIF
+              <Download className="mr-2 h-4 w-4" /> Export QIF
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-red-600">Clear Transaction History</CardTitle>
+            <CardDescription>
+              Clear existing transaction history for a fresh client setup. This action cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Clear Labor History
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear Labor History?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all labor deployment records. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearLaborHistory} className="bg-red-600 hover:bg-red-700">
+                      Clear Labor History
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Clear Other Expenses
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear Other Expenses History?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all other expense records. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearConsumablesHistory} className="bg-red-600 hover:bg-red-700">
+                      Clear Other Expenses
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Clear All History
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear All Transaction History?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete ALL transaction records including labor deployments and other
+                      expenses. This action cannot be undone and is intended for setting up a fresh client account.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearAllHistory} className="bg-red-600 hover:bg-red-700">
+                      Clear All History
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Use these options to prepare the system for a new client by removing existing transaction history.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -1323,4 +1503,6 @@ export default function AccountsPage() {
 
 // Keep backward-compatibility for code that still imports
 // "@/components/labor-deployment-tab".
-export { LaborSection as LaborDeploymentTab }
+// Renamed to LaborDeploymentTab and ConsumableDeploymentTab for clarity
+const LaborDeploymentTab = LaborSection
+const ConsumableDeploymentTab = ConsumablesSection

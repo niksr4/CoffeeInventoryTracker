@@ -1,11 +1,16 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Wind, Droplets, Thermometer, AlertTriangle, Cloudy } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Wind, Droplets, Thermometer, AlertTriangle, Cloudy, MapPin } from "lucide-react"
 
 // Type definitions for the WeatherAPI.com response
 interface WeatherApiData {
@@ -45,33 +50,44 @@ export default function WeatherTab() {
   const [weatherData, setWeatherData] = useState<WeatherApiData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cityInput, setCityInput] = useState("")
+  const [currentCity, setCurrentCity] = useState("Kodagu, India")
+
+  const fetchWeather = async (city = "Kodagu, India") => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await fetch(`/api/weather?city=${encodeURIComponent(city)}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch weather data.")
+      }
+
+      setWeatherData(data)
+      setCurrentCity(city)
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("An unknown error occurred.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const response = await fetch("/api/weather")
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch weather data.")
-        }
-
-        setWeatherData(data)
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message)
-        } else {
-          setError("An unknown error occurred.")
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchWeather()
   }, [])
+
+  const handleCitySubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (cityInput.trim()) {
+      fetchWeather(cityInput.trim())
+      setCityInput("")
+    }
+  }
 
   if (loading) {
     return <WeatherSkeleton />
@@ -82,7 +98,7 @@ export default function WeatherTab() {
       <Card>
         <CardHeader>
           <CardTitle>Weather Information</CardTitle>
-          <CardDescription>Current conditions and forecast for Kodagu/Coorg, India.</CardDescription>
+          <CardDescription>Current conditions and forecast for {currentCity}.</CardDescription>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
@@ -128,6 +144,35 @@ export default function WeatherTab() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Change Location
+          </CardTitle>
+          <CardDescription>Enter a city name to get weather information for that location.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleCitySubmit} className="flex gap-2">
+            <div className="flex-1">
+              <Label htmlFor="city-input" className="sr-only">
+                City name
+              </Label>
+              <Input
+                id="city-input"
+                type="text"
+                placeholder="Enter city name (e.g., London, New York, Mumbai)"
+                value={cityInput}
+                onChange={(e) => setCityInput(e.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={!cityInput.trim()}>
+              Get Weather
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Current Weather in {location.name}</CardTitle>

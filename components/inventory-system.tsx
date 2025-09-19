@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import {
   Download,
@@ -42,7 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
-import type { InventoryItem, Transaction } from "@/lib/inventory-service" // Ensure types are from the correct source
+import type { InventoryItem, Transaction } from "@/lib/types" // Ensure types are from the correct source
 import InventoryValueSummary from "@/components/inventory-value-summary"
 import AiAnalysisCharts from "@/components/ai-analysis-charts"
 import AccountsPage from "@/components/accounts-page"
@@ -169,6 +171,10 @@ export default function InventorySystem() {
   const [isAddingItem, setIsAddingItem] = useState(false)
   const [isUpdatingItem, setIsUpdatingItem] = useState(false)
   const [isDeletingTransaction, setIsDeletingTransaction] = useState(false)
+
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [isUploadingCsv, setIsUploadingCsv] = useState(false)
+  const [csvUploadError, setCsvUploadError] = useState<string>("")
 
   const [newTransaction, setNewTransaction] = useState<{
     itemType: string
@@ -839,6 +845,117 @@ export default function InventorySystem() {
       setAnalysisError("Failed to generate AI analysis. Please try again.")
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setCsvUploadError("Please select a CSV file")
+      return
+    }
+
+    setCsvFile(file)
+    setCsvUploadError("")
+  }
+
+  const processCsvUpload = async () => {
+    if (!csvFile) return
+
+    setIsUploadingCsv(true)
+    setCsvUploadError("")
+
+    try {
+      const text = await csvFile.text()
+      const lines = text.split("\n").filter((line) => line.trim())
+
+      if (lines.length < 2) {
+        throw new Error("CSV file must have at least a header row and one data row")
+      }
+
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
+      const requiredHeaders = ["name", "quantity", "unit"]
+
+      const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h))
+      if (missingHeaders.length > 0) {
+        throw new Error(`Missing required columns: ${missingHeaders.join(", ")}. Required: name, quantity, unit`)
+      }
+
+      const nameIndex = headers.indexOf("name")
+      const quantityIndex = headers.indexOf("quantity")
+      const unitIndex = headers.indexOf("unit")
+      const priceIndex = headers.indexOf("price")
+      const notesIndex = headers.indexOf("notes")
+
+      const transactions: Transaction[] = []
+      let successCount = 0
+      let errorCount = 0
+
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          const values = lines[i].split(",").map((v) => v.trim())
+
+          if (values.length < requiredHeaders.length) continue
+
+          const name = values[nameIndex]?.replace(/"/g, "") || ""
+          const quantity = Number.parseFloat(values[quantityIndex]) || 0
+          const unit = values[unitIndex]?.replace(/"/g, "") || "units"
+          const price = priceIndex >= 0 ? Number.parseFloat(values[priceIndex]) || 0 : 0
+          const notes = notesIndex >= 0 ? values[notesIndex]?.replace(/"/g, "") || "" : ""
+
+          if (!name || quantity <= 0) {
+            errorCount++
+            continue
+          }
+
+          const transaction: Transaction = {
+            id: `csv-import-${Date.now()}-${i}`,
+            itemType: name,
+            quantity,
+            unit,
+            price: price > 0 ? price : undefined,
+            totalCost: price > 0 ? price * quantity : undefined,
+            transactionType: "Stock In",
+            notes: notes || `Imported from CSV: ${csvFile.name}`,
+            date: generateTimestamp(),
+            user: user?.username || "csv-import",
+          }
+
+          transactions.push(transaction)
+          successCount++
+        } catch (error) {
+          errorCount++
+          console.error(`Error processing row ${i + 1}:`, error)
+        }
+      }
+
+      if (transactions.length === 0) {
+        throw new Error("No valid items found in CSV file")
+      }
+
+      // Process transactions in batches
+      await batchUpdate(transactions)
+
+      toast({
+        title: "CSV Import Successful",
+        description: `Imported ${successCount} items successfully${errorCount > 0 ? `, ${errorCount} rows had errors` : ""}`,
+      })
+
+      setCsvFile(null)
+      // Reset file input
+      const fileInput = document.getElementById("csv-upload") as HTMLInputElement
+      if (fileInput) fileInput.value = ""
+    } catch (error) {
+      setCsvUploadError(error instanceof Error ? error.message : "Failed to process CSV file")
+      toast({
+        title: "CSV Import Failed",
+        description: error instanceof Error ? error.message : "Failed to process CSV file",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploadingCsv(false)
     }
   }
 
