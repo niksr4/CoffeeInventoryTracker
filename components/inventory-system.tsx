@@ -13,6 +13,8 @@ import HRManagementSystem from "./hr-management-system"
 import FarmMappingSystem from "./farm-mapping-system"
 import TaskPlanningSystem from "./task-planning-system"
 import FarmFlowDashboard from "./farmflow-dashboard"
+import EducationalTrainingModules from "./educational-training-modules"
+import RealtimeMonitoringDashboard from "./realtime-monitoring-dashboard"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 
 // This helper function robustly parses "DD/MM/YYYY HH:MM" strings
@@ -641,7 +643,7 @@ export default function InventorySystem() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-10">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
@@ -651,6 +653,8 @@ export default function InventorySystem() {
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="mapping">Farm Map</TabsTrigger>
             <TabsTrigger value="hr">HR</TabsTrigger>
+            <TabsTrigger value="training">Training</TabsTrigger>
+            <TabsTrigger value="monitoring">Monitor</TabsTrigger>
           </TabsList>
 
           {/* ... existing tab contents ... */}
@@ -669,6 +673,14 @@ export default function InventorySystem() {
 
           <TabsContent value="hr" className="space-y-6">
             <HRManagementSystem />
+          </TabsContent>
+
+          <TabsContent value="training" className="space-y-6">
+            <EducationalTrainingModules />
+          </TabsContent>
+
+          <TabsContent value="monitoring" className="space-y-6">
+            <RealtimeMonitoringDashboard />
           </TabsContent>
         </Tabs>
       </main>
