@@ -41,12 +41,14 @@ export function useTenantInventoryData() {
           getTenantLastUpdate(),
         ])
 
-        setTransactions(tenantTransactions)
-        setInventory(tenantInventory)
+        setTransactions(Array.isArray(tenantTransactions) ? tenantTransactions : [])
+        setInventory(Array.isArray(tenantInventory) ? tenantInventory : [])
         setLastSync(new Date(lastUpdate))
       } catch (err) {
         console.error("Error refreshing tenant data:", err)
         setError(err instanceof Error ? err.message : "Failed to load data")
+        setTransactions([])
+        setInventory([])
       } finally {
         setLoading(false)
       }

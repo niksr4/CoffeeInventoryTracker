@@ -845,7 +845,7 @@ export default function InventorySystem() {
 
   if (!user) return null
 
-  if (loading && !inventory.length && !syncError) {
+  if (loading && (!inventory || !inventory.length) && !syncError) {
     return (
       <ErrorBoundary>
         <div className="w-full px-3 sm:px-4 py-4 sm:py-6 mx-auto">
