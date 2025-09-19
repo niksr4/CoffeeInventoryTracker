@@ -53,7 +53,7 @@ export default function QualityControl() {
 
   // Get filtered checkpoints
   const filteredCheckpoints = qualityCheckpoints.filter((checkpoint) => {
-    const matchesBatch = !selectedBatchId || checkpoint.batchId === selectedBatchId
+    const matchesBatch = selectedBatchId === "all-batches" || !selectedBatchId || checkpoint.batchId === selectedBatchId
     const matchesType = checkpointFilter === "all" || checkpoint.checkpointType === checkpointFilter
     return matchesBatch && matchesType
   })
@@ -445,7 +445,7 @@ export default function QualityControl() {
                 <SelectValue placeholder="Filter by batch" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Batches</SelectItem>
+                <SelectItem value="all-batches">All Batches</SelectItem>
                 {batches.map((batch) => (
                   <SelectItem key={batch.id} value={batch.id}>
                     {batch.batchNumber} - {batch.productType}
@@ -455,7 +455,7 @@ export default function QualityControl() {
             </Select>
             <Select value={checkpointFilter} onValueChange={setCheckpointFilter}>
               <SelectTrigger className="w-48">
-                <SelectValue />
+                <SelectValue placeholder="Filter by checkpoint type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Checkpoints</SelectItem>

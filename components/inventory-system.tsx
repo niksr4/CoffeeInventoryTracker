@@ -56,7 +56,6 @@ import SupplyChainTraceability from "@/components/supply-chain-traceability"
 import AdvancedReportingDashboard from "./advanced-reporting-dashboard"
 import { EnhancedButton } from "./ui/enhanced-button"
 import { ErrorBoundary } from "./ui/error-boundary"
-import { TableSkeleton, CardSkeleton } from "./ui/skeleton-loader"
 import { EmptyState } from "./ui/empty-state"
 
 // This helper function robustly parses "DD/MM/YYYY HH:MM" strings
@@ -845,25 +844,14 @@ export default function InventorySystem() {
 
   if (!user) return null
 
-  if (loading && (!inventory || !inventory.length) && !syncError) {
+  if (loading && (!inventory || inventory.length === 0) && !syncError) {
     return (
-      <ErrorBoundary>
-        <div className="w-full px-3 sm:px-4 py-4 sm:py-6 mx-auto">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-6 space-y-4">
-              <div className="h-8 bg-muted rounded animate-pulse" />
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <CardSkeleton key={i} />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-6">
-              <TableSkeleton rows={8} columns={5} />
-            </div>
-          </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading inventory data...</p>
         </div>
-      </ErrorBoundary>
+      </div>
     )
   }
 
@@ -962,14 +950,14 @@ export default function InventorySystem() {
                             <SelectValue placeholder="Select item type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[40vh] overflow-y-auto">
-                            {inventory.length > 0 ? (
+                            {inventory && inventory.length > 0 ? (
                               inventory.map((item) => (
                                 <SelectItem key={item.name} value={item.name}>
                                   {item.name} ({item.quantity} {item.unit})
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="" disabled>
+                              <SelectItem value="no-items" disabled>
                                 No items available - add some first
                               </SelectItem>
                             )}
