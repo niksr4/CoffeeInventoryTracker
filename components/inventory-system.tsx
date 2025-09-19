@@ -24,6 +24,7 @@ import {
   Package,
   Zap,
   Target,
+  MapPin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,6 +50,8 @@ import { ErrorBoundary } from "./ui/error-boundary"
 import { EmptyState } from "./ui/empty-state"
 import FarmFlowDashboard from "@/components/farmflow-dashboard" // Imported FarmFlowDashboard
 import TaskPlanningSystem from "@/components/task-planning-system" // Added TaskPlanningSystem import
+import FarmMappingSystem from "@/components/farm-mapping-system" // Added FarmMappingSystem import
+import HRManagementSystem from "@/components/hr-management-system" // Added HRManagementSystem import
 
 // This helper function robustly parses "DD/MM/YYYY HH:MM" strings
 const parseCustomDateString = (dateString: string): Date | null => {
@@ -1003,9 +1006,26 @@ export default function InventorySystem() {
                     <Zap className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     FarmFlow
                   </TabsTrigger>
-                  <TabsTrigger value="task-planning" className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8">
+                  <TabsTrigger
+                    value="task-planning"
+                    className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8"
+                  >
                     <Target className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Tasks
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="farm-mapping"
+                    className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8"
+                  >
+                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    Farm Map
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="hr-management"
+                    className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8"
+                  >
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    HR
                   </TabsTrigger>
                   <TabsTrigger value="inventory" className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8">
                     Inventory
@@ -1050,6 +1070,14 @@ export default function InventorySystem() {
 
               <TabsContent value="task-planning" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
                 <TaskPlanningSystem />
+              </TabsContent>
+
+              <TabsContent value="farm-mapping" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+                <FarmMappingSystem />
+              </TabsContent>
+
+              <TabsContent value="hr-management" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+                <HRManagementSystem />
               </TabsContent>
 
               <TabsContent value="inventory" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
@@ -1615,4 +1643,31 @@ export default function InventorySystem() {
                     </Card>
                     <Card>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-\
+                        <CardTitle className="text-sm font-medium">Task Planning</CardTitle>
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">12</div>
+                        <p className="text-xs text-muted-foreground">Active tasks</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+              <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
+              <p className="text-muted-foreground">
+                You do not have the necessary permissions to view this section. Please contact your administrator.
+              </p>
+              <Button variant="outline" onClick={handleLogout} className="mt-6 bg-transparent">
+                Logout
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </ErrorBoundary>
+  )
+}
