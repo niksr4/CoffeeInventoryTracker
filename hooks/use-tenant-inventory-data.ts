@@ -41,8 +41,18 @@ export function useTenantInventoryData() {
           getTenantLastUpdate(),
         ])
 
-        setTransactions(Array.isArray(tenantTransactions) ? tenantTransactions : [])
-        setInventory(Array.isArray(tenantInventory) ? tenantInventory : [])
+        console.log("[v0] Raw tenant data:", { tenantTransactions, tenantInventory, lastUpdate })
+
+        const safeTransactions = Array.isArray(tenantTransactions) ? tenantTransactions : []
+        const safeInventory = Array.isArray(tenantInventory) ? tenantInventory : []
+
+        console.log("[v0] Safe data:", {
+          safeTransactions: safeTransactions.length,
+          safeInventory: safeInventory.length,
+        })
+
+        setTransactions(safeTransactions)
+        setInventory(safeInventory)
         setLastSync(lastUpdate ? new Date(lastUpdate) : new Date())
       } catch (err) {
         console.error("Error refreshing tenant data:", err)
