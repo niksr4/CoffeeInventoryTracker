@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Package, DollarSign, BarChart3, Cloudy, LogOut } from "lucide-react"
+import { Menu, Package, DollarSign, BarChart3, Cloudy, LogOut, Zap } from "lucide-react"
 import { useTenantAuth } from "@/hooks/use-tenant-auth"
 
 interface MobileNavProps {
@@ -17,6 +17,7 @@ export function MobileNav({ activeTab, setActiveTab }: MobileNavProps) {
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: Package },
+    { id: "farmflow", label: "FarmFlow", icon: Zap },
     { id: "inventory", label: "Inventory", icon: Package },
     { id: "accounts", label: "Accounts", icon: DollarSign },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
