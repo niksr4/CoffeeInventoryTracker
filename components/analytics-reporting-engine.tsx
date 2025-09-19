@@ -46,8 +46,49 @@ import {
   Star,
   Briefcase,
 } from "lucide-react"
-import { format, subDays, subMonths, eachDayOfInterval, eachMonthOfInterval } from "date-fns"
 import { toast } from "@/components/ui/use-toast"
+
+const subDays = (date: Date, days: number) => {
+  const result = new Date(date)
+  result.setDate(result.getDate() - days)
+  return result
+}
+
+const subMonths = (date: Date, months: number) => {
+  const result = new Date(date)
+  result.setMonth(result.getMonth() - months)
+  return result
+}
+
+const eachDayOfInterval = (interval: { start: Date; end: Date }) => {
+  const dates = []
+  const current = new Date(interval.start)
+  while (current <= interval.end) {
+    dates.push(new Date(current))
+    current.setDate(current.getDate() + 1)
+  }
+  return dates
+}
+
+const eachMonthOfInterval = (interval: { start: Date; end: Date }) => {
+  const dates = []
+  const current = new Date(interval.start)
+  while (current <= interval.end) {
+    dates.push(new Date(current))
+    current.setMonth(current.getMonth() + 1)
+  }
+  return dates
+}
+
+const formatDate = (date: Date, formatStr: string) => {
+  if (formatStr === "MMM dd") {
+    return date.toLocaleDateString("en-US", { month: "short", day: "2-digit" })
+  }
+  if (formatStr === "MMM yyyy") {
+    return date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+  }
+  return date.toLocaleDateString()
+}
 
 interface AnalyticsData {
   inventory: {
@@ -121,7 +162,7 @@ const generateMockData = (): AnalyticsData => {
         { name: "Equipment", value: 2000, count: 36 },
       ],
       trends: dates.map((date, index) => ({
-        date: format(date, "MMM dd"),
+        date: formatDate(date, "MMM dd"),
         value: 45000 + Math.random() * 5000 + index * 50,
         items: 150 + Math.floor(Math.random() * 20) + Math.floor(index / 5),
       })),
@@ -131,7 +172,7 @@ const generateMockData = (): AnalyticsData => {
       efficiency: 87.5,
       qualityScore: 92.3,
       trends: dates.map((date, index) => ({
-        date: format(date, "MMM dd"),
+        date: formatDate(date, "MMM dd"),
         output: 80 + Math.random() * 40,
         quality: 85 + Math.random() * 15,
         efficiency: 80 + Math.random() * 20,
@@ -157,7 +198,7 @@ const generateMockData = (): AnalyticsData => {
         { name: "Maintenance", count: 3, avgPerformance: 4.2 },
       ],
       performance: dates.map((date) => ({
-        date: format(date, "MMM dd"),
+        date: formatDate(date, "MMM dd"),
         performance: 3.8 + Math.random() * 1.2,
         hours: 160 + Math.random() * 40,
       })),
@@ -175,7 +216,7 @@ const generateMockData = (): AnalyticsData => {
         { category: "Processing", completed: 21, total: 27 },
       ],
       trends: dates.map((date) => ({
-        date: format(date, "MMM dd"),
+        date: formatDate(date, "MMM dd"),
         completed: Math.floor(Math.random() * 8) + 2,
         created: Math.floor(Math.random() * 6) + 3,
       })),
@@ -192,7 +233,7 @@ const generateMockData = (): AnalyticsData => {
         { type: "Light Level", value: 850, optimal: true },
       ],
       trends: dates.map((date) => ({
-        date: format(date, "MMM dd"),
+        date: formatDate(date, "MMM dd"),
         temperature: 20 + Math.random() * 10,
         humidity: 60 + Math.random() * 20,
         soilMoisture: 30 + Math.random() * 40,
@@ -204,7 +245,7 @@ const generateMockData = (): AnalyticsData => {
       profit: 36000,
       profitMargin: 28.8,
       trends: monthlyDates.map((date) => ({
-        date: format(date, "MMM yyyy"),
+        date: formatDate(date, "MMM yyyy"),
         revenue: 8000 + Math.random() * 6000,
         expenses: 6000 + Math.random() * 4000,
         profit: 2000 + Math.random() * 3000,

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
@@ -18,30 +19,46 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Users,
-  UserPlus,
-  Clock,
+  Plus,
   CalendarIcon,
+  Clock,
+  Users,
   Star,
   Award,
   MapPin,
   Phone,
   Mail,
   Edit,
-  Eye,
   Search,
   Download,
-  Target,
-  DollarSign,
+  Play,
+  Pause,
   Timer,
-  PlayCircle,
-  StopCircle,
-  Settings,
-  UserCheck,
+  Target,
   Briefcase,
+  DollarSign,
   Home,
+  Settings,
+  Eye,
+  UserCheck,
 } from "lucide-react"
-import { format } from "date-fns"
+const formatDate = (date: Date, formatStr: string) => {
+  if (formatStr === "HH:mm") {
+    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+  }
+  if (formatStr === "MMM dd, yyyy") {
+    return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+  }
+  if (formatStr === "PPP") {
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  }
+  return date.toLocaleDateString()
+}
 import { toast } from "@/components/ui/use-toast"
 
 interface Employee {
@@ -495,12 +512,16 @@ export default function HRManagementSystem() {
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">
+              <Avatar className="w-10 h-10">
+                <AvatarImage
+                  src={employee.avatar || "/placeholder.svg"}
+                  alt={`${employee.firstName} ${employee.lastName}`}
+                />
+                <AvatarFallback>
                   {employee.firstName[0]}
                   {employee.lastName[0]}
-                </span>
-              </div>
+                </AvatarFallback>
+              </Avatar>
               <div>
                 <h4 className="font-medium text-sm">
                   {employee.firstName} {employee.lastName}
@@ -605,12 +626,16 @@ export default function HRManagementSystem() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-primary">
+              <Avatar className="w-8 h-8">
+                <AvatarImage
+                  src={employee.avatar || "/placeholder.svg"}
+                  alt={`${employee.firstName} ${employee.lastName}`}
+                />
+                <AvatarFallback>
                   {employee.firstName[0]}
                   {employee.lastName[0]}
-                </span>
-              </div>
+                </AvatarFallback>
+              </Avatar>
               <div>
                 <h4 className="font-medium text-sm">
                   {employee.firstName} {employee.lastName}
@@ -634,7 +659,7 @@ export default function HRManagementSystem() {
                 <div className="text-xs text-blue-600 mb-1">Current Task</div>
                 <div className="text-sm font-medium">{activeEntry.task}</div>
                 <div className="text-xs text-muted-foreground">{activeEntry.location}</div>
-                <div className="text-xs text-blue-600 mt-1">Started: {format(activeEntry.clockIn, "HH:mm")}</div>
+                <div className="text-xs text-blue-600 mt-1">Started: {formatDate(activeEntry.clockIn, "HH:mm")}</div>
               </div>
             )}
 
@@ -648,7 +673,7 @@ export default function HRManagementSystem() {
                   }}
                   className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700"
                 >
-                  <PlayCircle className="h-3 w-3 mr-1" />
+                  <Play className="h-3 w-3 mr-1" />
                   Clock In
                 </Button>
               ) : (
@@ -657,7 +682,7 @@ export default function HRManagementSystem() {
                   onClick={() => handleClockOut(activeEntry.id)}
                   className="flex-1 h-8 text-xs bg-red-600 hover:bg-red-700"
                 >
-                  <StopCircle className="h-3 w-3 mr-1" />
+                  <Pause className="h-3 w-3 mr-1" />
                   Clock Out
                 </Button>
               )}
@@ -685,7 +710,7 @@ export default function HRManagementSystem() {
             Export Data
           </Button>
           <Button onClick={() => setIsAddEmployeeOpen(true)} size="sm">
-            <UserPlus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
         </div>
@@ -838,12 +863,16 @@ export default function HRManagementSystem() {
                 {employees.map((employee) => (
                   <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-primary">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage
+                          src={employee.avatar || "/placeholder.svg"}
+                          alt={`${employee.firstName} ${employee.lastName}`}
+                        />
+                        <AvatarFallback>
                           {employee.firstName[0]}
                           {employee.lastName[0]}
-                        </span>
-                      </div>
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <h4 className="font-medium text-sm">
                           {employee.firstName} {employee.lastName}
@@ -859,7 +888,7 @@ export default function HRManagementSystem() {
                         </div>
                       </div>
                       <Button size="sm" variant="outline">
-                        <Eye className="h-3 w-3 mr-1" />
+                        <Eye className="h-4 w-4 mr-1" />
                         Review
                       </Button>
                     </div>
@@ -1186,7 +1215,7 @@ export default function HRManagementSystem() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Hire Date:</span>
-                      <span className="ml-2">{format(selectedEmployee.hireDate, "MMM dd, yyyy")}</span>
+                      <span className="ml-2">{formatDate(selectedEmployee.hireDate, "MMM dd, yyyy")}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Status:</span>

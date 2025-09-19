@@ -44,8 +44,22 @@ import {
   Zap,
   MapPin,
 } from "lucide-react"
-import { format } from "date-fns"
 import { toast } from "@/components/ui/use-toast"
+
+const formatDate = (date: Date, formatStr: string) => {
+  if (formatStr === "MMM dd") {
+    return date.toLocaleDateString("en-US", { month: "short", day: "2-digit" })
+  }
+  if (formatStr === "PPP") {
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  }
+  return date.toLocaleDateString()
+}
 
 interface Task {
   id: string
@@ -491,7 +505,7 @@ export default function TaskPlanningSystem() {
             </div>
             <div className="flex items-center space-x-1">
               <CalendarIcon className="h-3 w-3" />
-              <span className={isOverdue ? "text-red-600 font-medium" : ""}>{format(task.dueDate, "MMM dd")}</span>
+              <span className={isOverdue ? "text-red-600 font-medium" : ""}>{formatDate(task.dueDate, "MMM dd")}</span>
             </div>
           </div>
 
@@ -730,7 +744,7 @@ export default function TaskPlanningSystem() {
               </Select>
 
               <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger>
                   <SelectValue placeholder="Assignee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -889,7 +903,7 @@ export default function TaskPlanningSystem() {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newTask.startDate ? format(newTask.startDate, "PPP") : "Pick a date"}
+                      {newTask.startDate ? formatDate(newTask.startDate, "PPP") : "Pick a date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -908,7 +922,7 @@ export default function TaskPlanningSystem() {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newTask.dueDate ? format(newTask.dueDate, "PPP") : "Pick a date"}
+                      {newTask.dueDate ? formatDate(newTask.dueDate, "PPP") : "Pick a date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
