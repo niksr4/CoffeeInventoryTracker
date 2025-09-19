@@ -54,17 +54,21 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
   const { deployments: consumableDeployments } = useConsumablesData()
 
   console.log("[v0] AI Charts - Data received:", {
-    inventoryCount: inventory.length,
+    inventoryCount: inventory?.length || 0,
     transactionsCount: transactions.length,
     laborDeploymentsCount: laborDeployments.length,
     consumableDeploymentsCount: consumableDeployments.length,
-    sampleInventory: inventory.slice(0, 2),
+    sampleInventory: inventory?.slice(0, 2) || [],
     sampleTransactions: transactions.slice(0, 2),
     sampleLabor: laborDeployments.slice(0, 2),
     sampleConsumables: consumableDeployments.slice(0, 2),
   })
 
   const topInventoryByValue = React.useMemo(() => {
+    if (!inventory || !Array.isArray(inventory)) {
+      return []
+    }
+
     const itemValues: { [key: string]: { quantity: number; totalValue: number; avgPrice: number } } = {}
 
     // Calculate average price and current value for each item
@@ -299,7 +303,10 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
   }
 
   const hasAnyData =
-    transactions.length > 0 || inventory.length > 0 || laborDeployments.length > 0 || consumableDeployments.length > 0
+    transactions.length > 0 ||
+    (inventory?.length || 0) > 0 ||
+    laborDeployments.length > 0 ||
+    consumableDeployments.length > 0
   console.log("[v0] Render decision:", {
     hasAnyData,
     topInventoryCount: topInventoryByValue.length,
