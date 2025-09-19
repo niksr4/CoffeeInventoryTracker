@@ -1,63 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  MapPin,
   Thermometer,
   Droplets,
   Wind,
   Sun,
+  Zap,
+  Wifi,
+  WifiOff,
   AlertTriangle,
   CheckCircle,
   Plus,
-  Edit,
+  Settings,
   Activity,
-  Wifi,
-  WifiOff,
-  Battery,
-  BatteryLow,
-  Gauge,
-  TrendingUp,
-  TrendingDown,
-  Eye,
+  BarChart3,
   Map,
   Navigation,
+  Maximize,
+  Minimize,
+  RotateCcw,
+  Download,
+  Sprout,
+  Home,
+  Tractor,
+  Warehouse,
 } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
-
-interface FarmZone {
-  id: string
-  name: string
-  type: "field" | "greenhouse" | "storage" | "processing" | "livestock" | "orchard"
-  area: number // in acres or square meters
-  coordinates: { lat: number; lng: number }
-  description: string
-  crops?: string[]
-  sensors: string[]
-  status: "active" | "inactive" | "maintenance"
-  lastUpdated: Date
-}
 
 interface Sensor {
   id: string
   name: string
-  type: "temperature" | "humidity" | "soil_moisture" | "ph" | "light" | "wind" | "rain" | "pressure"
-  zoneId: string
+  type: "temperature" | "humidity" | "soil-moisture" | "ph" | "light" | "wind" | "rain" | "pressure"
+  location: { x: number; y: number; zone: string }
   status: "online" | "offline" | "warning" | "error"
   batteryLevel: number
   lastReading: {
@@ -70,160 +51,165 @@ interface Sensor {
     max: number
     optimal: { min: number; max: number }
   }
-  location: { lat: number; lng: number }
+  installDate: Date
+  lastMaintenance?: Date
 }
 
-interface SensorReading {
+interface Zone {
   id: string
-  sensorId: string
-  value: number
-  timestamp: Date
-  alert?: boolean
+  name: string
+  type: "field" | "greenhouse" | "storage" | "processing" | "office" | "equipment"
+  area: number // in square meters
+  coordinates: { x: number; y: number; width: number; height: number }
+  color: string
+  crops?: string[]
+  sensors: string[]
+  description?: string
+  status: "active" | "inactive" | "maintenance"
 }
 
-const sampleZones: FarmZone[] = [
-  {
-    id: "zone-1",
-    name: "North Field",
-    type: "field",
-    area: 5.2,
-    coordinates: { lat: 12.2958, lng: 76.6394 },
-    description: "Main crop field for seasonal vegetables",
-    crops: ["Tomatoes", "Peppers", "Cucumbers"],
-    sensors: ["temp-1", "humid-1", "soil-1"],
-    status: "active",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "zone-2",
-    name: "Greenhouse A",
-    type: "greenhouse",
-    area: 0.8,
-    coordinates: { lat: 12.2968, lng: 76.6404 },
-    description: "Climate-controlled greenhouse for premium crops",
-    crops: ["Lettuce", "Herbs", "Microgreens"],
-    sensors: ["temp-2", "humid-2", "light-1"],
-    status: "active",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "zone-3",
-    name: "Storage Facility",
-    type: "storage",
-    area: 0.3,
-    coordinates: { lat: 12.2948, lng: 76.6384 },
-    description: "Post-harvest storage and processing area",
-    sensors: ["temp-3", "humid-3"],
-    status: "active",
-    lastUpdated: new Date(),
-  },
-]
+interface MapLayer {
+  id: string
+  name: string
+  type: "satellite" | "terrain" | "zones" | "sensors" | "irrigation" | "paths"
+  visible: boolean
+  opacity: number
+}
 
 const sampleSensors: Sensor[] = [
   {
-    id: "temp-1",
-    name: "Temperature Sensor - North Field",
+    id: "temp-001",
+    name: "North Field Temperature",
     type: "temperature",
-    zoneId: "zone-1",
+    location: { x: 150, y: 100, zone: "north-field" },
     status: "online",
     batteryLevel: 85,
-    lastReading: {
-      value: 24.5,
-      unit: "°C",
-      timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    },
-    thresholds: {
-      min: 10,
-      max: 35,
-      optimal: { min: 20, max: 28 },
-    },
-    location: { lat: 12.2958, lng: 76.6394 },
+    lastReading: { value: 24.5, unit: "°C", timestamp: new Date() },
+    thresholds: { min: 10, max: 35, optimal: { min: 18, max: 28 } },
+    installDate: new Date("2024-01-15"),
+    lastMaintenance: new Date("2024-11-01"),
   },
   {
-    id: "humid-1",
-    name: "Humidity Sensor - North Field",
+    id: "humid-001",
+    name: "Greenhouse 1 Humidity",
     type: "humidity",
-    zoneId: "zone-1",
-    status: "online",
-    batteryLevel: 72,
-    lastReading: {
-      value: 65,
-      unit: "%",
-      timestamp: new Date(Date.now() - 3 * 60 * 1000),
-    },
-    thresholds: {
-      min: 30,
-      max: 90,
-      optimal: { min: 50, max: 70 },
-    },
-    location: { lat: 12.296, lng: 76.6396 },
-  },
-  {
-    id: "soil-1",
-    name: "Soil Moisture - North Field",
-    type: "soil_moisture",
-    zoneId: "zone-1",
-    status: "warning",
-    batteryLevel: 45,
-    lastReading: {
-      value: 35,
-      unit: "%",
-      timestamp: new Date(Date.now() - 10 * 60 * 1000),
-    },
-    thresholds: {
-      min: 20,
-      max: 80,
-      optimal: { min: 40, max: 60 },
-    },
-    location: { lat: 12.2956, lng: 76.6392 },
-  },
-  {
-    id: "temp-2",
-    name: "Temperature Sensor - Greenhouse A",
-    type: "temperature",
-    zoneId: "zone-2",
+    location: { x: 300, y: 200, zone: "greenhouse-1" },
     status: "online",
     batteryLevel: 92,
-    lastReading: {
-      value: 26.8,
-      unit: "°C",
-      timestamp: new Date(Date.now() - 2 * 60 * 1000),
-    },
-    thresholds: {
-      min: 15,
-      max: 30,
-      optimal: { min: 22, max: 26 },
-    },
-    location: { lat: 12.2968, lng: 76.6404 },
+    lastReading: { value: 68, unit: "%", timestamp: new Date() },
+    thresholds: { min: 40, max: 80, optimal: { min: 60, max: 75 } },
+    installDate: new Date("2024-02-01"),
+  },
+  {
+    id: "soil-001",
+    name: "South Field Soil Moisture",
+    type: "soil-moisture",
+    location: { x: 200, y: 350, zone: "south-field" },
+    status: "warning",
+    batteryLevel: 45,
+    lastReading: { value: 35, unit: "%", timestamp: new Date(Date.now() - 30 * 60 * 1000) },
+    thresholds: { min: 20, max: 80, optimal: { min: 40, max: 70 } },
+    installDate: new Date("2024-01-20"),
+    lastMaintenance: new Date("2024-10-15"),
+  },
+  {
+    id: "ph-001",
+    name: "West Field pH Sensor",
+    type: "ph",
+    location: { x: 80, y: 250, zone: "west-field" },
+    status: "offline",
+    batteryLevel: 12,
+    lastReading: { value: 6.8, unit: "pH", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+    thresholds: { min: 5.5, max: 8.0, optimal: { min: 6.0, max: 7.5 } },
+    installDate: new Date("2024-03-01"),
   },
 ]
 
-export default function FarmMappingSystem() {
-  const [zones, setZones] = useState<FarmZone[]>(sampleZones)
-  const [sensors, setSensors] = useState<Sensor[]>(sampleSensors)
-  const [selectedZone, setSelectedZone] = useState<FarmZone | null>(null)
-  const [selectedSensor, setSensor] = useState<Sensor | null>(null)
-  const [activeTab, setActiveTab] = useState("map")
-  const [isAddZoneDialogOpen, setIsAddZoneDialogOpen] = useState(false)
-  const [isAddSensorDialogOpen, setIsAddSensorDialogOpen] = useState(false)
-  const [mapView, setMapView] = useState<"satellite" | "terrain" | "hybrid">("satellite")
-
-  const [newZone, setNewZone] = useState<Partial<FarmZone>>({
-    name: "",
+const sampleZones: Zone[] = [
+  {
+    id: "north-field",
+    name: "North Field",
     type: "field",
-    area: 0,
-    description: "",
-    crops: [],
+    area: 5000,
+    coordinates: { x: 50, y: 50, width: 200, height: 150 },
+    color: "#22c55e",
+    crops: ["Tomatoes", "Peppers"],
+    sensors: ["temp-001"],
+    description: "Main vegetable production area",
     status: "active",
-  })
+  },
+  {
+    id: "greenhouse-1",
+    name: "Greenhouse 1",
+    type: "greenhouse",
+    area: 800,
+    coordinates: { x: 280, y: 180, width: 80, height: 60 },
+    color: "#3b82f6",
+    crops: ["Lettuce", "Herbs"],
+    sensors: ["humid-001"],
+    description: "Climate-controlled growing environment",
+    status: "active",
+  },
+  {
+    id: "south-field",
+    name: "South Field",
+    type: "field",
+    area: 4200,
+    coordinates: { x: 100, y: 300, width: 180, height: 120 },
+    color: "#eab308",
+    crops: ["Corn", "Beans"],
+    sensors: ["soil-001"],
+    description: "Seasonal crop rotation area",
+    status: "active",
+  },
+  {
+    id: "west-field",
+    name: "West Field",
+    type: "field",
+    area: 3500,
+    coordinates: { x: 20, y: 200, width: 120, height: 100 },
+    color: "#f97316",
+    crops: ["Wheat"],
+    sensors: ["ph-001"],
+    description: "Grain production area",
+    status: "maintenance",
+  },
+  {
+    id: "storage",
+    name: "Storage Facility",
+    type: "storage",
+    area: 400,
+    coordinates: { x: 380, y: 100, width: 60, height: 40 },
+    color: "#6b7280",
+    sensors: [],
+    description: "Equipment and harvest storage",
+    status: "active",
+  },
+]
 
-  const [newSensor, setNewSensor] = useState<Partial<Sensor>>({
-    name: "",
-    type: "temperature",
-    zoneId: "",
-    batteryLevel: 100,
-    status: "online",
-  })
+const mapLayers: MapLayer[] = [
+  { id: "satellite", name: "Satellite View", type: "satellite", visible: false, opacity: 100 },
+  { id: "terrain", name: "Terrain", type: "terrain", visible: true, opacity: 100 },
+  { id: "zones", name: "Farm Zones", type: "zones", visible: true, opacity: 80 },
+  { id: "sensors", name: "Sensors", type: "sensors", visible: true, opacity: 100 },
+  { id: "irrigation", name: "Irrigation", type: "irrigation", visible: false, opacity: 70 },
+  { id: "paths", name: "Access Paths", type: "paths", visible: false, opacity: 60 },
+]
+
+export default function FarmMappingSystem() {
+  const [sensors, setSensors] = useState<Sensor[]>(sampleSensors)
+  const [zones, setZones] = useState<Zone[]>(sampleZones)
+  const [layers, setLayers] = useState<MapLayer[]>(mapLayers)
+  const [selectedSensor, setSelectedSensor] = useState<Sensor | null>(null)
+  const [selectedZone, setSelectedZone] = useState<Zone | null>(null)
+  const [isAddSensorOpen, setIsAddSensorOpen] = useState(false)
+  const [isAddZoneOpen, setIsAddZoneOpen] = useState(false)
+  const [mapScale, setMapScale] = useState(1)
+  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 })
+  const [activeTab, setActiveTab] = useState("map")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [filterType, setFilterType] = useState<string>("all")
+  const mapRef = useRef<HTMLDivElement>(null)
 
   const getSensorIcon = (type: Sensor["type"]) => {
     switch (type) {
@@ -231,10 +217,10 @@ export default function FarmMappingSystem() {
         return Thermometer
       case "humidity":
         return Droplets
-      case "soil_moisture":
+      case "soil-moisture":
         return Droplets
       case "ph":
-        return Gauge
+        return Activity
       case "light":
         return Sun
       case "wind":
@@ -242,44 +228,50 @@ export default function FarmMappingSystem() {
       case "rain":
         return Droplets
       case "pressure":
-        return Gauge
+        return BarChart3
       default:
-        return Activity
+        return MapPin
     }
   }
 
-  const getZoneTypeColor = (type: FarmZone["type"]) => {
+  const getZoneIcon = (type: Zone["type"]) => {
     switch (type) {
       case "field":
-        return "bg-green-100 text-green-800 border-green-300"
+        return Sprout
       case "greenhouse":
-        return "bg-blue-100 text-blue-800 border-blue-300"
+        return Home
       case "storage":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300"
+        return Warehouse
       case "processing":
-        return "bg-purple-100 text-purple-800 border-purple-300"
-      case "livestock":
-        return "bg-orange-100 text-orange-800 border-orange-300"
-      case "orchard":
-        return "bg-pink-100 text-pink-800 border-pink-300"
+        return Settings
+      case "office":
+        return Home
+      case "equipment":
+        return Tractor
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300"
+        return MapPin
     }
   }
 
   const getSensorStatusColor = (status: Sensor["status"]) => {
     switch (status) {
       case "online":
-        return "bg-green-100 text-green-800 border-green-300"
+        return "text-green-600"
       case "warning":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300"
+        return "text-yellow-600"
       case "error":
-        return "bg-red-100 text-red-800 border-red-300"
+        return "text-red-600"
       case "offline":
-        return "bg-gray-100 text-gray-800 border-gray-300"
+        return "text-gray-400"
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300"
+        return "text-gray-400"
     }
+  }
+
+  const getBatteryColor = (level: number) => {
+    if (level > 60) return "text-green-600"
+    if (level > 30) return "text-yellow-600"
+    return "text-red-600"
   }
 
   const isReadingOptimal = (sensor: Sensor) => {
@@ -288,115 +280,97 @@ export default function FarmMappingSystem() {
     return value >= optimal.min && value <= optimal.max
   }
 
-  const isReadingCritical = (sensor: Sensor) => {
-    const { value } = sensor.lastReading
-    const { min, max } = sensor.thresholds
-    return value < min || value > max
+  const filteredSensors = sensors.filter((sensor) => {
+    if (filterStatus !== "all" && sensor.status !== filterStatus) return false
+    if (filterType !== "all" && sensor.type !== filterType) return false
+    return true
+  })
+
+  const handleSensorClick = (sensor: Sensor) => {
+    setSelectedSensor(sensor)
   }
 
-  const getReadingTrend = (sensorId: string) => {
-    // In a real app, this would analyze historical data
-    // For demo, we'll simulate trends
-    const trends = ["up", "down", "stable"]
-    return trends[Math.floor(Math.random() * trends.length)]
+  const handleZoneClick = (zone: Zone) => {
+    setSelectedZone(zone)
   }
 
-  const handleAddZone = () => {
-    if (!newZone.name || !newZone.area) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill in zone name and area",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const zone: FarmZone = {
-      id: `zone-${Date.now()}`,
-      name: newZone.name!,
-      type: newZone.type!,
-      area: newZone.area!,
-      coordinates: { lat: 12.2958 + Math.random() * 0.01, lng: 76.6394 + Math.random() * 0.01 },
-      description: newZone.description || "",
-      crops: newZone.crops || [],
-      sensors: [],
-      status: newZone.status!,
-      lastUpdated: new Date(),
-    }
-
-    setZones([...zones, zone])
-    setIsAddZoneDialogOpen(false)
-    setNewZone({
-      name: "",
-      type: "field",
-      area: 0,
-      description: "",
-      crops: [],
-      status: "active",
-    })
-
-    toast({
-      title: "Zone added",
-      description: "New farm zone has been created successfully",
-    })
+  const toggleLayer = (layerId: string) => {
+    setLayers(layers.map((layer) => (layer.id === layerId ? { ...layer, visible: !layer.visible } : layer)))
   }
 
-  const handleAddSensor = () => {
-    if (!newSensor.name || !newSensor.zoneId) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill in sensor name and select a zone",
-        variant: "destructive",
-      })
-      return
-    }
+  const updateLayerOpacity = (layerId: string, opacity: number) => {
+    setLayers(layers.map((layer) => (layer.id === layerId ? { ...layer, opacity } : layer)))
+  }
 
-    const sensor: Sensor = {
-      id: `sensor-${Date.now()}`,
-      name: newSensor.name!,
-      type: newSensor.type!,
-      zoneId: newSensor.zoneId!,
-      status: newSensor.status!,
-      batteryLevel: newSensor.batteryLevel!,
-      lastReading: {
-        value: Math.random() * 50 + 10,
-        unit: newSensor.type === "temperature" ? "°C" : newSensor.type === "humidity" ? "%" : "units",
-        timestamp: new Date(),
-      },
-      thresholds: {
-        min: 10,
-        max: 50,
-        optimal: { min: 20, max: 40 },
-      },
-      location: { lat: 12.2958 + Math.random() * 0.01, lng: 76.6394 + Math.random() * 0.01 },
-    }
+  const zoomIn = () => {
+    setMapScale(Math.min(mapScale * 1.2, 3))
+  }
 
-    setSensors([...sensors, sensor])
+  const zoomOut = () => {
+    setMapScale(Math.max(mapScale / 1.2, 0.5))
+  }
 
-    // Update zone to include this sensor
-    setZones(
-      zones.map((zone) => (zone.id === newSensor.zoneId ? { ...zone, sensors: [...zone.sensors, sensor.id] } : zone)),
+  const resetView = () => {
+    setMapScale(1)
+    setMapOffset({ x: 0, y: 0 })
+  }
+
+  const SensorMarker = ({ sensor }: { sensor: Sensor }) => {
+    const SensorIcon = getSensorIcon(sensor.type)
+    const statusColor = getSensorStatusColor(sensor.status)
+
+    return (
+      <div
+        className={`absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 ${
+          selectedSensor?.id === sensor.id ? "z-20 scale-125" : "z-10"
+        }`}
+        style={{
+          left: sensor.location.x * mapScale + mapOffset.x,
+          top: sensor.location.y * mapScale + mapOffset.y,
+        }}
+        onClick={() => handleSensorClick(sensor)}
+      >
+        <div
+          className={`relative p-2 bg-white rounded-full shadow-lg border-2 ${
+            selectedSensor?.id === sensor.id ? "border-primary" : "border-gray-200"
+          }`}
+        >
+          <SensorIcon className={`h-4 w-4 ${statusColor}`} />
+          {sensor.status === "warning" && (
+            <AlertTriangle className="absolute -top-1 -right-1 h-3 w-3 text-yellow-500" />
+          )}
+          {sensor.status === "error" && <AlertTriangle className="absolute -top-1 -right-1 h-3 w-3 text-red-500" />}
+          {sensor.status === "offline" && <WifiOff className="absolute -top-1 -right-1 h-3 w-3 text-gray-400" />}
+        </div>
+      </div>
     )
-
-    setIsAddSensorDialogOpen(false)
-    setNewSensor({
-      name: "",
-      type: "temperature",
-      zoneId: "",
-      batteryLevel: 100,
-      status: "online",
-    })
-
-    toast({
-      title: "Sensor added",
-      description: "New sensor has been added successfully",
-    })
   }
 
-  const activeSensors = sensors.filter((s) => s.status === "online").length
-  const warningSensors = sensors.filter((s) => s.status === "warning" || s.status === "error").length
-  const offlineSensors = sensors.filter((s) => s.status === "offline").length
-  const criticalReadings = sensors.filter(isReadingCritical).length
+  const ZoneArea = ({ zone }: { zone: Zone }) => {
+    const ZoneIcon = getZoneIcon(zone.type)
+
+    return (
+      <div
+        className={`absolute cursor-pointer transition-all hover:opacity-80 ${
+          selectedZone?.id === zone.id ? "ring-2 ring-primary ring-offset-2" : ""
+        }`}
+        style={{
+          left: zone.coordinates.x * mapScale + mapOffset.x,
+          top: zone.coordinates.y * mapScale + mapOffset.y,
+          width: zone.coordinates.width * mapScale,
+          height: zone.coordinates.height * mapScale,
+          backgroundColor: zone.color,
+          opacity: zone.status === "maintenance" ? 0.5 : 0.3,
+        }}
+        onClick={() => handleZoneClick(zone)}
+      >
+        <div className="absolute top-2 left-2 bg-white rounded p-1 shadow">
+          <ZoneIcon className="h-3 w-3" />
+        </div>
+        <div className="absolute bottom-2 left-2 bg-white/90 rounded px-2 py-1 text-xs font-medium">{zone.name}</div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -404,14 +378,14 @@ export default function FarmMappingSystem() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary">Farm Mapping & Sensors</h1>
-          <p className="text-muted-foreground">Monitor your farm zones and sensor network in real-time</p>
+          <p className="text-muted-foreground">Monitor your farm with interactive maps and real-time sensors</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setIsAddZoneDialogOpen(true)} variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Zone
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export Map
           </Button>
-          <Button onClick={() => setIsAddSensorDialogOpen(true)} className="bg-primary hover:bg-primary/90">
+          <Button onClick={() => setIsAddSensorOpen(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
             Add Sensor
           </Button>
@@ -424,10 +398,10 @@ export default function FarmMappingSystem() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Active Zones</p>
-                <p className="text-2xl font-bold text-primary">{zones.filter((z) => z.status === "active").length}</p>
+                <p className="text-sm text-muted-foreground">Total Sensors</p>
+                <p className="text-2xl font-bold text-primary">{sensors.length}</p>
               </div>
-              <Map className="h-8 w-8 text-primary/60" />
+              <Activity className="h-8 w-8 text-primary/60" />
             </div>
           </CardContent>
         </Card>
@@ -435,10 +409,12 @@ export default function FarmMappingSystem() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Online Sensors</p>
-                <p className="text-2xl font-bold text-green-600">{activeSensors}</p>
+                <p className="text-sm text-muted-foreground">Online</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {sensors.filter((s) => s.status === "online").length}
+                </p>
               </div>
-              <Wifi className="h-8 w-8 text-green-600/60" />
+              <CheckCircle className="h-8 w-8 text-green-600/60" />
             </div>
           </CardContent>
         </Card>
@@ -447,7 +423,9 @@ export default function FarmMappingSystem() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Warnings</p>
-                <p className="text-2xl font-bold text-yellow-600">{warningSensors}</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {sensors.filter((s) => s.status === "warning").length}
+                </p>
               </div>
               <AlertTriangle className="h-8 w-8 text-yellow-600/60" />
             </div>
@@ -457,241 +435,310 @@ export default function FarmMappingSystem() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Critical Alerts</p>
-                <p className="text-2xl font-bold text-red-600">{criticalReadings}</p>
+                <p className="text-sm text-muted-foreground">Farm Zones</p>
+                <p className="text-2xl font-bold text-primary">{zones.length}</p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-red-600/60" />
+              <Map className="h-8 w-8 text-primary/60" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="map">Farm Map</TabsTrigger>
+          <TabsTrigger value="map">Interactive Map</TabsTrigger>
+          <TabsTrigger value="sensors">Sensor List</TabsTrigger>
           <TabsTrigger value="zones">Zone Management</TabsTrigger>
-          <TabsTrigger value="sensors">Sensor Network</TabsTrigger>
-          <TabsTrigger value="monitoring">Live Monitoring</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="map" className="mt-6">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Interactive Farm Map</CardTitle>
-                <div className="flex gap-2">
-                  <Select value={mapView} onValueChange={(value: any) => setMapView(value)}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="satellite">Satellite</SelectItem>
-                      <SelectItem value="terrain">Terrain</SelectItem>
-                      <SelectItem value="hybrid">Hybrid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm">
-                    <Navigation className="h-4 w-4 mr-2" />
-                    Center Map
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Simulated Map View */}
-              <div className="relative bg-green-50 rounded-lg h-96 border-2 border-dashed border-green-200 flex items-center justify-center">
-                <div className="text-center">
-                  <Map className="h-16 w-16 text-green-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-green-700 mb-2">Interactive Map View</h3>
-                  <p className="text-green-600 mb-4">
-                    In a production environment, this would show a real interactive map with:
-                  </p>
-                  <div className="text-sm text-green-600 space-y-1">
-                    <p>• Zone boundaries and labels</p>
-                    <p>• Sensor locations with real-time status</p>
-                    <p>• Satellite/terrain imagery</p>
-                    <p>• Weather overlay data</p>
-                    <p>• Task locations and routes</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Map Legend */}
-              <div className="mt-4 flex flex-wrap gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-green-500 rounded"></div>
-                  <span className="text-sm">Active Zones</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                  <span className="text-sm">Greenhouses</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-                  <span className="text-sm">Storage Areas</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <span className="text-sm">Critical Sensors</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm">Normal Sensors</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="zones" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {zones.map((zone) => (
-              <Card key={zone.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{zone.name}</CardTitle>
-                      <div className="flex gap-2 mt-2">
-                        <Badge className={getZoneTypeColor(zone.type)}>{zone.type}</Badge>
-                        <Badge variant={zone.status === "active" ? "default" : "secondary"}>{zone.status}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedZone(zone)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+        <TabsContent value="map" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Map Controls */}
+            <div className="lg:col-span-1 space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Map Controls</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Area:</span>
-                      <span>{zone.area} acres</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Sensors:</span>
-                      <span>{zone.sensors.length} active</span>
-                    </div>
-                    {zone.crops && zone.crops.length > 0 && (
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Crops:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {zone.crops.map((crop) => (
-                            <Badge key={crop} variant="outline" className="text-xs">
-                              {crop}
-                            </Badge>
-                          ))}
-                        </div>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={zoomIn}>
+                      <Maximize className="h-3 w-3" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={zoomOut}>
+                      <Minimize className="h-3 w-3" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={resetView}>
+                      <RotateCcw className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">Zoom: {Math.round(mapScale * 100)}%</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Map Layers</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {layers.map((layer) => (
+                    <div key={layer.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium cursor-pointer" onClick={() => toggleLayer(layer.id)}>
+                          <input
+                            type="checkbox"
+                            checked={layer.visible}
+                            onChange={() => toggleLayer(layer.id)}
+                            className="mr-2"
+                          />
+                          {layer.name}
+                        </label>
                       </div>
-                    )}
-                    <p className="text-sm text-muted-foreground">{zone.description}</p>
+                      {layer.visible && (
+                        <div className="ml-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Opacity:</span>
+                            <input
+                              type="range"
+                              min="10"
+                              max="100"
+                              value={layer.opacity}
+                              onChange={(e) => updateLayerOpacity(layer.id, Number(e.target.value))}
+                              className="flex-1 h-1"
+                            />
+                            <span className="text-xs text-muted-foreground w-8">{layer.opacity}%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Filters</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium mb-1 block">Status</label>
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="warning">Warning</SelectItem>
+                        <SelectItem value="error">Error</SelectItem>
+                        <SelectItem value="offline">Offline</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block">Type</label>
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="temperature">Temperature</SelectItem>
+                        <SelectItem value="humidity">Humidity</SelectItem>
+                        <SelectItem value="soil-moisture">Soil Moisture</SelectItem>
+                        <SelectItem value="ph">pH</SelectItem>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="wind">Wind</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            </div>
+
+            {/* Interactive Map */}
+            <div className="lg:col-span-3">
+              <Card>
+                <CardContent className="p-0">
+                  <div
+                    ref={mapRef}
+                    className="relative w-full h-[600px] bg-gradient-to-br from-green-50 to-green-100 overflow-hidden rounded-lg"
+                    style={{
+                      backgroundImage: layers.find((l) => l.id === "terrain" && l.visible)
+                        ? "url('/farm-terrain-aerial-view.jpg')"
+                        : undefined,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  >
+                    {/* Zone Areas */}
+                    {layers.find((l) => l.id === "zones")?.visible &&
+                      zones.map((zone) => <ZoneArea key={zone.id} zone={zone} />)}
+
+                    {/* Sensor Markers */}
+                    {layers.find((l) => l.id === "sensors")?.visible &&
+                      filteredSensors.map((sensor) => <SensorMarker key={sensor.id} sensor={sensor} />)}
+
+                    {/* Map Scale Indicator */}
+                    <div className="absolute bottom-4 left-4 bg-white/90 rounded px-2 py-1 text-xs">
+                      Scale: 1:{Math.round(1000 / mapScale)}
+                    </div>
+
+                    {/* Compass */}
+                    <div className="absolute top-4 right-4 bg-white/90 rounded-full p-2">
+                      <Navigation className="h-4 w-4" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
+
+          {/* Selected Sensor/Zone Details */}
+          {(selectedSensor || selectedZone) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  {selectedSensor ? `Sensor: ${selectedSensor.name}` : `Zone: ${selectedZone?.name}`}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedSensor && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <h4 className="font-medium mb-2">Current Reading</h4>
+                      <div className="text-2xl font-bold text-primary">
+                        {selectedSensor.lastReading.value} {selectedSensor.lastReading.unit}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {selectedSensor.lastReading.timestamp.toLocaleString()}
+                      </div>
+                      <Badge
+                        className={`mt-2 ${
+                          isReadingOptimal(selectedSensor)
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {isReadingOptimal(selectedSensor) ? "Optimal" : "Outside Range"}
+                      </Badge>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-2">Status & Battery</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className={getSensorStatusColor(selectedSensor.status)}>{selectedSensor.status}</Badge>
+                          {selectedSensor.status === "online" && <Wifi className="h-4 w-4 text-green-600" />}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Zap className={`h-4 w-4 ${getBatteryColor(selectedSensor.batteryLevel)}`} />
+                          <span className="text-sm">{selectedSensor.batteryLevel}%</span>
+                          <Progress value={selectedSensor.batteryLevel} className="flex-1 h-2" />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-2">Thresholds</h4>
+                      <div className="text-sm space-y-1">
+                        <div>
+                          Min: {selectedSensor.thresholds.min} {selectedSensor.lastReading.unit}
+                        </div>
+                        <div>
+                          Max: {selectedSensor.thresholds.max} {selectedSensor.lastReading.unit}
+                        </div>
+                        <div className="text-green-600">
+                          Optimal: {selectedSensor.thresholds.optimal.min}-{selectedSensor.thresholds.optimal.max}{" "}
+                          {selectedSensor.lastReading.unit}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {selectedZone && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <h4 className="font-medium mb-2">Zone Details</h4>
+                      <div className="space-y-1 text-sm">
+                        <div>Type: {selectedZone.type}</div>
+                        <div>Area: {selectedZone.area} m²</div>
+                        <div>Status: {selectedZone.status}</div>
+                        {selectedZone.description && <div>Description: {selectedZone.description}</div>}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-2">Crops</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedZone.crops?.map((crop) => (
+                          <Badge key={crop} variant="outline" className="text-xs">
+                            {crop}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-2">Sensors</h4>
+                      <div className="text-sm">
+                        {selectedZone.sensors.length} sensor(s) installed
+                        <div className="mt-1">
+                          {selectedZone.sensors.map((sensorId) => {
+                            const sensor = sensors.find((s) => s.id === sensorId)
+                            return sensor ? (
+                              <Badge key={sensorId} variant="outline" className="text-xs mr-1">
+                                {sensor.name}
+                              </Badge>
+                            ) : null
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        <TabsContent value="sensors" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sensors.map((sensor) => {
+        <TabsContent value="sensors" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredSensors.map((sensor) => {
               const SensorIcon = getSensorIcon(sensor.type)
-              const trend = getReadingTrend(sensor.id)
-              const isOptimal = isReadingOptimal(sensor)
-              const isCritical = isReadingCritical(sensor)
-
               return (
                 <Card key={sensor.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <SensorIcon className="h-5 w-5 text-primary" />
-                        <div>
-                          <CardTitle className="text-base">{sensor.name}</CardTitle>
-                          <p className="text-sm text-muted-foreground">
-                            {zones.find((z) => z.id === sensor.zoneId)?.name}
-                          </p>
-                        </div>
+                        <SensorIcon className={`h-4 w-4 ${getSensorStatusColor(sensor.status)}`} />
+                        <h4 className="font-medium text-sm">{sensor.name}</h4>
                       </div>
                       <Badge className={getSensorStatusColor(sensor.status)}>{sensor.status}</Badge>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Current Reading */}
-                      <div className="text-center">
-                        <div
-                          className={`text-2xl font-bold ${isCritical ? "text-red-600" : isOptimal ? "text-green-600" : "text-yellow-600"}`}
-                        >
-                          {sensor.lastReading.value}
-                          {sensor.lastReading.unit}
-                        </div>
-                        <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                          {trend === "up" && <TrendingUp className="h-4 w-4 text-green-500" />}
-                          {trend === "down" && <TrendingDown className="h-4 w-4 text-red-500" />}
-                          {trend === "stable" && <Activity className="h-4 w-4 text-blue-500" />}
-                          <span>{new Date(sensor.lastReading.timestamp).toLocaleTimeString()}</span>
-                        </div>
+
+                    <div className="space-y-2">
+                      <div className="text-lg font-bold text-primary">
+                        {sensor.lastReading.value} {sensor.lastReading.unit}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {sensor.lastReading.timestamp.toLocaleString()}
                       </div>
 
-                      {/* Optimal Range */}
-                      <div>
-                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                          <span>
-                            Range: {sensor.thresholds.min} - {sensor.thresholds.max}
-                          </span>
-                          <span>
-                            Optimal: {sensor.thresholds.optimal.min} - {sensor.thresholds.optimal.max}
-                          </span>
-                        </div>
-                        <Progress
-                          value={
-                            ((sensor.lastReading.value - sensor.thresholds.min) /
-                              (sensor.thresholds.max - sensor.thresholds.min)) *
-                            100
-                          }
-                          className="h-2"
-                        />
+                      <div className="flex items-center gap-2">
+                        <Zap className={`h-3 w-3 ${getBatteryColor(sensor.batteryLevel)}`} />
+                        <Progress value={sensor.batteryLevel} className="flex-1 h-1" />
+                        <span className="text-xs">{sensor.batteryLevel}%</span>
                       </div>
 
-                      {/* Battery Level */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {sensor.batteryLevel > 20 ? (
-                            <Battery className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <BatteryLow className="h-4 w-4 text-red-600" />
-                          )}
-                          <span className="text-sm">Battery</span>
-                        </div>
-                        <span
-                          className={`text-sm font-medium ${sensor.batteryLevel > 20 ? "text-green-600" : "text-red-600"}`}
-                        >
-                          {sensor.batteryLevel}%
-                        </span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        <span>{sensor.location.zone}</span>
                       </div>
 
-                      {/* Connection Status */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {sensor.status === "online" ? (
-                            <Wifi className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <WifiOff className="h-4 w-4 text-red-600" />
-                          )}
-                          <span className="text-sm">Connection</span>
-                        </div>
-                        <span
-                          className={`text-sm font-medium ${sensor.status === "online" ? "text-green-600" : "text-red-600"}`}
-                        >
-                          {sensor.status}
-                        </span>
-                      </div>
+                      <Badge
+                        className={`text-xs ${
+                          isReadingOptimal(sensor) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {isReadingOptimal(sensor) ? "Optimal" : "Outside Range"}
+                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
@@ -700,238 +747,123 @@ export default function FarmMappingSystem() {
           </div>
         </TabsContent>
 
-        <TabsContent value="monitoring" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Real-time Alerts */}
+        <TabsContent value="zones" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {zones.map((zone) => {
+              const ZoneIcon = getZoneIcon(zone.type)
+              return (
+                <Card key={zone.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <ZoneIcon className="h-4 w-4 text-primary" />
+                        <h4 className="font-medium text-sm">{zone.name}</h4>
+                      </div>
+                      <Badge variant={zone.status === "active" ? "default" : "secondary"}>{zone.status}</Badge>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-sm text-muted-foreground">
+                        Type: {zone.type} • Area: {zone.area} m²
+                      </div>
+
+                      {zone.crops && zone.crops.length > 0 && (
+                        <div>
+                          <div className="text-xs font-medium mb-1">Crops:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {zone.crops.map((crop) => (
+                              <Badge key={crop} variant="outline" className="text-xs">
+                                {crop}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="text-xs text-muted-foreground">{zone.sensors.length} sensor(s) installed</div>
+
+                      {zone.description && <div className="text-xs text-muted-foreground">{zone.description}</div>}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                  Active Alerts
-                </CardTitle>
+                <CardTitle className="text-lg">Sensor Health Overview</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {sensors
-                    .filter((sensor) => isReadingCritical(sensor) || sensor.status !== "online")
-                    .map((sensor) => (
-                      <div
-                        key={sensor.id}
-                        className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200"
-                      >
-                        <div>
-                          <p className="font-medium text-red-800">{sensor.name}</p>
-                          <p className="text-sm text-red-600">
-                            {isReadingCritical(sensor)
-                              ? `Critical reading: ${sensor.lastReading.value}${sensor.lastReading.unit}`
-                              : `Sensor ${sensor.status}`}
-                          </p>
-                        </div>
-                        <Button size="sm" variant="outline" className="text-red-600 border-red-300 bg-transparent">
-                          View
-                        </Button>
-                      </div>
-                    ))}
-                  {sensors.filter((sensor) => isReadingCritical(sensor) || sensor.status !== "online").length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                      <p>All systems operating normally</p>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Online Sensors</span>
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={(sensors.filter((s) => s.status === "online").length / sensors.length) * 100}
+                        className="w-20 h-2"
+                      />
+                      <span className="text-sm font-medium">
+                        {sensors.filter((s) => s.status === "online").length}/{sensors.length}
+                      </span>
                     </div>
-                  )}
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Average Battery</span>
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={sensors.reduce((acc, s) => acc + s.batteryLevel, 0) / sensors.length}
+                        className="w-20 h-2"
+                      />
+                      <span className="text-sm font-medium">
+                        {Math.round(sensors.reduce((acc, s) => acc + s.batteryLevel, 0) / sensors.length)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Optimal Readings</span>
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={(sensors.filter(isReadingOptimal).length / sensors.length) * 100}
+                        className="w-20 h-2"
+                      />
+                      <span className="text-sm font-medium">
+                        {sensors.filter(isReadingOptimal).length}/{sensors.length}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* System Health */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-blue-600" />
-                  System Health
-                </CardTitle>
+                <CardTitle className="text-lg">Zone Coverage</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Sensor Network</span>
-                      <span>{Math.round((activeSensors / sensors.length) * 100)}% Online</span>
-                    </div>
-                    <Progress value={(activeSensors / sensors.length) * 100} className="h-2" />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Data Quality</span>
-                      <span>95% Good</span>
-                    </div>
-                    <Progress value={95} className="h-2" />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Battery Health</span>
-                      <span>
-                        {Math.round(sensors.reduce((acc, s) => acc + s.batteryLevel, 0) / sensors.length)}% Avg
-                      </span>
-                    </div>
-                    <Progress
-                      value={sensors.reduce((acc, s) => acc + s.batteryLevel, 0) / sensors.length}
-                      className="h-2"
-                    />
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                      <div>
-                        <p className="text-2xl font-bold text-green-600">{activeSensors}</p>
-                        <p className="text-xs text-muted-foreground">Online</p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-red-600">{offlineSensors}</p>
-                        <p className="text-xs text-muted-foreground">Offline</p>
+                  {zones.map((zone) => (
+                    <div key={zone.id} className="flex justify-between items-center">
+                      <span className="text-sm">{zone.name}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {zone.sensors.length} sensors
+                        </Badge>
+                        <Badge variant={zone.status === "active" ? "default" : "secondary"} className="text-xs">
+                          {zone.status}
+                        </Badge>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Add Zone Dialog */}
-      <Dialog open={isAddZoneDialogOpen} onOpenChange={setIsAddZoneDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Farm Zone</DialogTitle>
-            <DialogDescription>Create a new zone to organize your farm areas</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Zone Name</label>
-              <Input
-                value={newZone.name}
-                onChange={(e) => setNewZone({ ...newZone, name: e.target.value })}
-                placeholder="e.g., South Field, Greenhouse B"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Zone Type</label>
-                <Select
-                  value={newZone.type}
-                  onValueChange={(value: FarmZone["type"]) => setNewZone({ ...newZone, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="field">Field</SelectItem>
-                    <SelectItem value="greenhouse">Greenhouse</SelectItem>
-                    <SelectItem value="storage">Storage</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="livestock">Livestock</SelectItem>
-                    <SelectItem value="orchard">Orchard</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Area (acres)</label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={newZone.area}
-                  onChange={(e) => setNewZone({ ...newZone, area: Number(e.target.value) })}
-                  placeholder="0.0"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Description</label>
-              <Textarea
-                value={newZone.description}
-                onChange={(e) => setNewZone({ ...newZone, description: e.target.value })}
-                placeholder="Describe this zone..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddZoneDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddZone}>Add Zone</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Sensor Dialog */}
-      <Dialog open={isAddSensorDialogOpen} onOpenChange={setIsAddSensorDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Sensor</DialogTitle>
-            <DialogDescription>Deploy a new sensor to monitor your farm conditions</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Sensor Name</label>
-              <Input
-                value={newSensor.name}
-                onChange={(e) => setNewSensor({ ...newSensor, name: e.target.value })}
-                placeholder="e.g., Temperature Sensor - East Side"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Sensor Type</label>
-                <Select
-                  value={newSensor.type}
-                  onValueChange={(value: Sensor["type"]) => setNewSensor({ ...newSensor, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="temperature">Temperature</SelectItem>
-                    <SelectItem value="humidity">Humidity</SelectItem>
-                    <SelectItem value="soil_moisture">Soil Moisture</SelectItem>
-                    <SelectItem value="ph">pH Level</SelectItem>
-                    <SelectItem value="light">Light Intensity</SelectItem>
-                    <SelectItem value="wind">Wind Speed</SelectItem>
-                    <SelectItem value="rain">Rainfall</SelectItem>
-                    <SelectItem value="pressure">Air Pressure</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Zone</label>
-                <Select
-                  value={newSensor.zoneId}
-                  onValueChange={(value) => setNewSensor({ ...newSensor, zoneId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select zone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {zones.map((zone) => (
-                      <SelectItem key={zone.id} value={zone.id}>
-                        {zone.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddSensorDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddSensor}>Add Sensor</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

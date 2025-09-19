@@ -40,6 +40,7 @@
     "@radix-ui/react-tooltip": "latest",
     "@upstash/ratelimit": "latest",
     "@upstash/redis": "latest",
+    "@vercel/kv": "latest",
     "ai": "latest",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
