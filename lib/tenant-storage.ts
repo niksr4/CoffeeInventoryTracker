@@ -134,7 +134,7 @@ export async function performTenantBatchOperation(newTransactions: Transaction[]
 // Function to check if tenant has existing data
 export async function checkTenantDataExists(): Promise<boolean> {
   const transactions = await getTenantTransactions()
-  return transactions.length > 0
+  return transactions && Array.isArray(transactions) && transactions.length > 0
 }
 
 // Function to initialize default data for a new tenant
