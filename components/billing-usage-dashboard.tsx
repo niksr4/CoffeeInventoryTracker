@@ -22,7 +22,7 @@ export default function BillingUsageDashboard() {
 
   // Calculate usage metrics
   const currentUsers = 3 // In real app, this would come from user management
-  const currentInventoryItems = inventory.length
+  const currentInventoryItems = inventory?.length || 0
   const monthlyTransactions = transactions.filter((t) => {
     const transactionDate = new Date(t.date)
     const thirtyDaysAgo = new Date()
