@@ -129,8 +129,7 @@ export default function LandingPage() {
   ]
 
   const handleGetStarted = () => {
-    // Navigate to signup/demo page
-    window.location.href = "/auth/signup"
+    window.location.href = "/inventory"
   }
 
   return (
@@ -176,9 +175,9 @@ export default function LandingPage() {
             </div>
 
             <div className="hidden md:flex items-center space-x-3 lg:space-x-4">
-              <Link href="/auth/login">
+              <Link href="/inventory">
                 <Button variant="outline" size="sm" className="text-sm bg-transparent">
-                  Sign In
+                  View Demo
                 </Button>
               </Link>
               <Button onClick={handleGetStarted} size="sm" className="text-sm">
@@ -224,9 +223,9 @@ export default function LandingPage() {
                 Contact
               </a>
               <div className="pt-4 space-y-3">
-                <Link href="/auth/login">
+                <Link href="/inventory">
                   <Button variant="outline" className="w-full h-12 text-base bg-transparent">
-                    Sign In
+                    View Demo
                   </Button>
                 </Link>
                 <Button onClick={handleGetStarted} className="w-full h-12 text-base">

@@ -1,5 +1,5 @@
-import InventorySystem from "@/components/inventory-system"
+import LandingPage from "@/components/landing-page"
 
 export default function Home() {
-  return <InventorySystem />
+  return <LandingPage />
 }
