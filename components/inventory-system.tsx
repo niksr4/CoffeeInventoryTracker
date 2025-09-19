@@ -19,6 +19,7 @@ import {
   BarChart3,
   Users,
   Cloudy,
+  Package,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,6 +51,12 @@ import WeatherTab from "@/components/weather-tab"
 import TenantDashboardHeader from "@/components/tenant-dashboard-header"
 import { useTenantAuth } from "@/hooks/use-tenant-auth"
 import { useTenantInventoryData } from "@/hooks/use-tenant-inventory-data"
+
+import AdvancedReportingDashboard from "./advanced-reporting-dashboard"
+import { EnhancedButton } from "./ui/enhanced-button"
+import { ErrorBoundary } from "./ui/error-boundary"
+import { TableSkeleton, CardSkeleton } from "./ui/skeleton-loader"
+import { EmptyState } from "./ui/empty-state"
 
 // This helper function robustly parses "DD/MM/YYYY HH:MM" strings
 const parseCustomDateString = (dateString: string): Date | null => {
@@ -157,6 +164,11 @@ export default function InventorySystem() {
   const [aiAnalysis, setAiAnalysis] = useState<string>("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisError, setAnalysisError] = useState<string>("")
+
+  const [isAddingTransaction, setIsAddingTransaction] = useState(false)
+  const [isAddingItem, setIsAddingItem] = useState(false)
+  const [isUpdatingItem, setIsUpdatingItem] = useState(false)
+  const [isDeletingTransaction, setIsDeletingTransaction] = useState(false)
 
   const [newTransaction, setNewTransaction] = useState<{
     itemType: string
@@ -346,34 +358,45 @@ export default function InventorySystem() {
       return
     }
 
-    const transaction: Transaction = {
-      id: `new-${Date.now()}`,
-      itemType: newItem.name,
-      quantity: quantity,
-      transactionType: "Restocking", // New items are typically a restocking event
-      notes: "New item added to inventory",
-      date: generateTimestamp(),
-      user: user?.username || "unknown",
-      unit: newItem.unit,
-    }
+    setIsAddingItem(true)
+    try {
+      const transaction: Transaction = {
+        id: `new-${Date.now()}`,
+        itemType: newItem.name,
+        quantity: quantity,
+        transactionType: "Restocking", // New items are typically a restocking event
+        notes: "New item added to inventory",
+        date: generateTimestamp(),
+        user: user?.username || "unknown",
+        unit: newItem.unit,
+      }
 
-    const success = await addTransaction(transaction) // This will update Redis
-    if (success) {
-      toast({
-        title: "Item added",
-        description: `Item "${newItem.name}" has been added successfully.`,
-        variant: "default",
-      })
-      refreshData(true) // Refresh data to get the latest state from Redis
-    } else {
+      const success = await addTransaction(transaction) // This will update Redis
+      if (success) {
+        toast({
+          title: "Item added",
+          description: `Item "${newItem.name}" has been added successfully.`,
+          variant: "default",
+        })
+        refreshData(true) // Refresh data to get the latest state from Redis
+        setNewItem({ name: "", unit: "kg", quantity: "0" })
+        setIsNewItemDialogOpen(false)
+      } else {
+        toast({
+          title: "Addition failed",
+          description: "There was an error adding the new item. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
       toast({
         title: "Addition failed",
-        description: "There was an error adding the new item. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsAddingItem(false)
     }
-    setNewItem({ name: "", unit: "kg", quantity: "0" })
-    setIsNewItemDialogOpen(false)
   }
 
   const handleEditInventoryItem = (item: InventoryItem) => {
@@ -718,44 +741,56 @@ export default function InventorySystem() {
       return
     }
 
-    const transaction: Transaction = {
-      id: `txn-${Date.now()}`,
-      itemType: newTransaction.itemType,
-      quantity: quantity,
-      transactionType: newTransaction.transactionType,
-      notes: newTransaction.notes || "",
-      date: generateTimestamp(),
-      user: user?.username || "unknown",
-      unit: newTransaction.selectedUnit || itemInRedis.unit, // Use selected unit or fallback to item's unit
-      ...(newTransaction.transactionType === "Restocking" &&
-        newTransaction.price && {
-          price: Number.parseFloat(newTransaction.price),
-          totalCost: quantity * Number.parseFloat(newTransaction.price),
-        }),
-    }
-    const success = await addTransaction(transaction)
-    if (success) {
-      toast({
-        title: "Transaction recorded",
-        description: "The transaction has been recorded successfully.",
-        variant: "default",
-      })
-      refreshData(true)
-    } else {
+    setIsAddingTransaction(true)
+    try {
+      const transaction: Transaction = {
+        id: `txn-${Date.now()}`,
+        itemType: newTransaction.itemType,
+        quantity: quantity,
+        transactionType: newTransaction.transactionType,
+        notes: newTransaction.notes || "",
+        date: generateTimestamp(),
+        user: user?.username || "unknown",
+        unit: newTransaction.selectedUnit || itemInRedis.unit, // Use selected unit or fallback to item's unit
+        ...(newTransaction.transactionType === "Restocking" &&
+          newTransaction.price && {
+            price: Number.parseFloat(newTransaction.price),
+            totalCost: quantity * Number.parseFloat(newTransaction.price),
+          }),
+      }
+
+      const success = await addTransaction(transaction)
+      if (success) {
+        toast({
+          title: "Transaction recorded",
+          description: "The transaction has been recorded successfully.",
+          variant: "default",
+        })
+        refreshData(true)
+        setNewTransaction({
+          itemType: "",
+          quantity: "",
+          transactionType: "Depleting",
+          notes: "",
+          selectedUnit: "",
+          price: "",
+        })
+      } else {
+        toast({
+          title: "Transaction failed",
+          description: "There was an error recording the transaction. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
       toast({
         title: "Transaction failed",
-        description: "There was an error recording the transaction. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsAddingTransaction(false)
     }
-    setNewTransaction({
-      itemType: "",
-      quantity: "",
-      transactionType: "Depleting",
-      notes: "",
-      selectedUnit: "",
-      price: "",
-    })
   }
 
   const handleManualSync = async () => {
@@ -808,20 +843,31 @@ export default function InventorySystem() {
   }
 
   if (!user) return null
+
   if (loading && !inventory.length && !syncError) {
-    // Show loading only on initial true load without data or error
     return (
-      <div className="w-full h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-700 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading inventory data...</p>
+      <ErrorBoundary>
+        <div className="w-full px-3 sm:px-4 py-4 sm:py-6 mx-auto">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6 space-y-4">
+              <div className="h-8 bg-muted rounded animate-pulse" />
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <CardSkeleton key={i} />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-6">
+              <TableSkeleton rows={8} columns={5} />
+            </div>
+          </div>
         </div>
-      </div>
+      </ErrorBoundary>
     )
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <div className="w-full px-3 sm:px-4 py-4 sm:py-6 mx-auto">
         <div className="max-w-7xl mx-auto">
           <TenantDashboardHeader />
@@ -839,16 +885,17 @@ export default function InventorySystem() {
               )}
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button
+              <EnhancedButton
                 variant="outline"
                 size="sm"
                 onClick={handleManualSync}
-                disabled={isSyncing}
-                className="flex items-center gap-1 bg-transparent flex-1 sm:flex-none h-9"
+                loading={isSyncing}
+                loadingText="Syncing..."
+                icon={<RefreshCw className="h-3 w-3" />}
+                className="flex-1 sm:flex-none h-9 bg-transparent"
               >
-                <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "Syncing..." : "Sync Now"}
-              </Button>
+                Sync Now
+              </EnhancedButton>
             </div>
           </div>
 
@@ -880,6 +927,9 @@ export default function InventorySystem() {
                     <Cloudy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Weather
                   </TabsTrigger>
+                  <TabsTrigger value="analytics" className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8">
+                    Analytics
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -904,11 +954,17 @@ export default function InventorySystem() {
                             <SelectValue placeholder="Select item type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[40vh] overflow-y-auto">
-                            {inventory.map((item) => (
-                              <SelectItem key={item.name} value={item.name}>
-                                {item.name} ({item.quantity} {item.unit})
+                            {inventory.length > 0 ? (
+                              inventory.map((item) => (
+                                <SelectItem key={item.name} value={item.name}>
+                                  {item.name} ({item.quantity} {item.unit})
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                No items available - add some first
                               </SelectItem>
-                            ))}
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -971,13 +1027,15 @@ export default function InventorySystem() {
                         />
                       </div>
 
-                      <Button
+                      <EnhancedButton
                         onClick={handleAddTransaction}
+                        loading={isAddingTransaction}
+                        loadingText="Adding Transaction..."
                         className="w-full h-11 sm:h-10 bg-green-600 hover:bg-green-700 text-sm sm:text-base"
                         disabled={!newTransaction.itemType || !newTransaction.quantity}
                       >
                         Add Transaction
-                      </Button>
+                      </EnhancedButton>
                     </div>
                   </div>
 
@@ -988,16 +1046,15 @@ export default function InventorySystem() {
                         Current Inventory
                       </h2>
                       <div className="flex gap-2 w-full sm:w-auto">
-                        {/* Enhanced the Add Item button with better styling and prominence */}
-                        <Button
+                        <EnhancedButton
                           variant="default"
                           size="sm"
                           onClick={() => setIsNewItemDialogOpen(true)}
+                          icon={<Plus className="h-3 w-3 sm:h-4 sm:w-4" />}
                           className="flex-1 sm:flex-none h-9 bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
                         >
-                          <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                           Add New Item
-                        </Button>
+                        </EnhancedButton>
 
                         <Button
                           variant="outline"
@@ -1023,59 +1080,24 @@ export default function InventorySystem() {
                       </div>
                     </div>
 
-                    {isMobile ? (
-                      /* Mobile card-based inventory layout */
-                      <div className="space-y-3">
-                        {filteredInventory.map((item) => (
-                          <Card key={item.name} className="p-4 border border-gray-200">
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-medium text-sm truncate">{item.name}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge
-                                    variant="outline"
-                                    className={
-                                      item.quantity <= 5
-                                        ? "bg-red-100 text-red-700 border-red-200"
-                                        : item.quantity <= 20
-                                          ? "bg-yellow-100 text-yellow-700 border-yellow-200"
-                                          : "bg-green-100 text-green-700 border-green-200"
-                                    }
-                                  >
-                                    {item.quantity} {item.unit}
-                                  </Badge>
-                                  {itemValues[item.name] && (
-                                    <span className="text-xs text-gray-500">₹{itemValues[item.name].toFixed(2)}</span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex gap-1 ml-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleEditInventoryItem(item)}
-                                  className="text-amber-600 p-2 h-8 w-8"
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDeleteInventoryItem(item.name)}
-                                  className="text-red-600 p-2 h-8 w-8"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          </Card>
-                        ))}
-                        {filteredInventory.length === 0 && (
-                          <div className="text-center py-8 text-gray-500 text-sm">
-                            No inventory items found. Add some items to get started.
-                          </div>
-                        )}
-                      </div>
+                    {filteredInventory.length === 0 ? (
+                      <EmptyState
+                        icon={<Package className="h-8 w-8" />}
+                        title="No inventory items found"
+                        description={
+                          inventorySearchTerm
+                            ? "No items match your search criteria. Try adjusting your search terms."
+                            : "Get started by adding your first inventory item."
+                        }
+                        action={
+                          !inventorySearchTerm
+                            ? {
+                                label: "Add First Item",
+                                onClick: () => setIsNewItemDialogOpen(true),
+                              }
+                            : undefined
+                        }
+                      />
                     ) : (
                       /* Desktop table layout */
                       <div className="border rounded-md overflow-x-auto">
@@ -1629,6 +1651,9 @@ export default function InventorySystem() {
               <TabsContent value="weather" className="space-y-6 pt-6">
                 <WeatherTab />
               </TabsContent>
+              <TabsContent value="analytics" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+                <AdvancedReportingDashboard inventory={inventory} transactions={transactions} />
+              </TabsContent>
             </Tabs>
           ) : (
             /* Enhanced mobile view for non-admin users */
@@ -1652,39 +1677,18 @@ export default function InventorySystem() {
                   </div>
                 </div>
 
-                {isMobile ? (
-                  <div className="space-y-3">
-                    {filteredInventory.map((item) => (
-                      <Card key={item.name} className="p-4 border border-gray-200">
-                        <div className="flex justify-between items-center">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-sm truncate">{item.name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  item.quantity <= 5
-                                    ? "bg-red-100 text-red-700 border-red-200"
-                                    : item.quantity <= 20
-                                      ? "bg-yellow-100 text-yellow-700 border-yellow-200"
-                                      : "bg-green-100 text-green-700 border-green-200"
-                                }
-                              >
-                                {item.quantity} {item.unit}
-                              </Badge>
-                              {itemValues[item.name] && (
-                                <span className="text-xs text-gray-500">₹{itemValues[item.name].toFixed(2)}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                    {filteredInventory.length === 0 && (
-                      <div className="text-center py-8 text-gray-500 text-sm">No inventory items found.</div>
-                    )}
-                  </div>
+                {filteredInventory.length === 0 ? (
+                  <EmptyState
+                    icon={<Package className="h-8 w-8" />}
+                    title="No inventory items found"
+                    description={
+                      inventorySearchTerm
+                        ? "No items match your search criteria."
+                        : "No inventory items are currently available."
+                    }
+                  />
                 ) : (
+                  /* Desktop table layout */
                   <div className="border rounded-md overflow-x-auto">
                     <table className="min-w-full">
                       <thead>
@@ -1729,6 +1733,98 @@ export default function InventorySystem() {
           )}
         </div>
       </div>
+
+      <Dialog open={isNewItemDialogOpen} onOpenChange={setIsNewItemDialogOpen}>
+        <DialogContent className="sm:max-w-md mx-4 sm:mx-0">
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg">Add New Inventory Item</DialogTitle>
+            <DialogDescription className="text-sm">
+              Create a new item to track in your inventory. Choose from common units or add your own.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 sm:space-y-5 py-4">
+            <div>
+              <Label htmlFor="new-item-name" className="mb-2 block text-sm sm:text-base">
+                Item Name *
+              </Label>
+              <Input
+                id="new-item-name"
+                value={newItem.name}
+                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                placeholder="e.g., Fertilizer, Seeds, Tools"
+                className="h-12"
+                maxLength={50}
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-item-unit" className="mb-2 block text-sm sm:text-base">
+                Unit of Measurement *
+              </Label>
+              <Select value={newItem.unit} onValueChange={(value) => setNewItem({ ...newItem, unit: value })}>
+                <SelectTrigger id="new-item-unit" className="h-12">
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[40vh] overflow-y-auto">
+                  <SelectItem value="kg">kg (Kilograms)</SelectItem>
+                  <SelectItem value="L">L (Liters)</SelectItem>
+                  <SelectItem value="bags">bags</SelectItem>
+                  <SelectItem value="pcs">pcs (Pieces)</SelectItem>
+                  <SelectItem value="units">units</SelectItem>
+                  <SelectItem value="boxes">boxes</SelectItem>
+                  <SelectItem value="bottles">bottles</SelectItem>
+                  <SelectItem value="packets">packets</SelectItem>
+                  <SelectItem value="tons">tons</SelectItem>
+                  <SelectItem value="ml">ml (Milliliters)</SelectItem>
+                  <SelectItem value="g">g (Grams)</SelectItem>
+                  <SelectItem value="m">m (Meters)</SelectItem>
+                  <SelectItem value="ft">ft (Feet)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="new-item-quantity" className="mb-2 block text-sm sm:text-base">
+                Initial Quantity
+              </Label>
+              <Input
+                id="new-item-quantity"
+                type="number"
+                value={newItem.quantity}
+                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                placeholder="Enter starting quantity (default: 0)"
+                className="h-12"
+                min="0"
+                step="0.01"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave as 0 if you're just setting up the item for future use
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="mt-6 gap-3 flex-col sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsNewItemDialogOpen(false)
+                setNewItem({ name: "", unit: "kg", quantity: "0" })
+              }}
+              className="w-full sm:w-auto h-12 sm:h-11"
+              disabled={isAddingItem}
+            >
+              Cancel
+            </Button>
+            <EnhancedButton
+              onClick={handleAddNewItem}
+              loading={isAddingItem}
+              loadingText="Adding Item..."
+              icon={<Plus className="h-4 w-4" />}
+              className="w-full sm:w-auto h-12 sm:h-11 bg-green-600 hover:bg-green-700"
+              disabled={!newItem.name || !newItem.unit}
+            >
+              Add Item
+            </EnhancedButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md mx-4 sm:mx-0">
@@ -1866,95 +1962,6 @@ export default function InventorySystem() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isNewItemDialogOpen} onOpenChange={setIsNewItemDialogOpen}>
-        <DialogContent className="sm:max-w-md mx-4 sm:mx-0">
-          <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">Add New Inventory Item</DialogTitle>
-            <DialogDescription className="text-sm">
-              Create a new item to track in your inventory. Choose from common units or add your own.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 sm:space-y-5 py-4">
-            <div>
-              <Label htmlFor="new-item-name" className="mb-2 block text-sm sm:text-base">
-                Item Name *
-              </Label>
-              <Input
-                id="new-item-name"
-                value={newItem.name}
-                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                placeholder="e.g., Fertilizer, Seeds, Tools"
-                className="h-12"
-                maxLength={50}
-              />
-            </div>
-            <div>
-              <Label htmlFor="new-item-unit" className="mb-2 block text-sm sm:text-base">
-                Unit of Measurement *
-              </Label>
-              <Select value={newItem.unit} onValueChange={(value) => setNewItem({ ...newItem, unit: value })}>
-                <SelectTrigger id="new-item-unit" className="h-12">
-                  <SelectValue placeholder="Select unit" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[40vh] overflow-y-auto">
-                  <SelectItem value="kg">kg (Kilograms)</SelectItem>
-                  <SelectItem value="L">L (Liters)</SelectItem>
-                  <SelectItem value="bags">bags</SelectItem>
-                  <SelectItem value="pcs">pcs (Pieces)</SelectItem>
-                  <SelectItem value="units">units</SelectItem>
-                  <SelectItem value="boxes">boxes</SelectItem>
-                  <SelectItem value="bottles">bottles</SelectItem>
-                  <SelectItem value="packets">packets</SelectItem>
-                  <SelectItem value="tons">tons</SelectItem>
-                  <SelectItem value="ml">ml (Milliliters)</SelectItem>
-                  <SelectItem value="g">g (Grams)</SelectItem>
-                  <SelectItem value="m">m (Meters)</SelectItem>
-                  <SelectItem value="ft">ft (Feet)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="new-item-quantity" className="mb-2 block text-sm sm:text-base">
-                Initial Quantity
-              </Label>
-              <Input
-                id="new-item-quantity"
-                type="number"
-                value={newItem.quantity}
-                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                placeholder="Enter starting quantity (default: 0)"
-                className="h-12"
-                min="0"
-                step="0.01"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Leave as 0 if you're just setting up the item for future use
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="mt-6 gap-3 flex-col sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsNewItemDialogOpen(false)
-                setNewItem({ name: "", unit: "kg", quantity: "0" })
-              }}
-              className="w-full sm:w-auto h-12 sm:h-11"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddNewItem}
-              className="w-full sm:w-auto h-12 sm:h-11 bg-green-600 hover:bg-green-700"
-              disabled={!newItem.name || !newItem.unit}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={isInventoryEditDialogOpen} onOpenChange={setIsInventoryEditDialogOpen}>
         <DialogContent className="sm:max-w-md mx-4 sm:mx-0">
           <DialogHeader>
@@ -2028,6 +2035,6 @@ export default function InventorySystem() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </ErrorBoundary>
   )
 }
