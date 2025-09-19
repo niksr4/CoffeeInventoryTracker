@@ -69,7 +69,7 @@ export async function getTenantInventoryItems(includeZeroQuantity = true): Promi
 
   const transactions = await getTenantTransactions()
 
-  if (!transactions || transactions.length === 0) {
+  if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
     return []
   }
 
