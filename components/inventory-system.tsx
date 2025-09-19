@@ -11,18 +11,26 @@ export default function InventorySystem() {
   const [activeTab, setActiveTab] = useState("dashboard")
   const [searchTerm, setSearchTerm] = useState("")
 
-  // Mock data for demonstration
   const mockInventory = [
-    { name: "Raw Honey", quantity: 150, unit: "kg", value: 7500 },
-    { name: "Beeswax", quantity: 25, unit: "kg", value: 2500 },
-    { name: "Propolis", quantity: 5, unit: "kg", value: 1500 },
-    { name: "Royal Jelly", quantity: 2, unit: "kg", value: 4000 },
+    { name: "Green Coffee Beans", quantity: 500, unit: "kg", value: 25000 },
+    { name: "Roasted Coffee Beans", quantity: 150, unit: "kg", value: 22500 },
+    { name: "Coffee Fertilizer", quantity: 100, unit: "kg", value: 5000 },
+    { name: "Pesticides", quantity: 25, unit: "L", value: 7500 },
+    { name: "Harvesting Tools", quantity: 15, unit: "pcs", value: 12000 },
+    { name: "Processing Equipment", quantity: 3, unit: "pcs", value: 150000 },
   ]
 
   const mockTransactions = [
-    { id: "1", item: "Raw Honey", type: "Restocking", quantity: 50, date: "2024-01-15", user: "Admin" },
-    { id: "2", item: "Beeswax", type: "Depleting", quantity: 10, date: "2024-01-14", user: "Worker1" },
-    { id: "3", item: "Propolis", type: "Restocking", quantity: 2, date: "2024-01-13", user: "Admin" },
+    { id: "1", item: "Green Coffee Beans", type: "Harvest", quantity: 200, date: "2024-01-15", user: "Farm Manager" },
+    {
+      id: "2",
+      item: "Roasted Coffee Beans",
+      type: "Processing",
+      quantity: 50,
+      date: "2024-01-14",
+      user: "Processing Team",
+    },
+    { id: "3", item: "Coffee Fertilizer", type: "Application", quantity: 20, date: "2024-01-13", user: "Field Worker" },
   ]
 
   return (
@@ -30,7 +38,7 @@ export default function InventorySystem() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">FarmTrack Pro</h1>
-          <p className="text-muted-foreground">Comprehensive Honey Farm Management System</p>
+          <p className="text-muted-foreground">Comprehensive Farm Management System - Optimized for Coffee Farms</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -89,7 +97,7 @@ export default function InventorySystem() {
                   <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">2</div>
+                  <div className="text-2xl font-bold">1</div>
                   <p className="text-xs text-muted-foreground">Items need restocking</p>
                 </CardContent>
               </Card>
@@ -98,7 +106,7 @@ export default function InventorySystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Recent Transactions</CardTitle>
-                <CardDescription>Latest inventory movements</CardDescription>
+                <CardDescription>Latest farm operations and inventory movements</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -113,7 +121,7 @@ export default function InventorySystem() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge variant={transaction.type === "Restocking" ? "default" : "secondary"}>
+                        <Badge variant={transaction.type === "Harvest" ? "default" : "secondary"}>
                           {transaction.type}
                         </Badge>
                         <span className="font-medium">{transaction.quantity}</span>
@@ -129,7 +137,7 @@ export default function InventorySystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Inventory Management</CardTitle>
-                <CardDescription>Manage your honey farm inventory</CardDescription>
+                <CardDescription>Manage your coffee farm inventory and supplies</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-2 mb-4">
@@ -154,8 +162,8 @@ export default function InventorySystem() {
                         </div>
                         <div className="text-right">
                           <p className="font-medium">₹{item.value.toLocaleString()}</p>
-                          <Badge variant={item.quantity < 10 ? "destructive" : "default"}>
-                            {item.quantity < 10 ? "Low Stock" : "In Stock"}
+                          <Badge variant={item.quantity < 30 ? "destructive" : "default"}>
+                            {item.quantity < 30 ? "Low Stock" : "In Stock"}
                           </Badge>
                         </div>
                       </div>
@@ -182,7 +190,7 @@ export default function InventorySystem() {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge variant={transaction.type === "Restocking" ? "default" : "secondary"}>
+                        <Badge variant={transaction.type === "Harvest" ? "default" : "secondary"}>
                           {transaction.type}
                         </Badge>
                         <span className="font-medium">{transaction.quantity}</span>
@@ -288,7 +296,7 @@ export default function InventorySystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Farm Mapping</CardTitle>
-                <CardDescription>Visual farm layout and hive locations</CardDescription>
+                <CardDescription>Visual farm layout and coffee plantation areas</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-center h-64">
@@ -324,14 +332,14 @@ export default function InventorySystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Training Modules</CardTitle>
-                <CardDescription>Educational resources for beekeeping</CardDescription>
+                <CardDescription>Educational resources for coffee farming and best practices</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
                     <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">Educational Training</h3>
-                    <p className="text-muted-foreground">Training modules will be available here</p>
+                    <p className="text-muted-foreground">Coffee farming training modules will be available here</p>
                   </div>
                 </div>
               </CardContent>
@@ -342,14 +350,14 @@ export default function InventorySystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Real-time Monitoring</CardTitle>
-                <CardDescription>Monitor hive conditions and sensors</CardDescription>
+                <CardDescription>Monitor plantation conditions and environmental sensors</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
                     <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">Live Monitoring</h3>
-                    <p className="text-muted-foreground">Real-time sensor data will be displayed here</p>
+                    <p className="text-muted-foreground">Real-time plantation sensor data will be displayed here</p>
                   </div>
                 </div>
               </CardContent>
