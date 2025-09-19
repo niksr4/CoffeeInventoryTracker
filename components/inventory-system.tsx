@@ -51,6 +51,7 @@ import WeatherTab from "@/components/weather-tab"
 import TenantDashboardHeader from "@/components/tenant-dashboard-header"
 import { useTenantAuth } from "@/hooks/use-tenant-auth"
 import { useTenantInventoryData } from "@/hooks/use-tenant-inventory-data"
+import SupplyChainTraceability from "@/components/supply-chain-traceability"
 
 import AdvancedReportingDashboard from "./advanced-reporting-dashboard"
 import { EnhancedButton } from "./ui/enhanced-button"
@@ -917,6 +918,13 @@ export default function InventorySystem() {
                     Accounts
                   </TabsTrigger>
                   <TabsTrigger
+                    value="traceability"
+                    className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8"
+                  >
+                    <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    Traceability
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="ai-analysis"
                     className="flex-shrink-0 px-3 sm:px-4 text-xs sm:text-sm h-10 sm:h-8"
                   >
@@ -1647,6 +1655,9 @@ export default function InventorySystem() {
 
               <TabsContent value="accounts" className="space-y-6 pt-6">
                 <AccountsPage />
+              </TabsContent>
+              <TabsContent value="traceability" className="space-y-6 pt-6">
+                <SupplyChainTraceability />
               </TabsContent>
               <TabsContent value="weather" className="space-y-6 pt-6">
                 <WeatherTab />
