@@ -5,7 +5,19 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Package, TrendingUp, AlertTriangle, Users, MapPin, Calendar, BookOpen, Activity } from "lucide-react"
+import {
+  Search,
+  Package,
+  TrendingUp,
+  AlertTriangle,
+  Users,
+  MapPin,
+  Calendar,
+  BookOpen,
+  Activity,
+  Plus,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function InventorySystem() {
   const [activeTab, setActiveTab] = useState("dashboard")
@@ -134,39 +146,75 @@ export default function InventorySystem() {
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-6">
-            <Card>
+            <Card className="border-amber-200">
               <CardHeader>
-                <CardTitle>Inventory Management</CardTitle>
+                <CardTitle className="text-amber-800 flex items-center">
+                  <Package className="h-5 w-5 mr-2" />
+                  Inventory Management
+                </CardTitle>
                 <CardDescription>Manage your coffee farm inventory and supplies</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center space-x-2 mb-4">
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center space-x-2 mb-6">
+                  <Search className="h-4 w-4 text-amber-600" />
                   <Input
                     placeholder="Search inventory..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm"
+                    className="max-w-sm border-amber-200 focus:border-amber-400"
                   />
                 </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-amber-100 p-4 rounded-lg">
+                    <div className="text-sm text-amber-800 mb-1">Total Items</div>
+                    <div className="text-2xl font-bold">{mockInventory.length}</div>
+                  </div>
+                  <div className="bg-amber-100 p-4 rounded-lg">
+                    <div className="text-sm text-amber-800 mb-1">Total Value</div>
+                    <div className="text-2xl font-bold">
+                      ₹{mockInventory.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="bg-amber-100 p-4 rounded-lg">
+                    <div className="text-sm text-amber-800 mb-1">Low Stock Items</div>
+                    <div className="text-2xl font-bold">
+                      {mockInventory.filter((item) => item.quantity < 30).length}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   {mockInventory
                     .filter((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
                     .map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h3 className="font-medium">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {item.quantity} {item.unit}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">₹{item.value.toLocaleString()}</p>
-                          <Badge variant={item.quantity < 30 ? "destructive" : "default"}>
-                            {item.quantity < 30 ? "Low Stock" : "In Stock"}
-                          </Badge>
-                        </div>
-                      </div>
+                      <Card key={index} className="border-amber-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                <Package className="h-5 w-5 text-amber-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-medium text-amber-800">{item.name}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {item.quantity} {item.unit}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium text-amber-800">₹{item.value.toLocaleString()}</p>
+                              <Badge
+                                variant={item.quantity < 30 ? "destructive" : "outline"}
+                                className={item.quantity >= 30 ? "bg-amber-100 text-amber-800 border-amber-300" : ""}
+                              >
+                                {item.quantity < 30 ? "Low Stock" : "In Stock"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
                 </div>
               </CardContent>
@@ -203,18 +251,90 @@ export default function InventorySystem() {
           </TabsContent>
 
           <TabsContent value="accounts" className="space-y-6">
-            <Card>
+            <Card className="border-amber-200">
               <CardHeader>
-                <CardTitle>Account Management</CardTitle>
-                <CardDescription>Manage user accounts and permissions</CardDescription>
+                <CardTitle className="text-amber-800 flex items-center">
+                  <Users className="h-5 w-5 mr-2" />
+                  Account Management
+                </CardTitle>
+                <CardDescription>Manage user accounts and permissions for your coffee farm</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Account Management</h3>
-                    <p className="text-muted-foreground">User account features will be available here</p>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-amber-100 p-4 rounded-lg">
+                    <div className="text-sm text-amber-800 mb-1">Total Users</div>
+                    <div className="text-2xl font-bold">12</div>
                   </div>
+                  <div className="bg-amber-100 p-4 rounded-lg">
+                    <div className="text-sm text-amber-800 mb-1">Active Sessions</div>
+                    <div className="text-2xl font-bold">8</div>
+                  </div>
+                  <div className="bg-amber-100 p-4 rounded-lg">
+                    <div className="text-sm text-amber-800 mb-1">Admin Users</div>
+                    <div className="text-2xl font-bold">3</div>
+                  </div>
+                </div>
+
+                {/* Sample User Cards */}
+                <div className="space-y-4">
+                  {[
+                    { name: "Farm Manager", email: "manager@coffeefarm.com", role: "Administrator", status: "Active" },
+                    {
+                      name: "Field Supervisor",
+                      email: "supervisor@coffeefarm.com",
+                      role: "Supervisor",
+                      status: "Active",
+                    },
+                    { name: "Inventory Clerk", email: "clerk@coffeefarm.com", role: "User", status: "Active" },
+                    { name: "Quality Inspector", email: "inspector@coffeefarm.com", role: "User", status: "Inactive" },
+                  ].map((user, index) => (
+                    <Card key={index} className="border-amber-200 hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                              <Users className="h-5 w-5 text-amber-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-amber-800">{user.name}</h3>
+                              <p className="text-sm text-muted-foreground">{user.email}</p>
+                            </div>
+                          </div>
+                          <div className="text-right flex items-center space-x-3">
+                            <div>
+                              <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 mb-1">
+                                {user.role}
+                              </Badge>
+                              <div>
+                                <Badge
+                                  variant={user.status === "Active" ? "default" : "secondary"}
+                                  className={user.status === "Active" ? "bg-green-100 text-green-800" : ""}
+                                >
+                                  {user.status}
+                                </Badge>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-amber-300 text-amber-700 hover:bg-amber-50 bg-transparent"
+                            >
+                              Manage
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-center mt-6">
+                  <Button className="bg-amber-600 hover:bg-amber-700 text-white">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add New User
+                  </Button>
                 </div>
               </CardContent>
             </Card>
