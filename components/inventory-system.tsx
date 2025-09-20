@@ -3,481 +3,299 @@
 import { useState } from "react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import {
-  Search,
   Package,
   TrendingUp,
-  AlertTriangle,
   Users,
-  MapPin,
   Calendar,
-  BookOpen,
   Activity,
   Plus,
+  Coffee,
+  Sparkles,
+  Zap,
+  BarChart3,
+  Cloud,
+  Brain,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import InventoryTracker from "@/components/inventory-tracker"
+import WeatherTab from "@/components/weather-tab"
+import AiAnalysisCharts from "@/components/ai-analysis-charts"
 
 export default function InventorySystem() {
   const [activeTab, setActiveTab] = useState("dashboard")
-  const [searchTerm, setSearchTerm] = useState("")
 
-  const mockInventory = [
-    { name: "Green Coffee Beans", quantity: 500, unit: "kg", value: 25000 },
-    { name: "Roasted Coffee Beans", quantity: 150, unit: "kg", value: 22500 },
-    { name: "Coffee Fertilizer", quantity: 100, unit: "kg", value: 5000 },
-    { name: "Pesticides", quantity: 25, unit: "L", value: 7500 },
-    { name: "Harvesting Tools", quantity: 15, unit: "pcs", value: 12000 },
-    { name: "Processing Equipment", quantity: 3, unit: "pcs", value: 150000 },
-  ]
-
-  const mockTransactions = [
-    { id: "1", item: "Green Coffee Beans", type: "Harvest", quantity: 200, date: "2024-01-15", user: "Farm Manager" },
-    {
-      id: "2",
-      item: "Roasted Coffee Beans",
-      type: "Processing",
-      quantity: 50,
-      date: "2024-01-14",
-      user: "Processing Team",
-    },
-    { id: "3", item: "Coffee Fertilizer", type: "Application", quantity: 20, date: "2024-01-13", user: "Field Worker" },
-  ]
+  const emptyInventory: any[] = []
+  const emptyTransactions: any[] = []
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">FarmTrack Pro</h1>
-          <p className="text-muted-foreground">Comprehensive Farm Management System - Optimized for Coffee Farms</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50/30 to-orange-50/20 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-100/20 via-transparent to-transparent"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-200/10 to-transparent rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-orange-200/10 to-transparent rounded-full blur-3xl"></div>
+
+      <main className="container mx-auto px-4 py-8 relative z-10">
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center mb-4">
+            <div className="relative">
+              <Coffee className="h-12 w-12 text-amber-600 animate-pulse" />
+              <Sparkles className="h-6 w-6 text-amber-400 absolute -top-1 -right-1 animate-bounce" />
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-700 via-orange-600 to-amber-800 bg-clip-text text-transparent mb-2">
+            FarmTrack Pro
+          </h1>
+          <p className="text-lg text-slate-600 font-medium">Next-Generation Farm Management System</p>
+          <div className="w-24 h-1 bg-gradient-to-r from-amber-400 to-orange-500 mx-auto mt-4 rounded-full"></div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-11">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            <TabsTrigger value="accounts">Accounts</TabsTrigger>
-            <TabsTrigger value="weather">Weather</TabsTrigger>
-            <TabsTrigger value="ai">AI Analysis</TabsTrigger>
-            <TabsTrigger value="farmflow">FarmFlow</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="mapping">Farm Map</TabsTrigger>
-            <TabsTrigger value="hr">HR</TabsTrigger>
-            <TabsTrigger value="training">Training</TabsTrigger>
-            <TabsTrigger value="monitoring">Monitor</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-6 bg-white/80 backdrop-blur-sm border border-amber-200/50 shadow-lg rounded-xl p-2">
+            <TabsTrigger
+              value="dashboard"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger
+              value="inventory"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Inventory
+            </TabsTrigger>
+            <TabsTrigger
+              value="accounts"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Accounts
+            </TabsTrigger>
+            <TabsTrigger
+              value="weather"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+            >
+              <Cloud className="h-4 w-4 mr-2" />
+              Weather
+            </TabsTrigger>
+            <TabsTrigger
+              value="ai"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+            >
+              <Brain className="h-4 w-4 mr-2" />
+              AI Analysis
+            </TabsTrigger>
+            <TabsTrigger
+              value="tasks"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Tasks
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{mockInventory.length}</div>
-                  <p className="text-xs text-muted-foreground">Active inventory items</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    ₹{mockInventory.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Current inventory value</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{mockTransactions.length}</div>
-                  <p className="text-xs text-muted-foreground">Transactions today</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">1</div>
-                  <p className="text-xs text-muted-foreground">Items need restocking</p>
-                </CardContent>
-              </Card>
+          <TabsContent value="dashboard" className="space-y-6 mt-8">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {[
+                {
+                  title: "Total Items",
+                  value: "0",
+                  subtitle: "Ready for your inventory",
+                  icon: Package,
+                  color: "from-blue-500 to-cyan-500",
+                },
+                {
+                  title: "Total Value",
+                  value: "₹0",
+                  subtitle: "Awaiting first entries",
+                  icon: TrendingUp,
+                  color: "from-emerald-500 to-teal-500",
+                },
+                {
+                  title: "Recent Activity",
+                  value: "0",
+                  subtitle: "No transactions yet",
+                  icon: Activity,
+                  color: "from-purple-500 to-violet-500",
+                },
+                {
+                  title: "System Status",
+                  value: "Ready",
+                  subtitle: "All systems operational",
+                  icon: Zap,
+                  color: "from-amber-500 to-orange-500",
+                },
+              ].map((card, index) => (
+                <Card
+                  key={index}
+                  className="relative overflow-hidden bg-white/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105 group"
+                >
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${card.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}
+                  ></div>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                    <CardTitle className="text-sm font-medium text-slate-700">{card.title}</CardTitle>
+                    <div className={`p-2 rounded-lg bg-gradient-to-br ${card.color} shadow-lg`}>
+                      <card.icon className="h-4 w-4 text-white" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-2xl font-bold text-slate-800 mb-1">{card.value}</div>
+                    <p className="text-xs text-slate-500">{card.subtitle}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Transactions</CardTitle>
-                <CardDescription>Latest farm operations and inventory movements</CardDescription>
+            <Card className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/50 shadow-xl">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-200/20 to-transparent rounded-full blur-2xl"></div>
+              <CardHeader className="relative z-10">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
+                    <Coffee className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl text-amber-800">Welcome to FarmTrack Pro</CardTitle>
+                    <CardDescription className="text-amber-700">
+                      Your comprehensive coffee farm management system is ready to use
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div>
-                          <p className="font-medium">{transaction.item}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {transaction.date} • {transaction.user}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={transaction.type === "Harvest" ? "default" : "secondary"}>
-                          {transaction.type}
-                        </Badge>
-                        <span className="font-medium">{transaction.quantity}</span>
-                      </div>
-                    </div>
-                  ))}
+              <CardContent className="relative z-10">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-white/60 rounded-lg backdrop-blur-sm">
+                    <Package className="h-8 w-8 text-amber-600 mx-auto mb-2" />
+                    <h3 className="font-medium text-amber-800 mb-1">Inventory Management</h3>
+                    <p className="text-sm text-amber-700">Track your coffee beans, supplies, and equipment</p>
+                  </div>
+                  <div className="text-center p-4 bg-white/60 rounded-lg backdrop-blur-sm">
+                    <Brain className="h-8 w-8 text-amber-600 mx-auto mb-2" />
+                    <h3 className="font-medium text-amber-800 mb-1">AI Insights</h3>
+                    <p className="text-sm text-amber-700">Get intelligent recommendations for your farm</p>
+                  </div>
+                  <div className="text-center p-4 bg-white/60 rounded-lg backdrop-blur-sm">
+                    <Cloud className="h-8 w-8 text-amber-600 mx-auto mb-2" />
+                    <h3 className="font-medium text-amber-800 mb-1">Weather Monitoring</h3>
+                    <p className="text-sm text-amber-700">Stay updated with local weather conditions</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="inventory" className="space-y-6">
-            <Card className="border-amber-200">
-              <CardHeader>
-                <CardTitle className="text-amber-800 flex items-center">
-                  <Package className="h-5 w-5 mr-2" />
-                  Inventory Management
-                </CardTitle>
-                <CardDescription>Manage your coffee farm inventory and supplies</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-2 mb-6">
-                  <Search className="h-4 w-4 text-amber-600" />
-                  <Input
-                    placeholder="Search inventory..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm border-amber-200 focus:border-amber-400"
-                  />
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-amber-100 p-4 rounded-lg">
-                    <div className="text-sm text-amber-800 mb-1">Total Items</div>
-                    <div className="text-2xl font-bold">{mockInventory.length}</div>
-                  </div>
-                  <div className="bg-amber-100 p-4 rounded-lg">
-                    <div className="text-sm text-amber-800 mb-1">Total Value</div>
-                    <div className="text-2xl font-bold">
-                      ₹{mockInventory.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="bg-amber-100 p-4 rounded-lg">
-                    <div className="text-sm text-amber-800 mb-1">Low Stock Items</div>
-                    <div className="text-2xl font-bold">
-                      {mockInventory.filter((item) => item.quantity < 30).length}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {mockInventory
-                    .filter((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                    .map((item, index) => (
-                      <Card key={index} className="border-amber-200 hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                                <Package className="h-5 w-5 text-amber-600" />
-                              </div>
-                              <div>
-                                <h3 className="font-medium text-amber-800">{item.name}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  {item.quantity} {item.unit}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-amber-800">₹{item.value.toLocaleString()}</p>
-                              <Badge
-                                variant={item.quantity < 30 ? "destructive" : "outline"}
-                                className={item.quantity >= 30 ? "bg-amber-100 text-amber-800 border-amber-300" : ""}
-                              >
-                                {item.quantity < 30 ? "Low Stock" : "In Stock"}
-                              </Badge>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="inventory" className="space-y-6 mt-8">
+            <InventoryTracker />
           </TabsContent>
 
-          <TabsContent value="transactions" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Transaction History</CardTitle>
-                <CardDescription>View all inventory transactions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h3 className="font-medium">{transaction.item}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {transaction.date} • {transaction.user}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={transaction.type === "Harvest" ? "default" : "secondary"}>
-                          {transaction.type}
-                        </Badge>
-                        <span className="font-medium">{transaction.quantity}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="accounts" className="space-y-6">
-            <Card className="border-amber-200">
-              <CardHeader>
-                <CardTitle className="text-amber-800 flex items-center">
-                  <Users className="h-5 w-5 mr-2" />
+          <TabsContent value="accounts" className="space-y-6 mt-8">
+            <Card className="relative overflow-hidden bg-white/80 backdrop-blur-sm border-amber-200/50 shadow-xl">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-amber-200/10 to-transparent rounded-full blur-3xl"></div>
+              <CardHeader className="relative z-10">
+                <CardTitle className="text-amber-800 flex items-center text-xl">
+                  <Users className="h-6 w-6 mr-3 p-1 bg-amber-100 rounded" />
                   Account Management
                 </CardTitle>
-                <CardDescription>Manage user accounts and permissions for your coffee farm</CardDescription>
+                <CardDescription className="text-amber-700">
+                  Manage user accounts and permissions for your coffee farm
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="relative z-10">
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-amber-100 p-4 rounded-lg">
-                    <div className="text-sm text-amber-800 mb-1">Total Users</div>
-                    <div className="text-2xl font-bold">12</div>
-                  </div>
-                  <div className="bg-amber-100 p-4 rounded-lg">
-                    <div className="text-sm text-amber-800 mb-1">Active Sessions</div>
-                    <div className="text-2xl font-bold">8</div>
-                  </div>
-                  <div className="bg-amber-100 p-4 rounded-lg">
-                    <div className="text-sm text-amber-800 mb-1">Admin Users</div>
-                    <div className="text-2xl font-bold">3</div>
-                  </div>
-                </div>
-
-                {/* Sample User Cards */}
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
                   {[
-                    { name: "Farm Manager", email: "manager@coffeefarm.com", role: "Administrator", status: "Active" },
-                    {
-                      name: "Field Supervisor",
-                      email: "supervisor@coffeefarm.com",
-                      role: "Supervisor",
-                      status: "Active",
-                    },
-                    { name: "Inventory Clerk", email: "clerk@coffeefarm.com", role: "User", status: "Active" },
-                    { name: "Quality Inspector", email: "inspector@coffeefarm.com", role: "User", status: "Inactive" },
-                  ].map((user, index) => (
-                    <Card key={index} className="border-amber-200 hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                              <Users className="h-5 w-5 text-amber-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-amber-800">{user.name}</h3>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
-                            </div>
-                          </div>
-                          <div className="text-right flex items-center space-x-3">
-                            <div>
-                              <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 mb-1">
-                                {user.role}
-                              </Badge>
-                              <div>
-                                <Badge
-                                  variant={user.status === "Active" ? "default" : "secondary"}
-                                  className={user.status === "Active" ? "bg-green-100 text-green-800" : ""}
-                                >
-                                  {user.status}
-                                </Badge>
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-amber-300 text-amber-700 hover:bg-amber-50 bg-transparent"
-                            >
-                              Manage
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    { title: "Total Users", value: "0", subtitle: "Ready to add team members" },
+                    { title: "Active Sessions", value: "1", subtitle: "You are currently logged in" },
+                    { title: "Admin Users", value: "1", subtitle: "Primary administrator account" },
+                  ].map((stat, index) => (
+                    <div
+                      key={index}
+                      className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200/50 shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      <div className="text-sm text-amber-700 mb-2 font-medium">{stat.title}</div>
+                      <div className="text-3xl font-bold text-amber-800 mb-1">{stat.value}</div>
+                      <div className="text-xs text-amber-600">{stat.subtitle}</div>
+                    </div>
                   ))}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex justify-center mt-6">
-                  <Button className="bg-amber-600 hover:bg-amber-700 text-white">
+                {/* Empty State */}
+                <div className="text-center py-12 bg-gradient-to-br from-slate-50 to-amber-50/30 rounded-xl border border-amber-200/30">
+                  <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <Users className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-amber-800 mb-2">No Team Members Yet</h3>
+                  <p className="text-amber-700 mb-6 max-w-md mx-auto">
+                    Start building your farm management team by adding users with different roles and permissions.
+                  </p>
+                  <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                     <Plus className="h-4 w-4 mr-2" />
-                    Add New User
+                    Add First Team Member
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="weather" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Weather Information</CardTitle>
-                <CardDescription>Current weather conditions for your farm</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Weather Dashboard</h3>
-                    <p className="text-muted-foreground">Weather information will be displayed here</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="weather" className="space-y-6 mt-8">
+            <WeatherTab />
           </TabsContent>
 
-          <TabsContent value="ai" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Analysis</CardTitle>
-                <CardDescription>Intelligent insights for your farm operations</CardDescription>
+          <TabsContent value="ai" className="space-y-6 mt-8">
+            <Card className="relative overflow-hidden bg-white/80 backdrop-blur-sm border-purple-200/50 shadow-xl">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-purple-200/10 to-transparent rounded-full blur-3xl"></div>
+              <CardHeader className="relative z-10">
+                <CardTitle className="text-purple-800 flex items-center text-xl">
+                  <Brain className="h-6 w-6 mr-3 p-1 bg-purple-100 rounded" />
+                  AI Analysis Dashboard
+                </CardTitle>
+                <CardDescription className="text-purple-700">
+                  Intelligent insights and recommendations for your coffee farm operations
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">AI Insights</h3>
-                    <p className="text-muted-foreground">AI-powered analysis will be available here</p>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
+            <AiAnalysisCharts inventory={emptyInventory} transactions={emptyTransactions} />
           </TabsContent>
 
-          <TabsContent value="farmflow" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>FarmFlow Dashboard</CardTitle>
-                <CardDescription>Streamlined farm operations management</CardDescription>
+          <TabsContent value="tasks" className="space-y-6 mt-8">
+            <Card className="relative overflow-hidden bg-white/80 backdrop-blur-sm border-emerald-200/50 shadow-xl">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-emerald-200/10 to-transparent rounded-full blur-3xl"></div>
+              <CardHeader className="relative z-10">
+                <CardTitle className="text-emerald-800 flex items-center text-xl">
+                  <Calendar className="h-6 w-6 mr-3 p-1 bg-emerald-100 rounded" />
+                  Task Planning System
+                </CardTitle>
+                <CardDescription className="text-emerald-700">
+                  Plan, schedule, and track all your coffee farm operations
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">FarmFlow System</h3>
-                    <p className="text-muted-foreground">Advanced farm management features coming soon</p>
+              <CardContent className="relative z-10">
+                <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-emerald-50/30 rounded-xl border border-emerald-200/30">
+                  <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
+                    <Calendar className="h-10 w-10 text-white" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="tasks" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Task Planning</CardTitle>
-                <CardDescription>Plan and track farm tasks</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Task Management</h3>
-                    <p className="text-muted-foreground">Task planning features will be available here</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="mapping" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Farm Mapping</CardTitle>
-                <CardDescription>Visual farm layout and coffee plantation areas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Farm Map</h3>
-                    <p className="text-muted-foreground">Interactive farm mapping will be available here</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="hr" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>HR Management</CardTitle>
-                <CardDescription>Manage farm workers and schedules</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Human Resources</h3>
-                    <p className="text-muted-foreground">HR management features will be available here</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="training" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Training Modules</CardTitle>
-                <CardDescription>Educational resources for coffee farming and best practices</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Educational Training</h3>
-                    <p className="text-muted-foreground">Coffee farming training modules will be available here</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="monitoring" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Real-time Monitoring</CardTitle>
-                <CardDescription>Monitor plantation conditions and environmental sensors</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Live Monitoring</h3>
-                    <p className="text-muted-foreground">Real-time plantation sensor data will be displayed here</p>
+                  <h3 className="text-xl font-semibold text-emerald-800 mb-3">Task Management Ready</h3>
+                  <p className="text-emerald-700 mb-8 max-w-lg mx-auto">
+                    Organize your coffee farm operations with intelligent task scheduling, progress tracking, and team
+                    coordination.
+                  </p>
+                  <div className="grid md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+                    <div className="p-4 bg-white/60 rounded-lg backdrop-blur-sm">
+                      <Calendar className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
+                      <h4 className="font-medium text-emerald-800 mb-1">Schedule Tasks</h4>
+                      <p className="text-sm text-emerald-700">Plan harvesting, processing, and maintenance</p>
+                    </div>
+                    <div className="p-4 bg-white/60 rounded-lg backdrop-blur-sm">
+                      <Users className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
+                      <h4 className="font-medium text-emerald-800 mb-1">Assign Teams</h4>
+                      <p className="text-sm text-emerald-700">Coordinate worker assignments and shifts</p>
+                    </div>
+                    <div className="p-4 bg-white/60 rounded-lg backdrop-blur-sm">
+                      <Activity className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
+                      <h4 className="font-medium text-emerald-800 mb-1">Track Progress</h4>
+                      <p className="text-sm text-emerald-700">Monitor completion and productivity</p>
+                    </div>
                   </div>
                 </div>
               </CardContent>
