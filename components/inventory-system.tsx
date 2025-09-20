@@ -29,66 +29,66 @@ export default function InventorySystem() {
   const emptyTransactions: any[] = []
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50/30 to-orange-50/20 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-100/20 via-transparent to-transparent"></div>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-200/10 to-transparent rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-orange-200/10 to-transparent rounded-full blur-3xl"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-green-50/20 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-100/20 via-transparent to-transparent"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-emerald-200/10 to-transparent rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-green-200/10 to-transparent rounded-full blur-3xl"></div>
 
       <main className="container mx-auto px-4 py-8 relative z-10">
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center mb-4">
             <div className="relative">
-              <Coffee className="h-12 w-12 text-amber-600 animate-pulse" />
-              <Sparkles className="h-6 w-6 text-amber-400 absolute -top-1 -right-1 animate-bounce" />
+              <Coffee className="h-12 w-12 text-emerald-600 animate-pulse" />
+              <Sparkles className="h-6 w-6 text-emerald-400 absolute -top-1 -right-1 animate-bounce" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-700 via-orange-600 to-amber-800 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-700 via-green-600 to-emerald-800 bg-clip-text text-transparent mb-2">
             FarmTrack Pro
           </h1>
           <p className="text-lg text-slate-600 font-medium">Next-Generation Farm Management System</p>
-          <div className="w-24 h-1 bg-gradient-to-r from-amber-400 to-orange-500 mx-auto mt-4 rounded-full"></div>
+          <div className="w-24 h-1 bg-gradient-to-r from-emerald-400 to-green-500 mx-auto mt-4 rounded-full"></div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-6 bg-white/80 backdrop-blur-sm border border-amber-200/50 shadow-lg rounded-xl p-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-6 bg-white/80 backdrop-blur-sm border border-emerald-200/50 shadow-lg rounded-xl p-2">
             <TabsTrigger
               value="dashboard"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
             >
               <BarChart3 className="h-4 w-4 mr-2" />
               Dashboard
             </TabsTrigger>
             <TabsTrigger
               value="inventory"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
             >
               <Package className="h-4 w-4 mr-2" />
               Inventory
             </TabsTrigger>
             <TabsTrigger
               value="accounts"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
             >
               <Users className="h-4 w-4 mr-2" />
               Accounts
             </TabsTrigger>
             <TabsTrigger
               value="weather"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
             >
               <Cloud className="h-4 w-4 mr-2" />
               Weather
             </TabsTrigger>
             <TabsTrigger
               value="ai"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
             >
               <Brain className="h-4 w-4 mr-2" />
               AI Analysis
             </TabsTrigger>
             <TabsTrigger
               value="tasks"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white transition-all duration-300 rounded-lg font-medium"
             >
               <Calendar className="h-4 w-4 mr-2" />
               Tasks
@@ -124,7 +124,7 @@ export default function InventorySystem() {
                   value: "Ready",
                   subtitle: "All systems operational",
                   icon: Zap,
-                  color: "from-amber-500 to-orange-500",
+                  color: "from-emerald-500 to-green-500",
                 },
               ].map((card, index) => (
                 <Card
@@ -148,16 +148,16 @@ export default function InventorySystem() {
               ))}
             </div>
 
-            <Card className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/50 shadow-xl">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-200/20 to-transparent rounded-full blur-2xl"></div>
+            <Card className="relative overflow-hidden bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200/50 shadow-xl">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-emerald-200/20 to-transparent rounded-full blur-2xl"></div>
               <CardHeader className="relative z-10">
                 <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
+                  <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl shadow-lg">
                     <Coffee className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl text-amber-800">Welcome to FarmTrack Pro</CardTitle>
-                    <CardDescription className="text-amber-700">
+                    <CardTitle className="text-xl text-emerald-800">Welcome to FarmTrack Pro</CardTitle>
+                    <CardDescription className="text-emerald-700">
                       Your comprehensive coffee farm management system is ready to use
                     </CardDescription>
                   </div>
@@ -166,19 +166,19 @@ export default function InventorySystem() {
               <CardContent className="relative z-10">
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-white/60 rounded-lg backdrop-blur-sm">
-                    <Package className="h-8 w-8 text-amber-600 mx-auto mb-2" />
-                    <h3 className="font-medium text-amber-800 mb-1">Inventory Management</h3>
-                    <p className="text-sm text-amber-700">Track your coffee beans, supplies, and equipment</p>
+                    <Package className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
+                    <h3 className="font-medium text-emerald-800 mb-1">Inventory Management</h3>
+                    <p className="text-sm text-emerald-700">Track your coffee beans, supplies, and equipment</p>
                   </div>
                   <div className="text-center p-4 bg-white/60 rounded-lg backdrop-blur-sm">
-                    <Brain className="h-8 w-8 text-amber-600 mx-auto mb-2" />
-                    <h3 className="font-medium text-amber-800 mb-1">AI Insights</h3>
-                    <p className="text-sm text-amber-700">Get intelligent recommendations for your farm</p>
+                    <Brain className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
+                    <h3 className="font-medium text-emerald-800 mb-1">AI Insights</h3>
+                    <p className="text-sm text-emerald-700">Get intelligent recommendations for your farm</p>
                   </div>
                   <div className="text-center p-4 bg-white/60 rounded-lg backdrop-blur-sm">
-                    <Cloud className="h-8 w-8 text-amber-600 mx-auto mb-2" />
-                    <h3 className="font-medium text-amber-800 mb-1">Weather Monitoring</h3>
-                    <p className="text-sm text-amber-700">Stay updated with local weather conditions</p>
+                    <Cloud className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
+                    <h3 className="font-medium text-emerald-800 mb-1">Weather Monitoring</h3>
+                    <p className="text-sm text-emerald-700">Stay updated with local weather conditions</p>
                   </div>
                 </div>
               </CardContent>
@@ -190,14 +190,14 @@ export default function InventorySystem() {
           </TabsContent>
 
           <TabsContent value="accounts" className="space-y-6 mt-8">
-            <Card className="relative overflow-hidden bg-white/80 backdrop-blur-sm border-amber-200/50 shadow-xl">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-amber-200/10 to-transparent rounded-full blur-3xl"></div>
+            <Card className="relative overflow-hidden bg-white/80 backdrop-blur-sm border-emerald-200/50 shadow-xl">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-emerald-200/10 to-transparent rounded-full blur-3xl"></div>
               <CardHeader className="relative z-10">
-                <CardTitle className="text-amber-800 flex items-center text-xl">
-                  <Users className="h-6 w-6 mr-3 p-1 bg-amber-100 rounded" />
+                <CardTitle className="text-emerald-800 flex items-center text-xl">
+                  <Users className="h-6 w-6 mr-3 p-1 bg-emerald-100 rounded" />
                   Account Management
                 </CardTitle>
-                <CardDescription className="text-amber-700">
+                <CardDescription className="text-emerald-700">
                   Manage user accounts and permissions for your coffee farm
                 </CardDescription>
               </CardHeader>
@@ -211,25 +211,25 @@ export default function InventorySystem() {
                   ].map((stat, index) => (
                     <div
                       key={index}
-                      className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200/50 shadow-lg hover:shadow-xl transition-all duration-300"
+                      className="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-xl border border-emerald-200/50 shadow-lg hover:shadow-xl transition-all duration-300"
                     >
-                      <div className="text-sm text-amber-700 mb-2 font-medium">{stat.title}</div>
-                      <div className="text-3xl font-bold text-amber-800 mb-1">{stat.value}</div>
-                      <div className="text-xs text-amber-600">{stat.subtitle}</div>
+                      <div className="text-sm text-emerald-700 mb-2 font-medium">{stat.title}</div>
+                      <div className="text-3xl font-bold text-emerald-800 mb-1">{stat.value}</div>
+                      <div className="text-xs text-emerald-600">{stat.subtitle}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Empty State */}
-                <div className="text-center py-12 bg-gradient-to-br from-slate-50 to-amber-50/30 rounded-xl border border-amber-200/30">
-                  <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <div className="text-center py-12 bg-gradient-to-br from-slate-50 to-emerald-50/30 rounded-xl border border-emerald-200/30">
+                  <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                     <Users className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-amber-800 mb-2">No Team Members Yet</h3>
-                  <p className="text-amber-700 mb-6 max-w-md mx-auto">
+                  <h3 className="text-lg font-semibold text-emerald-800 mb-2">No Team Members Yet</h3>
+                  <p className="text-emerald-700 mb-6 max-w-md mx-auto">
                     Start building your farm management team by adding users with different roles and permissions.
                   </p>
-                  <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                  <Button className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                     <Plus className="h-4 w-4 mr-2" />
                     Add First Team Member
                   </Button>
