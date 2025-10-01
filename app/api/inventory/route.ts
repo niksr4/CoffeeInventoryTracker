@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getAllInventoryItems } from "@/lib/neon-inventory-storage"
 
 // Default inventory items to use if no data is found
 const defaultInventoryItems = [
@@ -38,19 +39,19 @@ if (globalInventoryItems.length === 0) {
 }
 
 export async function GET(request: NextRequest) {
-  const searchParams = new URL(request.url).searchParams
-  const type = searchParams.get("type")
+  try {
+    const { searchParams } = new URL(request.url)
+    const includeZero = searchParams.get("includeZero") !== "false"
 
-  if (type === "items") {
-    return NextResponse.json({ items: globalInventoryItems, lastUpdate: lastUpdateTimestamp })
-  } else if (type === "transactions") {
-    return NextResponse.json({ transactions: globalInventoryTransactions, lastUpdate: lastUpdateTimestamp })
-  } else {
+    const items = await getAllInventoryItems(includeZero)
+
     return NextResponse.json({
-      items: globalInventoryItems,
-      transactions: globalInventoryTransactions,
-      lastUpdate: lastUpdateTimestamp,
+      items,
+      lastUpdate: new Date().toISOString(),
     })
+  } catch (error) {
+    console.error("Error fetching inventory:", error)
+    return NextResponse.json({ items: [], error: "Failed to fetch inventory data" }, { status: 500 })
   }
 }
 

@@ -2,13 +2,12 @@ import { type NextRequest, NextResponse } from "next/server"
 import {
   getAllTransactions,
   getAllInventoryItems,
-  performBatchOperation,
   getLastUpdateTimestamp,
-  addTransaction,
   initializeDefaultDataIfEmpty,
   checkIfDataExists,
 } from "@/lib/storage"
 import { checkRedisConnection } from "@/lib/redis"
+import { performBatchOperation as neonPerformBatchOperation } from "@/lib/neon-inventory-storage"
 
 // Lock to prevent concurrent updates
 let isUpdating = false
@@ -76,82 +75,33 @@ export async function POST(request: NextRequest) {
     isUpdating = true
 
     const body = await request.json()
-    const { operation, data, timestamp } = body
 
-    // Get current timestamp
-    const currentTimestamp = await getLastUpdateTimestamp()
-
-    // Always update if we don't have a timestamp comparison
-    // or if the incoming data is newer
-    const shouldUpdate = !timestamp || !currentTimestamp || timestamp >= currentTimestamp
-
-    if (!shouldUpdate) {
-      // If the incoming data is older, return the current data without updating
-      console.log(
-        `API: Rejected older data from ${new Date(timestamp).toISOString()}, current data from ${new Date(currentTimestamp).toISOString()}`,
+    if (!Array.isArray(body.transactions)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid request body. Expected transactions array." },
+        { status: 400 },
       )
+    }
 
+    const success = await neonPerformBatchOperation(body.transactions)
+
+    if (success) {
       const inventory = await getAllInventoryItems()
       const transactions = await getAllTransactions()
+      const newTimestamp = await getLastUpdateTimestamp()
 
       return NextResponse.json({
-        success: false,
-        message: "Rejected older data",
+        success: true,
         inventory,
         transactions,
-        timestamp: currentTimestamp,
+        timestamp: newTimestamp,
       })
-    }
-
-    // Handle different operations
-    if (operation === "addTransaction" && data.transaction) {
-      // Add a single transaction
-      const success = await addTransaction(data.transaction)
-
-      if (success) {
-        const inventory = await getAllInventoryItems()
-        const transactions = await getAllTransactions()
-        const newTimestamp = await getLastUpdateTimestamp()
-
-        return NextResponse.json({
-          success: true,
-          inventory,
-          transactions,
-          timestamp: newTimestamp,
-        })
-      } else {
-        return NextResponse.json({ success: false, error: "Failed to add transaction" }, { status: 500 })
-      }
-    } else if (operation === "batchUpdate" && data.transactions) {
-      // Perform batch update
-      const success = await performBatchOperation(data.transactions)
-
-      if (success) {
-        const inventory = await getAllInventoryItems()
-        const transactions = await getAllTransactions()
-        const newTimestamp = await getLastUpdateTimestamp()
-
-        return NextResponse.json({
-          success: true,
-          inventory,
-          transactions,
-          timestamp: newTimestamp,
-        })
-      } else {
-        return NextResponse.json({ success: false, error: "Failed to perform batch update" }, { status: 500 })
-      }
     } else {
-      return NextResponse.json({ success: false, error: "Invalid operation" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Failed to perform batch operation" }, { status: 500 })
     }
   } catch (error) {
-    console.error("API error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Internal server error",
-      },
-      { status: 500 },
-    )
+    console.error("Error in batch operation:", error)
+    return NextResponse.json({ success: false, error: "Failed to perform batch operation" }, { status: 500 })
   } finally {
     // Clear the updating flag
     isUpdating = false

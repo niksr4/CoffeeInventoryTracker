@@ -1,253 +1,231 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import type { InventoryItem, Transaction } from "@/lib/storage"
+import { useState, useEffect, useCallback } from "react"
+import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+
+export interface InventorySummary {
+  total_inventory_value: number
+  total_items: number
+  total_quantity: number
+}
 
 export function useInventoryData() {
-  // State for inventory and transactions
   const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [summary, setSummary] = useState<InventorySummary>({
+    total_inventory_value: 0,
+    total_items: 0,
+    total_quantity: 0,
+  })
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastSync, setLastSync] = useState<Date | null>(null)
-  const [redisConnected, setRedisConnected] = useState<boolean | null>(null)
 
-  // Use refs to track the latest state without triggering re-renders
-  const inventoryRef = useRef<InventoryItem[]>([])
-  const transactionsRef = useRef<Transaction[]>([])
-
-  // Ref to track if we're currently in the middle of an update operation
-  const isUpdatingRef = useRef(false)
-
-  // Ref to track the last update timestamp
-  const lastUpdateTimestampRef = useRef<number>(0)
-
-  // Disable automatic polling by default - we'll rely on manual syncs
-  const [pollingEnabled, setPollingEnabled] = useState(false)
-
-  // Function to fetch data from the API
-  const fetchData = useCallback(async (forceFetch = false) => {
-    // If we're already updating, don't fetch
-    if (isUpdatingRef.current) {
-      console.log("Skipping fetch because an update is in progress")
-      return
-    }
-
+  const refreshData = useCallback(async (force = false) => {
     try {
+      console.log("[CLIENT] 🔄 Refreshing inventory data...")
       setLoading(true)
+      setError(null)
 
-      // Fetch data from the API
-      const response = await fetch("/api/inventory/batch")
+      const [inventoryRes, transactionsRes] = await Promise.all([
+        fetch("/api/inventory-neon", { cache: force ? "no-store" : "default" }),
+        fetch("/api/transactions-neon?limit=500", { cache: force ? "no-store" : "default" }),
+      ])
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+      if (!inventoryRes.ok || !transactionsRes.ok) {
+        throw new Error("Failed to fetch data")
       }
 
-      const data = await response.json()
+      const inventoryData = await inventoryRes.json()
+      const transactionsData = await transactionsRes.json()
 
-      // Update Redis connection status
-      setRedisConnected(data.redis_connected)
+      console.log("[CLIENT] 📦 Inventory data:", inventoryData)
+      console.log("[CLIENT] 📜 Transactions data:", transactionsData)
 
-      // Check if the API data is newer than our local data
-      const apiTimestamp = data.timestamp || 0
-      const localTimestamp = lastUpdateTimestampRef.current
+      if (inventoryData.success) {
+        setInventory(inventoryData.inventory || [])
+        setSummary(inventoryData.summary || { total_inventory_value: 0, total_items: 0, total_quantity: 0 })
+      }
 
-      console.log("Comparing timestamps:", {
-        api: new Date(apiTimestamp).toISOString(),
-        local: new Date(localTimestamp).toISOString(),
-        apiIsNewer: apiTimestamp > localTimestamp,
-      })
+      if (transactionsData.success && Array.isArray(transactionsData.transactions)) {
+        const mappedTransactions = transactionsData.transactions.map((t: any) => {
+          let transactionType: Transaction["transactionType"] = "Depleting"
+          const typeStr = String(t.transaction_type || "").toLowerCase()
 
-      // Only update from API if it's newer or we're forcing a fetch
-      if (apiTimestamp > localTimestamp || forceFetch) {
-        // Update our state and refs with the API data
-        setInventory(data.inventory || [])
-        setTransactions(data.transactions || [])
+          if (typeStr === "restock" || typeStr === "restocking") {
+            transactionType = "Restocking"
+          } else if (typeStr === "deplete" || typeStr === "depleting") {
+            transactionType = "Depleting"
+          } else if (typeStr === "item deleted") {
+            transactionType = "Item Deleted"
+          } else if (typeStr === "unit change") {
+            transactionType = "Unit Change"
+          }
 
-        inventoryRef.current = data.inventory || []
-        transactionsRef.current = data.transactions || []
-
-        lastUpdateTimestampRef.current = apiTimestamp
-
-        console.log("Updated with API data:", {
-          inventoryCount: data.inventory?.length || 0,
-          transactionsCount: data.transactions?.length || 0,
+          return {
+            id: String(t.id),
+            itemType: String(t.item_type),
+            quantity: Number(t.quantity) || 0,
+            transactionType,
+            notes: String(t.notes || ""),
+            date: t.transaction_date
+              ? new Date(t.transaction_date).toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "",
+            user: String(t.user_id || "unknown"),
+            unit: String(t.unit || "kg"),
+            price: t.price ? Number(t.price) : undefined,
+            totalCost: t.total_cost ? Number(t.total_cost) : undefined,
+          }
         })
-      } else {
-        console.log("Local data is newer, keeping local data")
+
+        setTransactions(mappedTransactions)
+        console.log("[CLIENT] ✅ Mapped transactions:", mappedTransactions.length)
       }
 
       setLastSync(new Date())
-      setError(null)
-    } catch (err) {
-      console.error("Error fetching data:", err)
-      setError("Failed to fetch data from server.")
+    } catch (err: any) {
+      console.error("[CLIENT] ❌ Error refreshing data:", err)
+      setError(err.message || "Failed to load data")
     } finally {
       setLoading(false)
     }
   }, [])
 
-  // Function to add a transaction
-  const addTransaction = useCallback(async (transaction: Transaction) => {
-    // Set the updating flag to prevent concurrent updates
-    isUpdatingRef.current = true
+  useEffect(() => {
+    refreshData()
+  }, [refreshData])
 
+  const addTransaction = async (transaction: Omit<Transaction, "id" | "date">) => {
     try {
-      // Send the transaction to the API
-      const response = await fetch("/api/inventory/batch", {
+      console.log("[CLIENT] ➕ Adding transaction:", transaction)
+
+      let transactionType = "deplete"
+      if (transaction.transactionType === "Restocking") {
+        transactionType = "restock"
+      }
+
+      const response = await fetch("/api/transactions-neon", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          operation: "addTransaction",
-          data: { transaction },
+          item_type: transaction.itemType,
+          quantity: transaction.quantity,
+          transaction_type: transactionType,
+          notes: transaction.notes,
+          user_id: transaction.user,
+          price: transaction.price || 0,
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
-      }
-
       const data = await response.json()
 
-      if (!data.success) {
-        throw new Error(data.error || "Failed to add transaction")
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to add transaction")
       }
 
-      // Update Redis connection status
-      setRedisConnected(data.redis_connected)
-
-      // Update our state and refs with the API data
-      setInventory(data.inventory || [])
-      setTransactions(data.transactions || [])
-
-      inventoryRef.current = data.inventory || []
-      transactionsRef.current = data.transactions || []
-
-      lastUpdateTimestampRef.current = data.timestamp
-
-      setLastSync(new Date())
-      setError(null)
-
+      console.log("[CLIENT] ✅ Transaction added successfully")
+      await refreshData(true)
       return true
-    } catch (err) {
-      console.error("Error adding transaction:", err)
-      setError("Failed to add transaction. Please try again.")
-      return false
-    } finally {
-      // Clear the updating flag
-      isUpdatingRef.current = false
+    } catch (err: any) {
+      console.error("[CLIENT] ❌ Error adding transaction:", err)
+      throw err
     }
-  }, [])
+  }
 
-  // Function to perform a batch update
-  const batchUpdate = useCallback(async (newTransactions: Transaction[]) => {
-    // Set the updating flag to prevent concurrent updates
-    isUpdatingRef.current = true
-
+  const addNewItem = async (item: { name: string; quantity: number; unit: string; price: number; user: string }) => {
     try {
-      // Send the batch update to the API
-      const response = await fetch("/api/inventory/batch", {
+      console.log("[CLIENT] 🆕 Adding new item:", item)
+
+      const response = await fetch("/api/inventory-neon", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          operation: "batchUpdate",
-          data: { transactions: newTransactions },
+          item_type: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          price: item.price,
+          user_id: item.user,
+          notes: `New item added: ${item.name}`,
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
-      }
-
       const data = await response.json()
 
-      if (!data.success) {
-        throw new Error(data.error || "Failed to perform batch update")
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to add item")
       }
 
-      // Update Redis connection status
-      setRedisConnected(data.redis_connected)
-
-      // Update our state and refs with the API data
-      setInventory(data.inventory || [])
-      setTransactions(data.transactions || [])
-
-      inventoryRef.current = data.inventory || []
-      transactionsRef.current = data.transactions || []
-
-      lastUpdateTimestampRef.current = data.timestamp
-
-      setLastSync(new Date())
-      setError(null)
-
+      console.log("[CLIENT] ✅ Item added successfully")
+      await refreshData(true)
       return true
-    } catch (err) {
-      console.error("Error performing batch update:", err)
-      setError("Failed to update data. Please try again.")
-      return false
-    } finally {
-      // Clear the updating flag
-      isUpdatingRef.current = false
+    } catch (err: any) {
+      console.error("[CLIENT] ❌ Error adding item:", err)
+      throw err
     }
-  }, [])
+  }
 
-  // Function to check storage status
-  const checkStorageStatus = useCallback(async () => {
+  const updateTransaction = async (transaction: Transaction) => {
     try {
-      const response = await fetch("/api/storage-status")
+      console.log("[CLIENT] ✏️ Updating transaction:", transaction)
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+      let transactionType = "deplete"
+      if (transaction.transactionType === "Restocking") {
+        transactionType = "restock"
       }
+
+      const response = await fetch("/api/transactions-neon/update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: transaction.id,
+          item_type: transaction.itemType,
+          quantity: transaction.quantity,
+          transaction_type: transactionType,
+          notes: transaction.notes,
+          price: transaction.price || 0,
+        }),
+      })
 
       const data = await response.json()
 
-      if (data.success) {
-        setRedisConnected(data.redis_connected)
-        return data.storage_status
-      } else {
-        throw new Error(data.error || "Failed to check storage status")
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to update transaction")
       }
-    } catch (err) {
-      console.error("Error checking storage status:", err)
-      return null
+
+      console.log("[CLIENT] ✅ Transaction updated successfully")
+      await refreshData(true)
+      return true
+    } catch (err: any) {
+      console.error("[CLIENT] ❌ Error updating transaction:", err)
+      throw err
     }
-  }, [])
+  }
 
-  // Initial data fetch
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  // Set up polling for updates (only if enabled)
-  useEffect(() => {
-    if (!pollingEnabled) return
-
-    const intervalId = setInterval(() => {
-      // Only fetch if we're not currently updating
-      if (!isUpdatingRef.current) {
-        fetchData()
-      }
-    }, 60000) // 60 seconds
-
-    return () => clearInterval(intervalId)
-  }, [fetchData, pollingEnabled])
+  const batchUpdate = async (updatedTransactions: Transaction[]) => {
+    console.log("[CLIENT] 📝 Batch update - updating first transaction only for now")
+    if (updatedTransactions.length > 0) {
+      return updateTransaction(updatedTransactions[0])
+    }
+    return false
+  }
 
   return {
     inventory,
+    summary,
     transactions,
     addTransaction,
+    addNewItem,
+    updateTransaction,
     batchUpdate,
+    refreshData,
     loading,
     error,
     lastSync,
-    refreshData: fetchData,
-    setPollingEnabled,
-    redisConnected,
-    checkStorageStatus,
   }
 }
