@@ -31,13 +31,6 @@ export async function initializeInventoryTables() {
   try {
     console.log("🔧 Initializing inventory database tables...")
 
-    // Drop foreign key constraint if it exists
-    await inventorySql`
-      ALTER TABLE IF EXISTS transaction_history 
-      DROP CONSTRAINT IF EXISTS transaction_history_item_type_fkey
-    `
-
-    // Create current_inventory table
     await inventorySql`
       CREATE TABLE IF NOT EXISTS current_inventory (
         item_type VARCHAR(255) PRIMARY KEY,
@@ -48,7 +41,6 @@ export async function initializeInventoryTables() {
       )
     `
 
-    // Create transaction_history table WITHOUT foreign key constraint
     await inventorySql`
       CREATE TABLE IF NOT EXISTS transaction_history (
         id SERIAL PRIMARY KEY,
@@ -63,7 +55,6 @@ export async function initializeInventoryTables() {
       )
     `
 
-    // Create inventory_summary table
     await inventorySql`
       CREATE TABLE IF NOT EXISTS inventory_summary (
         id INTEGER PRIMARY KEY DEFAULT 1,
@@ -75,27 +66,10 @@ export async function initializeInventoryTables() {
       )
     `
 
-    // Insert initial summary row if not exists
     await inventorySql`
       INSERT INTO inventory_summary (id, total_inventory_value, total_items, total_quantity)
       VALUES (1, 0, 0, 0)
       ON CONFLICT (id) DO NOTHING
-    `
-
-    // Create indexes
-    await inventorySql`
-      CREATE INDEX IF NOT EXISTS idx_transaction_history_item_type 
-      ON transaction_history(item_type)
-    `
-
-    await inventorySql`
-      CREATE INDEX IF NOT EXISTS idx_transaction_history_date 
-      ON transaction_history(transaction_date)
-    `
-
-    await inventorySql`
-      CREATE INDEX IF NOT EXISTS idx_current_inventory_quantity 
-      ON current_inventory(quantity)
     `
 
     console.log("✅ Inventory database tables initialized successfully")
@@ -113,9 +87,8 @@ export async function initializeInventoryTables() {
   }
 }
 
-export async function getCurrentInventory(): Promise<InventoryItem[]> {
+export async function getCurrentInventory(includeZero = true): Promise<InventoryItem[]> {
   try {
-    console.log("📦 Fetching current inventory...")
     const result = await inventorySql`
       SELECT 
         item_type,
@@ -124,10 +97,11 @@ export async function getCurrentInventory(): Promise<InventoryItem[]> {
         avg_price,
         total_cost
       FROM current_inventory
+      ${includeZero ? inventorySql`` : inventorySql`WHERE quantity > 0`}
       ORDER BY item_type
     `
-    console.log(`✅ Fetched ${result.length} inventory items`)
-    return result.map((row) => ({
+
+    return result.map((row: any) => ({
       name: String(row.item_type),
       quantity: Number(row.quantity) || 0,
       unit: String(row.unit || "kg"),
@@ -136,64 +110,25 @@ export async function getCurrentInventory(): Promise<InventoryItem[]> {
     }))
   } catch (error: any) {
     console.error("❌ Error fetching inventory:", error?.message || error)
-    throw new Error(`Failed to fetch inventory: ${error?.message || "Unknown error"}`)
+    return []
   }
 }
 
 export async function getInventorySummary(): Promise<InventorySummary> {
   try {
-    console.log("📊 Fetching inventory summary...")
-
-    const checkTable = await inventorySql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'inventory_summary'
-      ) as exists
-    `
-
-    if (!checkTable[0]?.exists) {
-      console.log("⚠️ inventory_summary table doesn't exist, calculating from current_inventory")
-      const result = await inventorySql`
-        SELECT 
-          COUNT(DISTINCT item_type) as total_items,
-          COALESCE(SUM(quantity), 0) as total_quantity,
-          COALESCE(SUM(total_cost), 0) as total_inventory_value
-        FROM current_inventory
-      `
-
-      return {
-        total_inventory_value: Number(result[0]?.total_inventory_value) || 0,
-        total_items: Number(result[0]?.total_items) || 0,
-        total_quantity: Number(result[0]?.total_quantity) || 0,
-      }
-    }
-
     const result = await inventorySql`
       SELECT 
-        total_inventory_value,
-        total_items,
-        total_quantity
-      FROM inventory_summary
-      LIMIT 1
+        COALESCE(SUM(total_cost), 0) as total_inventory_value,
+        COUNT(DISTINCT item_type) as total_items,
+        COALESCE(SUM(quantity), 0) as total_quantity
+      FROM current_inventory
     `
 
-    if (!result || result.length === 0) {
-      return {
-        total_inventory_value: 0,
-        total_items: 0,
-        total_quantity: 0,
-      }
+    return {
+      total_inventory_value: Number(result[0]?.total_inventory_value) || 0,
+      total_items: Number(result[0]?.total_items) || 0,
+      total_quantity: Number(result[0]?.total_quantity) || 0,
     }
-
-    const summary = {
-      total_inventory_value: Number(result[0].total_inventory_value) || 0,
-      total_items: Number(result[0].total_items) || 0,
-      total_quantity: Number(result[0].total_quantity) || 0,
-    }
-
-    console.log(`✅ Summary fetched:`, summary)
-    return summary
   } catch (error: any) {
     console.error("❌ Error fetching summary:", error?.message || error)
     return {
@@ -206,8 +141,6 @@ export async function getInventorySummary(): Promise<InventorySummary> {
 
 export async function getTransactionHistory(limit = 100): Promise<Transaction[]> {
   try {
-    console.log("📜 Fetching transaction history...")
-
     const result = await inventorySql`
       SELECT 
         th.id,
@@ -226,9 +159,7 @@ export async function getTransactionHistory(limit = 100): Promise<Transaction[]>
       LIMIT ${limit}
     `
 
-    console.log(`✅ Fetched ${result.length} transactions`)
-
-    return result.map((row) => ({
+    return result.map((row: any) => ({
       id: Number(row.id),
       item_type: String(row.item_type),
       quantity: Number(row.quantity) || 0,
@@ -242,13 +173,116 @@ export async function getTransactionHistory(limit = 100): Promise<Transaction[]>
     }))
   } catch (error: any) {
     console.error("❌ Error fetching transactions:", error?.message || error)
-    throw error
+    return []
   }
+}
+
+export async function addTransaction(transaction: {
+  item_type: string
+  quantity: number
+  transaction_type: "restock" | "deplete"
+  notes?: string
+  user_id?: string
+  price: number
+}) {
+  try {
+    const total_cost = transaction.quantity * transaction.price
+
+    await inventorySql`
+      INSERT INTO transaction_history (
+        item_type, quantity, transaction_type, notes, user_id, price, total_cost
+      )
+      VALUES (
+        ${transaction.item_type},
+        ${transaction.quantity},
+        ${transaction.transaction_type},
+        ${transaction.notes || ""},
+        ${transaction.user_id || "system"},
+        ${transaction.price},
+        ${total_cost}
+      )
+    `
+
+    return true
+  } catch (error: any) {
+    console.error("❌ Error adding transaction:", error?.message || error)
+    return false
+  }
+}
+
+export async function performBatchOperation(transactions: Transaction[]): Promise<boolean> {
+  try {
+    console.log(`🔄 Performing batch operation with ${transactions.length} transactions`)
+    for (const txn of transactions) {
+      await addTransaction({
+        item_type: txn.item_type,
+        quantity: txn.quantity,
+        transaction_type: txn.transaction_type,
+        notes: txn.notes,
+        user_id: txn.user_id,
+        price: txn.price || 0,
+      })
+    }
+    console.log("✅ Batch operation completed successfully")
+    return true
+  } catch (error) {
+    console.error("❌ Error in batch operation:", error)
+    return false
+  }
+}
+
+export async function getLastUpdateTimestamp(): Promise<number> {
+  try {
+    const result = await inventorySql`
+      SELECT EXTRACT(EPOCH FROM MAX(transaction_date))::bigint * 1000 as timestamp
+      FROM transaction_history
+    `
+    return Number(result[0]?.timestamp) || Date.now()
+  } catch (error) {
+    console.error("Error getting last update timestamp:", error)
+    return Date.now()
+  }
+}
+
+export async function checkIfDataExists(): Promise<boolean> {
+  try {
+    const result = await inventorySql`
+      SELECT COUNT(*) as count FROM transaction_history
+    `
+    return Number(result[0]?.count) > 0
+  } catch (error) {
+    console.error("Error checking if data exists:", error)
+    return false
+  }
+}
+
+export async function initializeDefaultDataIfEmpty(): Promise<void> {
+  try {
+    const hasData = await checkIfDataExists()
+    if (!hasData) {
+      console.log("📦 No data found, initializing with default data if needed")
+      // Initialize with empty state - ready for first transaction
+      await inventorySql`
+        INSERT INTO inventory_summary (id, total_inventory_value, total_items, total_quantity)
+        VALUES (1, 0, 0, 0)
+        ON CONFLICT (id) DO NOTHING
+      `
+    }
+  } catch (error) {
+    console.error("Error initializing default data:", error)
+  }
+}
+
+export async function getAllInventoryItems(includeZero = true): Promise<InventoryItem[]> {
+  return getCurrentInventory(includeZero)
+}
+
+export async function getAllTransactions(): Promise<Transaction[]> {
+  return getTransactionHistory(1000)
 }
 
 export async function getTransactionsByItem(itemType: string): Promise<Transaction[]> {
   try {
-    console.log(`📜 Fetching transactions for item: ${itemType}`)
     const result = await inventorySql`
       SELECT 
         th.id,
@@ -266,8 +300,7 @@ export async function getTransactionsByItem(itemType: string): Promise<Transacti
       WHERE th.item_type = ${itemType}
       ORDER BY th.transaction_date DESC
     `
-    console.log(`✅ Fetched ${result.length} transactions for ${itemType}`)
-    return result.map((row) => ({
+    return result.map((row: any) => ({
       id: Number(row.id),
       item_type: String(row.item_type),
       quantity: Number(row.quantity) || 0,
@@ -314,7 +347,6 @@ export async function getInventoryItemByName(name: string): Promise<InventoryIte
 
 export async function upsertInventoryItem(item: InventoryItem): Promise<boolean> {
   try {
-    console.log(`💾 Upserting inventory item: ${item.name}`)
     await inventorySql`
       INSERT INTO current_inventory (item_type, quantity, unit, avg_price, total_cost)
       VALUES (
@@ -331,77 +363,10 @@ export async function upsertInventoryItem(item: InventoryItem): Promise<boolean>
         avg_price = ${item.avg_price || 0},
         total_cost = ${item.total_cost || 0}
     `
-    console.log(`✅ Inventory item upserted: ${item.name}`)
     return true
   } catch (error) {
     console.error("Error upserting inventory item:", error)
     return false
-  }
-}
-
-export async function addTransaction(transaction: {
-  item_type: string
-  quantity: number
-  transaction_type: "restock" | "deplete"
-  notes?: string
-  user_id?: string
-  price: number
-}) {
-  try {
-    console.log(`➕ Adding transaction for ${transaction.item_type}`)
-    const total_cost = transaction.quantity * transaction.price
-
-    // Get or create the inventory item
-    const currentItem = await getInventoryItemByName(transaction.item_type)
-    let newQuantity = currentItem?.quantity || 0
-    let newTotalCost = currentItem?.total_cost || 0
-    const newUnit = currentItem?.unit || "kg"
-
-    // Calculate new values based on transaction type
-    if (transaction.transaction_type === "restock") {
-      newQuantity += transaction.quantity
-      newTotalCost += total_cost
-    } else if (transaction.transaction_type === "deplete") {
-      newQuantity = Math.max(0, newQuantity - transaction.quantity)
-      if (currentItem && currentItem.quantity > 0) {
-        const costPerUnit = currentItem.total_cost! / currentItem.quantity
-        newTotalCost = Math.max(0, newTotalCost - transaction.quantity * costPerUnit)
-      }
-    }
-
-    const newAvgPrice = newQuantity > 0 ? newTotalCost / newQuantity : 0
-
-    // Update inventory item first
-    await upsertInventoryItem({
-      name: transaction.item_type,
-      quantity: newQuantity,
-      unit: newUnit,
-      avg_price: newAvgPrice,
-      total_cost: newTotalCost,
-    })
-
-    // Add transaction record
-    const result = await inventorySql`
-      INSERT INTO transaction_history (
-        item_type, quantity, transaction_type, notes, user_id, price, total_cost
-      )
-      VALUES (
-        ${transaction.item_type},
-        ${transaction.quantity},
-        ${transaction.transaction_type},
-        ${transaction.notes || ""},
-        ${transaction.user_id || "system"},
-        ${transaction.price},
-        ${total_cost}
-      )
-      RETURNING *
-    `
-
-    console.log("✅ Transaction added successfully")
-    return result[0]
-  } catch (error: any) {
-    console.error("❌ Error adding transaction:", error?.message || error)
-    throw new Error(`Failed to add transaction: ${error?.message || "Unknown error"}`)
   }
 }
 
@@ -413,8 +378,6 @@ export async function updateInventoryItem(
   },
 ) {
   try {
-    console.log(`✏️ Updating inventory item: ${item_type}`)
-
     const setClauses: string[] = []
     if (updates.quantity !== undefined) {
       setClauses.push(`quantity = ${updates.quantity}`)
@@ -424,7 +387,6 @@ export async function updateInventoryItem(
     }
 
     if (setClauses.length === 0) {
-      console.log("⚠️ No updates to apply")
       return null
     }
 
@@ -435,7 +397,6 @@ export async function updateInventoryItem(
       RETURNING *
     `
 
-    console.log("✅ Inventory item updated successfully")
     return result[0]
   } catch (error: any) {
     console.error("❌ Error updating inventory item:", error?.message || error)
@@ -445,8 +406,6 @@ export async function updateInventoryItem(
 
 export async function deleteInventoryItem(item_type: string) {
   try {
-    console.log(`🗑️ Deleting inventory item: ${item_type}`)
-
     const result = await inventorySql`
       DELETE FROM current_inventory
       WHERE item_type = ${item_type}
@@ -457,16 +416,11 @@ export async function deleteInventoryItem(item_type: string) {
       throw new Error(`Item ${item_type} not found`)
     }
 
-    console.log("✅ Inventory item deleted successfully")
     return result[0]
   } catch (error: any) {
     console.error("❌ Error deleting inventory item:", error?.message || error)
     throw new Error(`Failed to delete inventory item: ${error?.message || "Unknown error"}`)
   }
-}
-
-export async function getAllInventoryItems(): Promise<InventoryItem[]> {
-  return getCurrentInventory()
 }
 
 export async function addInventoryTransaction(transaction: Transaction): Promise<boolean> {
@@ -498,10 +452,6 @@ export async function addInventoryTransaction(transaction: Transaction): Promise
     console.error("Error adding transaction:", error)
     return false
   }
-}
-
-export async function getAllTransactions(): Promise<Transaction[]> {
-  return getTransactionHistory(1000)
 }
 
 export async function addTransactions(
@@ -541,14 +491,11 @@ export async function addInventoryItem(item: {
 
 export async function populateTransactionsForExistingInventory() {
   try {
-    console.log("🔄 Populating transactions for existing inventory...")
-
     const existingTransactions = await inventorySql`
       SELECT COUNT(*) as count FROM transaction_history
     `
 
     if (Number(existingTransactions[0].count) > 0) {
-      console.log("⏭️  Transactions already exist")
       return { success: true, skipped: true, count: existingTransactions[0].count }
     }
 
