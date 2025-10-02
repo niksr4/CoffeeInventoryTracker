@@ -210,41 +210,27 @@ export async function getAllConsumableDeployments(): Promise<ConsumableDeploymen
   try {
     const result = await accountsSql`
       SELECT 
-        id::text,
-        entry_date as date,
-        code,
-        '' as reference,
-        total_amount as amount,
-        notes,
+        et.id::text,
+        et.entry_date as date,
+        et.code,
+        COALESCE(aa.activity, et.code) as reference,
+        et.total_amount as amount,
+        et.notes,
         'system' as user
-      FROM expense_transactions
-      ORDER BY entry_date DESC
+      FROM expense_transactions et
+      LEFT JOIN account_activities aa ON et.code = aa.code
+      ORDER BY et.entry_date DESC
     `
 
     const deployments = result.map((row: any) => ({
       id: row.id,
       date: row.date,
       code: row.code,
-      reference: row.reference,
+      reference: row.reference || row.code,
       amount: Number(row.amount),
       notes: row.notes || "",
       user: row.user,
     }))
-
-    // Fetch references
-    const codes = [...new Set(deployments.map((d) => d.code))]
-    if (codes.length > 0) {
-      const references = await accountsSql`
-        SELECT code, activity as reference
-        FROM account_activities
-        WHERE code = ANY(${codes})
-      `
-
-      const referenceMap = new Map(references.map((r: any) => [r.code, r.reference]))
-      deployments.forEach((d) => {
-        d.reference = referenceMap.get(d.code) || d.code
-      })
-    }
 
     return deployments
   } catch (error) {
@@ -312,17 +298,19 @@ export async function getAllLaborDeployments(): Promise<LaborDeployment[]> {
   try {
     const result = await accountsSql`
       SELECT 
-        id::text,
-        deployment_date as date,
-        code,
-        hf_laborers,
-        hf_cost_per_laborer,
-        outside_laborers,
-        outside_cost_per_laborer,
-        total_cost,
-        notes
-      FROM labor_transactions
-      ORDER BY deployment_date DESC
+        lt.id::text,
+        lt.deployment_date as date,
+        lt.code,
+        COALESCE(aa.activity, lt.code) as reference,
+        lt.hf_laborers,
+        lt.hf_cost_per_laborer,
+        lt.outside_laborers,
+        lt.outside_cost_per_laborer,
+        lt.total_cost,
+        lt.notes
+      FROM labor_transactions lt
+      LEFT JOIN account_activities aa ON lt.code = aa.code
+      ORDER BY lt.deployment_date DESC
     `
 
     const deployments = result.map((row: any) => {
@@ -348,28 +336,13 @@ export async function getAllLaborDeployments(): Promise<LaborDeployment[]> {
         id: row.id,
         date: row.date,
         code: row.code,
-        reference: "",
+        reference: row.reference || row.code,
         laborEntries,
         totalCost: Number(row.total_cost),
         notes: row.notes || "",
         user: "system",
       }
     })
-
-    // Fetch references
-    const codes = [...new Set(deployments.map((d) => d.code))]
-    if (codes.length > 0) {
-      const references = await accountsSql`
-        SELECT code, activity as reference
-        FROM account_activities
-        WHERE code = ANY(${codes})
-      `
-
-      const referenceMap = new Map(references.map((r: any) => [r.code, r.reference]))
-      deployments.forEach((d) => {
-        d.reference = referenceMap.get(d.code) || d.code
-      })
-    }
 
     return deployments
   } catch (error) {

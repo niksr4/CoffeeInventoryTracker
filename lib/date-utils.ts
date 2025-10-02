@@ -37,14 +37,18 @@ export function formatDateOnly(dateString?: string): string {
 export function formatDateForQIF(dateString?: string): string {
   if (!dateString) return ""
   try {
+    // Parse the date string - handle both ISO format and other formats
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return ""
 
-    const day = date.getDate().toString().padStart(2, "0")
-    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    // Get the date components in local time
+    const day = date.getDate()
+    const month = date.getMonth() + 1
     const year = date.getFullYear()
 
-    return `${day}/${month}/${year}`
+    // QIF format expects M/D/YYYY (month/day/year)
+    // Using template literals to ensure correct order
+    return `${month}/${day}/${year}`
   } catch (error) {
     return ""
   }

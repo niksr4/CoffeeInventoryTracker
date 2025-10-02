@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-
-const sql = neon(process.env.DATABASE_URL!)
+import { accountsSql } from "@/lib/neon-connections"
 
 export async function POST(request: Request) {
   try {
@@ -13,8 +11,8 @@ export async function POST(request: Request) {
     }
 
     // Check if code already exists
-    const existingActivity = await sql`
-      SELECT code FROM accounts_activity WHERE code = ${code}
+    const existingActivity = await accountsSql`
+      SELECT code FROM account_activities WHERE code = ${code}
     `
 
     if (existingActivity.length > 0) {
@@ -22,14 +20,20 @@ export async function POST(request: Request) {
     }
 
     // Insert new activity
-    await sql`
-      INSERT INTO accounts_activity (code, activity)
+    await accountsSql`
+      INSERT INTO account_activities (code, activity)
       VALUES (${code}, ${reference})
     `
 
     return NextResponse.json({ success: true, message: "Activity added successfully" })
   } catch (error) {
     console.error("Error adding activity:", error)
-    return NextResponse.json({ success: false, error: "Failed to add activity" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to add activity",
+      },
+      { status: 500 },
+    )
   }
 }

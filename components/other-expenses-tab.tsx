@@ -45,6 +45,7 @@ export default function OtherExpensesTab() {
       const response = await fetch("/api/get-activity")
       const data = await response.json()
       if (data.success && data.activities) {
+        console.log("📋 Fetched activities:", data.activities)
         setActivities(data.activities)
       }
     } catch (error) {
@@ -60,7 +61,10 @@ export default function OtherExpensesTab() {
     const matchingActivity = activities.find((activity) => activity.code.toLowerCase() === code.toLowerCase())
 
     if (matchingActivity) {
+      console.log("✅ Found matching activity:", matchingActivity)
       setFormData((prev) => ({ ...prev, reference: matchingActivity.reference }))
+    } else {
+      console.log("⚠️ No matching activity found for code:", code)
     }
   }
 
@@ -278,7 +282,9 @@ export default function OtherExpensesTab() {
                               </Badge>
                               <span className="text-xs text-muted-foreground">{formatDate(deployment.date)}</span>
                             </div>
-                            <p className="font-medium text-sm line-clamp-1">{deployment.reference}</p>
+                            <p className="font-medium text-sm line-clamp-1">
+                              {deployment.reference || deployment.code}
+                            </p>
                             <p className="text-lg font-bold text-green-700 mt-1">
                               ₹
                               {deployment.amount.toLocaleString("en-IN", {
@@ -343,7 +349,7 @@ export default function OtherExpensesTab() {
                     <TableRow key={deployment.id}>
                       <TableCell>{formatDate(deployment.date)}</TableCell>
                       <TableCell className="font-medium">{deployment.code}</TableCell>
-                      <TableCell>{deployment.reference}</TableCell>
+                      <TableCell>{deployment.reference || deployment.code}</TableCell>
                       <TableCell className="text-right font-semibold">
                         ₹
                         {deployment.amount.toLocaleString("en-IN", {

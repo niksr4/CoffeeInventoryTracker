@@ -1,143 +1,124 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 
-export interface ConsumableDeployment {
-  id: string
+interface Deployment {
+  id: number
   date: string
   code: string
   reference: string
   amount: number
-  notes?: string
+  notes: string
   user: string
 }
 
 export function useConsumablesData() {
-  const [deployments, setDeployments] = useState<ConsumableDeployment[]>([])
+  const [deployments, setDeployments] = useState<Deployment[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const fetchData = useCallback(async () => {
+  const fetchDeployments = async () => {
     try {
       setLoading(true)
-      console.log("[CLIENT] Fetching other expenses data...")
+      console.log("🔄 Fetching deployments from /api/expenses-neon...")
 
-      const response = await fetch("/api/consumables-neon", {
-        cache: "no-store",
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to fetch other expenses")
-      }
-
+      const response = await fetch("/api/expenses-neon")
       const data = await response.json()
-      console.log("[CLIENT] ✅ Fetched other expenses:", data)
 
-      setDeployments(Array.isArray(data.deployments) ? data.deployments : [])
-      setError(null)
-    } catch (err: any) {
-      console.error("[CLIENT] ❌ Error fetching other expenses data:", err)
-      setError(err.message || "Failed to fetch other expenses data")
+      console.log("📥 Raw API response:", data)
+
+      if (data.success && data.deployments) {
+        console.log("✅ Deployments loaded:", data.deployments.length)
+        console.log("📋 First deployment:", data.deployments[0])
+        setDeployments(data.deployments)
+      } else {
+        console.error("❌ Failed to load deployments:", data)
+        setDeployments([])
+      }
+    } catch (error) {
+      console.error("❌ Error fetching deployments:", error)
       setDeployments([])
     } finally {
       setLoading(false)
     }
-  }, [])
-
-  const addDeployment = useCallback(
-    async (deployment: Omit<ConsumableDeployment, "id">) => {
-      try {
-        console.log("[CLIENT] Adding other expense:", deployment)
-
-        const response = await fetch("/api/consumables-neon", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(deployment),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || "Failed to add other expense")
-        }
-
-        console.log("[CLIENT] ✅ Other expense added")
-        await fetchData()
-        return true
-      } catch (err: any) {
-        console.error("[CLIENT] ❌ Error adding other expense:", err)
-        setError(err.message || "Failed to add other expense")
-        return false
-      }
-    },
-    [fetchData],
-  )
-
-  const updateDeployment = useCallback(
-    async (id: string, deployment: Omit<ConsumableDeployment, "id" | "user">) => {
-      try {
-        console.log("[CLIENT] Updating other expense:", id)
-
-        const response = await fetch("/api/consumables-neon", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, ...deployment }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || "Failed to update other expense")
-        }
-
-        console.log("[CLIENT] ✅ Other expense updated")
-        await fetchData()
-        return true
-      } catch (err: any) {
-        console.error("[CLIENT] ❌ Error updating other expense:", err)
-        setError(err.message || "Failed to update other expense")
-        return false
-      }
-    },
-    [fetchData],
-  )
-
-  const deleteDeployment = useCallback(
-    async (id: string) => {
-      try {
-        console.log("[CLIENT] Deleting other expense:", id)
-
-        const response = await fetch(`/api/consumables-neon?id=${id}`, {
-          method: "DELETE",
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || "Failed to delete other expense")
-        }
-
-        console.log("[CLIENT] ✅ Other expense deleted")
-        await fetchData()
-        return true
-      } catch (err: any) {
-        console.error("[CLIENT] ❌ Error deleting other expense:", err)
-        setError(err.message || "Failed to delete other expense")
-        return false
-      }
-    },
-    [fetchData],
-  )
+  }
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchDeployments()
+  }, [])
+
+  const addDeployment = async (deployment: Omit<Deployment, "id">) => {
+    try {
+      console.log("➕ Adding deployment:", deployment)
+
+      const response = await fetch("/api/expenses-neon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deployment),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        console.log("✅ Deployment added successfully")
+        await fetchDeployments() // Refresh the list
+      } else {
+        console.error("❌ Failed to add deployment:", data)
+      }
+    } catch (error) {
+      console.error("❌ Error adding deployment:", error)
+    }
+  }
+
+  const updateDeployment = async (id: number, deployment: Omit<Deployment, "id" | "user">) => {
+    try {
+      console.log("📝 Updating deployment:", id, deployment)
+
+      const response = await fetch("/api/expenses-neon", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...deployment }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        console.log("✅ Deployment updated successfully")
+        await fetchDeployments() // Refresh the list
+      } else {
+        console.error("❌ Failed to update deployment:", data)
+      }
+    } catch (error) {
+      console.error("❌ Error updating deployment:", error)
+    }
+  }
+
+  const deleteDeployment = async (id: number) => {
+    try {
+      console.log("🗑️ Deleting deployment:", id)
+
+      const response = await fetch(`/api/expenses-neon?id=${id}`, {
+        method: "DELETE",
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        console.log("✅ Deployment deleted successfully")
+        await fetchDeployments() // Refresh the list
+      } else {
+        console.error("❌ Failed to delete deployment:", data)
+      }
+    } catch (error) {
+      console.error("❌ Error deleting deployment:", error)
+    }
+  }
 
   return {
     deployments,
     loading,
-    error,
     addDeployment,
     updateDeployment,
     deleteDeployment,
-    refreshData: fetchData,
+    refetch: fetchDeployments,
   }
 }

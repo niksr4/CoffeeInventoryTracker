@@ -352,35 +352,49 @@ export default function AccountsPage() {
       .forEach((d) => {
         const date = formatDateForQIF(d.date)
         const amount = d.entryType === "Labor" ? d.totalCost : (d as ConsumableDeployment).amount
-        const payee = d.reference
-        const category = `${d.code} ${d.reference}`
 
+        let payee = ""
+        let category = ""
         let memo = ""
-        if (d.entryType === "Labor" && d.laborEntries) {
-          const hfDetail = d.laborEntries[0]
-            ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
-            : ""
-          const outsideDetail = d.laborEntries
-            .slice(1)
-            .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
-            .join("; ")
 
-          let laborDetails = ""
-          if (hfDetail && outsideDetail) {
-            laborDetails = `${hfDetail}; ${outsideDetail}`
-          } else if (hfDetail) {
-            laborDetails = hfDetail
-          } else if (outsideDetail) {
-            laborDetails = outsideDetail
-          }
+        if (d.entryType === "Labor") {
+          // For labor entries
+          payee = d.reference
+          category = `${d.code} ${d.reference}`
 
-          if (d.notes) {
-            memo = laborDetails ? `${laborDetails} | Notes: ${d.notes}` : d.notes
-          } else {
-            memo = laborDetails
+          // Build labor details for memo
+          if (d.laborEntries) {
+            const hfDetail = d.laborEntries[0]
+              ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
+              : ""
+            const outsideDetail = d.laborEntries
+              .slice(1)
+              .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
+              .join("; ")
+
+            let laborDetails = ""
+            if (hfDetail && outsideDetail) {
+              laborDetails = `${hfDetail}; ${outsideDetail}`
+            } else if (hfDetail) {
+              laborDetails = hfDetail
+            } else if (outsideDetail) {
+              laborDetails = outsideDetail
+            }
+
+            if (d.notes) {
+              memo = laborDetails ? `${laborDetails} | Notes: ${d.notes}` : d.notes
+            } else {
+              memo = laborDetails
+            }
           }
-        } else if (d.notes) {
-          memo = d.notes
+        } else {
+          // For other expenses
+          const expenseEntry = d as ConsumableDeployment
+          // Use description as payee (the main identifier for the expense)
+          payee = expenseEntry.description || expenseEntry.reference || d.code
+          category = `${d.code} ${d.reference}`
+          // Put additional notes in memo if available
+          memo = d.notes || ""
         }
 
         qifContent += `D${date}\n`

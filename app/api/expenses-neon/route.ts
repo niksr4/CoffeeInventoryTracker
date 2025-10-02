@@ -7,43 +7,34 @@ export async function GET() {
 
     const result = await accountsSql`
       SELECT 
-        id,
-        entry_date as date,
-        code,
-        total_amount as amount,
-        notes
-      FROM expense_transactions
-      ORDER BY entry_date DESC
+        et.id,
+        et.entry_date as date,
+        et.code,
+        COALESCE(aa.activity, et.code) as reference,
+        et.total_amount as amount,
+        et.notes
+      FROM expense_transactions et
+      LEFT JOIN account_activities aa ON et.code = aa.code
+      ORDER BY et.entry_date DESC
     `
+
+    console.log("📊 Sample raw result:", JSON.stringify(result[0], null, 2))
 
     // Transform the data to match the expected format
     const deployments = result.map((row: any) => ({
       id: row.id,
       date: row.date,
       code: row.code,
-      reference: "", // Will be filled by join or separate query
+      reference: row.reference, // Use the reference from the JOIN
       amount: Number.parseFloat(row.amount),
       notes: row.notes || "",
       user: "system",
     }))
 
-    // Fetch references for all codes
-    const codes = [...new Set(deployments.map((d) => d.code))]
-    if (codes.length > 0) {
-      const references = await accountsSql`
-        SELECT code, activity as reference
-        FROM account_activities
-        WHERE code = ANY(${codes})
-      `
-
-      const referenceMap = new Map(references.map((r: any) => [r.code, r.reference]))
-
-      deployments.forEach((d) => {
-        d.reference = referenceMap.get(d.code) || d.code
-      })
-    }
-
     console.log(`✅ Found ${deployments.length} expense transactions`)
+    if (deployments.length > 0) {
+      console.log("📋 First deployment:", JSON.stringify(deployments[0], null, 2))
+    }
 
     return NextResponse.json({
       success: true,
@@ -79,12 +70,12 @@ export async function POST(request: Request) {
         ${date}::timestamp,
         ${code},
         ${amount},
-        ${notes}
+        ${notes || ""}
       )
       RETURNING id
     `
 
-    console.log("✅ Expense added successfully")
+    console.log("✅ Expense added successfully with ID:", result[0].id)
 
     return NextResponse.json({
       success: true,
@@ -107,7 +98,7 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { id, date, code, reference, amount, notes } = body
 
-    console.log("📝 Updating expense:", id)
+    console.log("📝 Updating expense:", id, { code, reference, amount })
 
     await accountsSql`
       UPDATE expense_transactions
@@ -115,7 +106,7 @@ export async function PUT(request: Request) {
         entry_date = ${date}::timestamp,
         code = ${code},
         total_amount = ${amount},
-        notes = ${notes}
+        notes = ${notes || ""}
       WHERE id = ${id}
     `
 
