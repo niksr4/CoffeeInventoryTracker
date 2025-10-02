@@ -189,6 +189,7 @@ export default function InventorySystem() {
     name: string
     quantity: number
     unit: string
+    price: number
     originalName: string
   } | null>(null)
   const [isInventoryEditDialogOpen, setIsInventoryEditDialogOpen] = useState(false)
@@ -369,7 +370,13 @@ export default function InventorySystem() {
   }
 
   const handleEditInventoryItem = (item: InventoryItem) => {
-    setEditingInventoryItem({ ...item, originalName: item.name })
+    const valueInfo = itemValues[item.name]
+    const currentPrice = valueInfo?.avgPrice || 0
+    setEditingInventoryItem({
+      ...item,
+      originalName: item.name,
+      price: currentPrice,
+    })
     setIsInventoryEditDialogOpen(true)
   }
 
@@ -404,10 +411,14 @@ export default function InventorySystem() {
     const quantityDifference = quantity - originalItemInRedis.quantity
     const unitChanged = unit !== originalItemInRedis.unit
     const nameChanged = name.toLowerCase() !== originalName.toLowerCase()
+    const valueInfo = itemValues[originalName]
+    const currentPrice = valueInfo?.avgPrice || 0
+    const priceChanged = editingInventoryItem.price !== currentPrice && editingInventoryItem.price > 0
 
     let transactionNotes = ""
     let transactionType: Transaction["transactionType"] = "Restocking"
     let transactionQuantity = 0
+    const transactionPrice = editingInventoryItem.price
 
     if (nameChanged) {
       transactionNotes += `Item name changed from "${originalName}" to "${name}". `
@@ -415,11 +426,15 @@ export default function InventorySystem() {
     if (unitChanged) {
       transactionNotes += `Unit changed from "${originalItemInRedis.unit}" to "${unit}". `
     }
+    if (priceChanged) {
+      transactionNotes += `Price updated from ₹${currentPrice.toFixed(2)} to ₹${editingInventoryItem.price.toFixed(2)}. `
+    }
+
     if (quantityDifference !== 0) {
       transactionNotes += `Quantity adjusted by ${quantityDifference}.`
       transactionType = quantityDifference > 0 ? "Restocking" : "Depleting"
       transactionQuantity = Math.abs(quantityDifference)
-    } else if (nameChanged || unitChanged) {
+    } else if (nameChanged || unitChanged || priceChanged) {
       transactionType = "Unit Change"
       transactionQuantity = quantity
       if (!transactionNotes) transactionNotes = "Item details updated."
@@ -440,6 +455,8 @@ export default function InventorySystem() {
       date: generateTimestamp(),
       user: user?.username || "unknown",
       unit: unit,
+      price: transactionPrice,
+      totalCost: transactionQuantity * transactionPrice,
     }
 
     const success = await addTransaction(transaction)
@@ -2112,6 +2129,30 @@ export default function InventorySystem() {
                     <SelectItem value="units">units</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-inventory-price" className="mb-2 block">
+                  Price per {editingInventoryItem.unit || "unit"}
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="edit-inventory-price"
+                    type="number"
+                    step="0.01"
+                    value={editingInventoryItem.price}
+                    onChange={(e) =>
+                      setEditingInventoryItem({ ...editingInventoryItem, price: Number(e.target.value) })
+                    }
+                    className="pl-8 h-12"
+                    placeholder="Enter price per unit"
+                  />
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                    ₹
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Current avg price: ₹{(itemValues[editingInventoryItem.originalName]?.avgPrice || 0).toFixed(2)}
+                </p>
               </div>
             </div>
           )}
