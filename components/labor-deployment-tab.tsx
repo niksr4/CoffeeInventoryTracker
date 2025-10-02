@@ -27,7 +27,7 @@ export default function LaborDeploymentTab() {
   const [activities, setActivities] = useState<ActivityCode[]>([])
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
-  // Form state
+  // Form state - Changed outsideCostPerLaborer default from 0 to 450
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     code: "",
@@ -35,7 +35,7 @@ export default function LaborDeploymentTab() {
     hfLaborers: 0,
     hfCostPerLaborer: 475,
     outsideLaborers: 0,
-    outsideCostPerLaborer: 0,
+    outsideCostPerLaborer: 450,
     notes: "",
   })
 
@@ -81,7 +81,7 @@ export default function LaborDeploymentTab() {
       hfLaborers: 0,
       hfCostPerLaborer: 475,
       outsideLaborers: 0,
-      outsideCostPerLaborer: 0,
+      outsideCostPerLaborer: 450,
       notes: "",
     })
     setIsAdding(false)
@@ -137,7 +137,7 @@ export default function LaborDeploymentTab() {
       hfLaborers: hfEntry?.laborCount || 0,
       hfCostPerLaborer: hfEntry?.costPerLabor || 475,
       outsideLaborers: outsideEntry?.laborCount || 0,
-      outsideCostPerLaborer: outsideEntry?.costPerLabor || 0,
+      outsideCostPerLaborer: outsideEntry?.costPerLabor || 450,
       notes: deployment.notes || "",
     })
     setEditingId(deployment.id)

@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useMemo } from "react"
 
 import { useState, useEffect } from "react"
@@ -12,11 +14,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Coins, ClipboardList, Droplets, List } from "lucide-react"
+import { FileText, Coins, ClipboardList, Droplets, List, PlusCircle, Save, X } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
 import { formatDateOnly, formatDateForQIF } from "@/lib/date-utils"
+import { toast } from "@/hooks/use-toast"
 
 interface AccountActivity {
   code: string
@@ -39,6 +42,9 @@ export default function AccountsPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadingActivities, setLoadingActivities] = useState(false)
+  const [isAddingActivity, setIsAddingActivity] = useState(false)
+  const [newActivityCode, setNewActivityCode] = useState("")
+  const [newActivityReference, setNewActivityReference] = useState("")
 
   useEffect(() => {
     fetchAllActivities()
@@ -80,6 +86,59 @@ export default function AccountsPage() {
       console.error("Error fetching account activities:", error)
     } finally {
       setLoadingActivities(false)
+    }
+  }
+
+  const handleAddActivity = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!newActivityCode.trim() || !newActivityReference.trim()) {
+      toast({
+        title: "Error",
+        description: "Both code and reference are required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch("/api/add-activity", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code: newActivityCode.trim(),
+          reference: newActivityReference.trim(),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Activity category added successfully",
+        })
+        setNewActivityCode("")
+        setNewActivityReference("")
+        setIsAddingActivity(false)
+        fetchAccountActivities()
+        fetchAllActivities()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to add activity category",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error adding activity:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add activity category",
+        variant: "destructive",
+      })
     }
   }
 
@@ -465,7 +524,53 @@ export default function AccountsPage() {
               <CardTitle>Account Activities</CardTitle>
               <CardDescription>All registered account codes and their references</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {!isAddingActivity ? (
+                <Button onClick={() => setIsAddingActivity(true)} className="w-full">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Category
+                </Button>
+              ) : (
+                <form onSubmit={handleAddActivity} className="space-y-4 border rounded-lg p-4 bg-muted/50">
+                  <div className="space-y-2">
+                    <Label htmlFor="activityCode">Code</Label>
+                    <Input
+                      id="activityCode"
+                      value={newActivityCode}
+                      onChange={(e) => setNewActivityCode(e.target.value)}
+                      placeholder="Enter activity code (e.g., A01)"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="activityReference">Reference</Label>
+                    <Input
+                      id="activityReference"
+                      value={newActivityReference}
+                      onChange={(e) => setNewActivityReference(e.target.value)}
+                      placeholder="Enter activity reference (e.g., Weeding)"
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1">
+                      <Save className="mr-2 h-4 w-4" /> Save Category
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsAddingActivity(false)
+                        setNewActivityCode("")
+                        setNewActivityReference("")
+                      }}
+                      className="bg-transparent"
+                    >
+                      <X className="mr-2 h-4 w-4" /> Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+
               {loadingActivities ? (
                 <div className="text-center py-8 text-muted-foreground">Loading account activities...</div>
               ) : accountActivities.length > 0 ? (
