@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Coins, PlusCircle, Clock, Wallet, Factory, Settings } from "lucide-react"
+import { FileText, Coins, PlusCircle, Factory, Settings, Users, Receipt } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
@@ -434,7 +434,7 @@ export default function AccountsPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Accounts Management</h1>
-        <p className="text-muted-foreground">Track labor deployments, expenses, and processing records</p>
+        <p className="text-muted-foreground">Track labor deployments, expenses, processing, and pepper records</p>
       </div>
 
       {isAdmin && combinedDeployments.length > 0 && (
@@ -522,11 +522,11 @@ export default function AccountsPage() {
       <Tabs defaultValue="labor" className="w-full space-y-4">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="labor" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
+            <Users className="h-4 w-4" />
             Labor Deployments
           </TabsTrigger>
           <TabsTrigger value="expenses" className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
+            <Receipt className="h-4 w-4" />
             Other Expenses
           </TabsTrigger>
           <TabsTrigger value="processing" className="flex items-center gap-2">
