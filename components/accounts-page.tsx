@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useMemo } from "react"
-
 import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useLaborData, type LaborEntry, type LaborDeployment } from "@/hooks/use-labor-data"
@@ -14,12 +13,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Coins, ClipboardList, Droplets, List, PlusCircle, Save, X } from "lucide-react"
+import { FileText, Coins, PlusCircle, Clock, Wallet, Factory, Settings } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
-import { formatDateOnly, formatDateForQIF } from "@/lib/date-utils"
-import { toast } from "@/hooks/use-toast"
+import ProcessingTab from "./processing-tab"
+import { toast } from "sonner"
 
 interface AccountActivity {
   code: string
@@ -45,6 +44,7 @@ export default function AccountsPage() {
   const [isAddingActivity, setIsAddingActivity] = useState(false)
   const [newActivityCode, setNewActivityCode] = useState("")
   const [newActivityReference, setNewActivityReference] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     fetchAllActivities()
@@ -93,13 +93,11 @@ export default function AccountsPage() {
     e.preventDefault()
 
     if (!newActivityCode.trim() || !newActivityReference.trim()) {
-      toast({
-        title: "Error",
-        description: "Both code and reference are required",
-        variant: "destructive",
-      })
+      toast.error("Please fill in both code and reference")
       return
     }
+
+    setIsSubmitting(true)
 
     try {
       const response = await fetch("/api/add-activity", {
@@ -109,36 +107,27 @@ export default function AccountsPage() {
         },
         body: JSON.stringify({
           code: newActivityCode.trim(),
-          reference: newActivityReference.trim(),
+          activity: newActivityReference.trim(),
         }),
       })
 
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: "Success",
-          description: "Activity category added successfully",
-        })
+        toast.success("Activity added successfully")
         setNewActivityCode("")
         setNewActivityReference("")
         setIsAddingActivity(false)
         fetchAccountActivities()
         fetchAllActivities()
       } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to add activity category",
-          variant: "destructive",
-        })
+        toast.error(data.error || "Failed to add activity")
       }
     } catch (error) {
       console.error("Error adding activity:", error)
-      toast({
-        title: "Error",
-        description: "Failed to add activity category",
-        variant: "destructive",
-      })
+      toast.error("Failed to add activity")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -425,11 +414,27 @@ export default function AccountsPage() {
     return `${day}/${month}/${year}, ${hours}:${minutes}`
   }
 
+  const formatDateOnly = (dateString: string) => {
+    const date = new Date(dateString)
+    const day = date.getDate().toString().padStart(2, "0")
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
+  }
+
+  const formatDateForQIF = (dateString: string) => {
+    const date = new Date(dateString)
+    const day = date.getDate().toString().padStart(2, "0")
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const year = date.getFullYear()
+    return `${year}${month}${day}`
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Accounts Management</h2>
-        <p className="text-muted-foreground">Track labor deployments and expenses by activity code</p>
+        <h1 className="text-3xl font-bold">Accounts Management</h1>
+        <p className="text-muted-foreground">Track labor deployments, expenses, and processing records</p>
       </div>
 
       {isAdmin && combinedDeployments.length > 0 && (
@@ -515,73 +520,75 @@ export default function AccountsPage() {
       )}
 
       <Tabs defaultValue="labor" className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="labor" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" /> Labor Deployments
+            <Clock className="h-4 w-4" />
+            Labor Deployments
           </TabsTrigger>
           <TabsTrigger value="expenses" className="flex items-center gap-2">
-            <Droplets className="h-4 w-4" /> Other Expenses
+            <Wallet className="h-4 w-4" />
+            Other Expenses
+          </TabsTrigger>
+          <TabsTrigger value="processing" className="flex items-center gap-2">
+            <Factory className="h-4 w-4" />
+            Processing
           </TabsTrigger>
           <TabsTrigger value="activities" className="flex items-center gap-2">
-            <List className="h-4 w-4" /> Account Activities
+            <Settings className="h-4 w-4" />
+            Account Activities
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="labor" className="mt-4 space-y-4">
+
+        <TabsContent value="labor" className="mt-6">
           <LaborDeploymentTab />
         </TabsContent>
-        <TabsContent value="expenses" className="mt-4 space-y-4">
+
+        <TabsContent value="expenses" className="mt-6">
           <OtherExpensesTab />
         </TabsContent>
-        <TabsContent value="activities" className="mt-4 space-y-4">
+
+        <TabsContent value="processing" className="mt-6">
+          <ProcessingTab />
+        </TabsContent>
+
+        <TabsContent value="activities">
           <Card>
             <CardHeader>
-              <CardTitle>Account Activities</CardTitle>
-              <CardDescription>All registered account codes and their references</CardDescription>
+              <CardTitle>Add New Activity</CardTitle>
+              <CardDescription>Create a new activity category for tracking labor and expenses</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               {!isAddingActivity ? (
                 <Button onClick={() => setIsAddingActivity(true)} className="w-full">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Category
                 </Button>
               ) : (
                 <form onSubmit={handleAddActivity} className="space-y-4 border rounded-lg p-4 bg-muted/50">
-                  <div className="space-y-2">
-                    <Label htmlFor="activityCode">Code</Label>
-                    <Input
-                      id="activityCode"
-                      value={newActivityCode}
-                      onChange={(e) => setNewActivityCode(e.target.value)}
-                      placeholder="Enter activity code (e.g., A01)"
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="code">Activity Code</Label>
+                      <Input
+                        id="code"
+                        placeholder="e.g., 555"
+                        value={newActivityCode}
+                        onChange={(e) => setNewActivityCode(e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reference">Activity Reference</Label>
+                      <Input
+                        id="reference"
+                        placeholder="e.g., Solar Fence"
+                        value={newActivityReference}
+                        onChange={(e) => setNewActivityReference(e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="activityReference">Reference</Label>
-                    <Input
-                      id="activityReference"
-                      value={newActivityReference}
-                      onChange={(e) => setNewActivityReference(e.target.value)}
-                      placeholder="Enter activity reference (e.g., Weeding)"
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" className="flex-1">
-                      <Save className="mr-2 h-4 w-4" /> Save Category
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setIsAddingActivity(false)
-                        setNewActivityCode("")
-                        setNewActivityReference("")
-                      }}
-                      className="bg-transparent"
-                    >
-                      <X className="mr-2 h-4 w-4" /> Cancel
-                    </Button>
-                  </div>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Adding..." : "Add Activity"}
+                  </Button>
                 </form>
               )}
 

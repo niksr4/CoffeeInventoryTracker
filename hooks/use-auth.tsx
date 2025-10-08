@@ -20,18 +20,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load user from localStorage on mount
+  // Load user from sessionStorage on mount
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("user")
+      const storedUser = sessionStorage.getItem("user")
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser)
         setUser(parsedUser)
         console.log("✅ Restored user session:", parsedUser.username)
       }
     } catch (error) {
-      console.error("Error loading user from localStorage:", error)
-      localStorage.removeItem("user")
+      console.error("Error loading user from sessionStorage:", error)
+      sessionStorage.removeItem("user")
     } finally {
       setIsLoading(false)
     }
@@ -40,17 +40,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (username: string, role: "admin" | "user") => {
     const newUser = { username, role }
     setUser(newUser)
-    localStorage.setItem("user", JSON.stringify(newUser))
+    sessionStorage.setItem("user", JSON.stringify(newUser))
     console.log("✅ User logged in:", username)
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("user")
+    sessionStorage.removeItem("user")
     console.log("✅ User logged out")
   }
 
-  // Don't render children until we've checked localStorage
+  // Don't render children until we've checked sessionStorage
   if (isLoading) {
     return (
       <div className="w-full h-screen flex items-center justify-center">

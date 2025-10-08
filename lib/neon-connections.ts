@@ -1,35 +1,35 @@
 import { neon } from "@neondatabase/serverless"
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is not set")
-}
-
-// Parse the base connection string
-const baseUrl = process.env.DATABASE_URL
-
-// Helper to replace database name in connection string
+// Helper function to construct database URLs
 function getDatabaseUrl(dbName: string): string {
-  const url = new URL(baseUrl)
-  url.pathname = `/${dbName}`
-  return url.toString()
+  const baseUrl = process.env.DATABASE_URL
+  if (!baseUrl) {
+    throw new Error("DATABASE_URL environment variable is not set")
+  }
+  // Replace the database name in the connection string
+  return baseUrl.replace(/\/[^/]*(\?|$)/, `/${dbName}$1`)
 }
 
-// Create separate connections for each database
+// Create SQL clients for each database
 export const inventorySql = neon(getDatabaseUrl("inventory_db"))
 export const accountsSql = neon(getDatabaseUrl("accounts_db"))
+export const processingSql = neon(getDatabaseUrl("processing_db"))
 
 // Test connections
 export async function testConnections() {
   try {
     const inventoryTest = await inventorySql`SELECT current_database(), version()`
     const accountsTest = await accountsSql`SELECT current_database(), version()`
+    const processingTest = await processingSql`SELECT current_database(), version()`
 
     console.log("✅ Inventory DB connected:", inventoryTest[0].current_database)
     console.log("✅ Accounts DB connected:", accountsTest[0].current_database)
+    console.log("✅ Processing DB connected:", processingTest[0].current_database)
 
     return {
       inventory: inventoryTest[0].current_database,
       accounts: accountsTest[0].current_database,
+      processing: processingTest[0].current_database,
       success: true,
     }
   } catch (error) {
@@ -41,7 +41,7 @@ export async function testConnections() {
   }
 }
 
-// Initialize all tables in both databases
+// Initialize all tables in all databases
 export async function initializeTables() {
   try {
     console.log("🔧 Initializing all database tables...")
@@ -111,6 +111,49 @@ export async function initializeTables() {
         code VARCHAR(50) NOT NULL,
         total_amount DECIMAL(10,2) NOT NULL,
         notes TEXT
+      )
+    `
+
+    // Initialize processing tables
+    await processingSql`
+      CREATE TABLE IF NOT EXISTS processing_records (
+        id SERIAL PRIMARY KEY,
+        process_date DATE UNIQUE NOT NULL,
+        
+        crop_today DECIMAL(10,2) DEFAULT 0,
+        crop_todate DECIMAL(10,2) DEFAULT 0,
+        
+        ripe_today DECIMAL(10,2) DEFAULT 0,
+        ripe_todate DECIMAL(10,2) DEFAULT 0,
+        ripe_percent DECIMAL(5,2) DEFAULT 0,
+        
+        green_today DECIMAL(10,2) DEFAULT 0,
+        green_todate DECIMAL(10,2) DEFAULT 0,
+        green_percent DECIMAL(5,2) DEFAULT 0,
+        
+        float_today DECIMAL(10,2) DEFAULT 0,
+        float_todate DECIMAL(10,2) DEFAULT 0,
+        float_percent DECIMAL(5,2) DEFAULT 0,
+        
+        wet_parchment DECIMAL(10,2) DEFAULT 0,
+        fr_wp_percent DECIMAL(5,2) DEFAULT 0,
+        
+        dry_parch DECIMAL(10,2) DEFAULT 0,
+        dry_p_todate DECIMAL(10,2) DEFAULT 0,
+        wp_dp_percent DECIMAL(5,2) DEFAULT 0,
+        
+        dry_cherry DECIMAL(10,2) DEFAULT 0,
+        dry_cherry_todate DECIMAL(10,2) DEFAULT 0,
+        dry_cherry_percent DECIMAL(5,2) DEFAULT 0,
+        
+        dry_p_bags INTEGER DEFAULT 0,
+        dry_p_bags_todate INTEGER DEFAULT 0,
+        dry_cherry_bags INTEGER DEFAULT 0,
+        dry_cherry_bags_todate INTEGER DEFAULT 0,
+        
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
 
