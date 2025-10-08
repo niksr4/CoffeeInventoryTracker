@@ -1,22 +1,40 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { processingSql } from "@/lib/neon-connections"
 
+// Map location names to table names
+const locationToTable: Record<string, string> = {
+  "HF Arabica": "hf_arabica",
+  "HF Robusta": "hf_robusta",
+  "MV Robusta": "mv_robusta",
+  "PG Robusta": "pg_robusta",
+}
+
+function getTableName(location: string): string {
+  const tableName = locationToTable[location]
+  if (!tableName) {
+    throw new Error(`Invalid location: ${location}`)
+  }
+  return tableName
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get("date")
+    const location = searchParams.get("location") || "HF Arabica"
+    const tableName = getTableName(location)
+
+    console.log("GET request - location:", location, "tableName:", tableName, "date:", date)
 
     if (date) {
-      // Get a specific record by date
-      const result = await processingSql`
-        SELECT * FROM processing_records
-        WHERE process_date = ${date}
-        ORDER BY id DESC
-        LIMIT 1
-      `
+      // Get a specific record by date - use DATE() to compare only the date part
+      const query = `SELECT * FROM ${tableName} WHERE DATE(process_date) = $1 ORDER BY id DESC LIMIT 1`
+      console.log("Executing query:", query, [date])
 
-      if (result.length > 0) {
-        // Convert all numeric string fields to actual numbers
+      const result = await processingSql.query(query, [date])
+      console.log("Query result:", result)
+
+      if (result && Array.isArray(result) && result.length > 0) {
         const record = result[0]
         const numericFields = [
           "crop_today",
@@ -52,17 +70,20 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, record })
       } else {
-        return NextResponse.json({ success: false, record: null })
+        return NextResponse.json({ success: true, record: null })
       }
     } else {
       // Get all records, most recent first
-      const results = await processingSql`
-        SELECT * FROM processing_records
-        ORDER BY process_date DESC
-        LIMIT 10
-      `
+      const query = `SELECT * FROM ${tableName} ORDER BY process_date DESC LIMIT 30`
+      console.log("Executing query:", query)
 
-      // Convert all numeric string fields to actual numbers for each record
+      const results = await processingSql.query(query, [])
+      console.log("Query results:", results)
+
+      if (!results || !Array.isArray(results)) {
+        return NextResponse.json({ success: true, records: [] })
+      }
+
       const records = results.map((record: any) => {
         const numericFields = [
           "crop_today",
@@ -103,17 +124,19 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: any) {
     console.error("Error fetching processing records:", error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    console.error("Error stack:", error.stack)
+    return NextResponse.json({ success: false, error: error.message, records: [] }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
+    const location = data.location || "HF Arabica"
+    const tableName = getTableName(location)
 
-    console.log("Received data for save:", data)
+    console.log("Saving to table:", tableName, "with data:", data)
 
-    // Convert null to 0 for numeric fields
     const record = {
       process_date: data.process_date,
       crop_today: data.crop_today ?? 0,
@@ -142,11 +165,9 @@ export async function POST(request: NextRequest) {
       notes: data.notes || "",
     }
 
-    console.log("Processed record for database:", record)
-
-    // Use INSERT ... ON CONFLICT to update if exists, insert if new
-    const result = await processingSql`
-      INSERT INTO processing_records (
+    // Use DATE() to ensure only one record per date
+    const query = `
+      INSERT INTO ${tableName} (
         process_date, crop_today, crop_todate, ripe_today, ripe_todate, ripe_percent,
         green_today, green_todate, green_percent, float_today, float_todate, float_percent,
         wet_parchment, fr_wp_percent, dry_parch, dry_p_todate, wp_dp_percent,
@@ -154,13 +175,8 @@ export async function POST(request: NextRequest) {
         dry_p_bags, dry_p_bags_todate, dry_cherry_bags, dry_cherry_bags_todate, notes
       )
       VALUES (
-        ${record.process_date}, ${record.crop_today}, ${record.crop_todate}, ${record.ripe_today},
-        ${record.ripe_todate}, ${record.ripe_percent}, ${record.green_today}, ${record.green_todate},
-        ${record.green_percent}, ${record.float_today}, ${record.float_todate}, ${record.float_percent},
-        ${record.wet_parchment}, ${record.fr_wp_percent}, ${record.dry_parch}, ${record.dry_p_todate},
-        ${record.wp_dp_percent}, ${record.dry_cherry}, ${record.dry_cherry_todate},
-        ${record.dry_cherry_percent}, ${record.dry_p_bags}, ${record.dry_p_bags_todate},
-        ${record.dry_cherry_bags}, ${record.dry_cherry_bags_todate}, ${record.notes}
+        $1::date, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+        $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
       )
       ON CONFLICT (process_date)
       DO UPDATE SET
@@ -187,11 +203,40 @@ export async function POST(request: NextRequest) {
         dry_p_bags_todate = EXCLUDED.dry_p_bags_todate,
         dry_cherry_bags = EXCLUDED.dry_cherry_bags,
         dry_cherry_bags_todate = EXCLUDED.dry_cherry_bags_todate,
-        notes = EXCLUDED.notes
+        notes = EXCLUDED.notes,
+        updated_at = CURRENT_TIMESTAMP
       RETURNING *
     `
 
-    console.log("Database insert/update result:", result)
+    const result = await processingSql.query(query, [
+      record.process_date,
+      record.crop_today,
+      record.crop_todate,
+      record.ripe_today,
+      record.ripe_todate,
+      record.ripe_percent,
+      record.green_today,
+      record.green_todate,
+      record.green_percent,
+      record.float_today,
+      record.float_todate,
+      record.float_percent,
+      record.wet_parchment,
+      record.fr_wp_percent,
+      record.dry_parch,
+      record.dry_p_todate,
+      record.wp_dp_percent,
+      record.dry_cherry,
+      record.dry_cherry_todate,
+      record.dry_cherry_percent,
+      record.dry_p_bags,
+      record.dry_p_bags_todate,
+      record.dry_cherry_bags,
+      record.dry_cherry_bags_todate,
+      record.notes,
+    ])
+
+    console.log("Database insert/update result:", result[0])
 
     return NextResponse.json({ success: true, record: result[0] })
   } catch (error: any) {
@@ -204,15 +249,16 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get("date")
+    const location = searchParams.get("location") || "HF Arabica"
+    const tableName = getTableName(location)
 
     if (!date) {
       return NextResponse.json({ success: false, error: "Date is required" }, { status: 400 })
     }
 
-    await processingSql`
-      DELETE FROM processing_records
-      WHERE process_date = ${date}
-    `
+    // Use DATE() to match the date part
+    const query = `DELETE FROM ${tableName} WHERE DATE(process_date) = $1`
+    await processingSql.query(query, [date])
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
