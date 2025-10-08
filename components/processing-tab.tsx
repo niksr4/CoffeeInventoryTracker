@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Loader2, Save, Trash2 } from "lucide-react"
+import { CalendarIcon, Loader2, Save, Trash2, Download } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -16,23 +16,23 @@ import { useToast } from "@/hooks/use-toast"
 interface ProcessingRecord {
   id?: number
   process_date: string
-  crop_today: number
+  crop_today: number | null
   crop_todate: number
-  ripe_today: number
+  ripe_today: number | null
   ripe_todate: number
   ripe_percent: number
-  green_today: number
+  green_today: number | null
   green_todate: number
   green_percent: number
-  float_today: number
+  float_today: number | null
   float_todate: number
   float_percent: number
-  wet_parchment: number
+  wet_parchment: number | null
   fr_wp_percent: number
-  dry_parch: number
+  dry_parch: number | null
   dry_p_todate: number
   wp_dp_percent: number
-  dry_cherry: number
+  dry_cherry: number | null
   dry_cherry_todate: number
   dry_cherry_percent: number
   dry_p_bags: number
@@ -44,23 +44,23 @@ interface ProcessingRecord {
 
 const emptyRecord: Omit<ProcessingRecord, "id"> = {
   process_date: format(new Date(), "yyyy-MM-dd"),
-  crop_today: 0,
+  crop_today: null,
   crop_todate: 0,
-  ripe_today: 0,
+  ripe_today: null,
   ripe_todate: 0,
   ripe_percent: 0,
-  green_today: 0,
+  green_today: null,
   green_todate: 0,
   green_percent: 0,
-  float_today: 0,
+  float_today: null,
   float_todate: 0,
   float_percent: 0,
-  wet_parchment: 0,
+  wet_parchment: null,
   fr_wp_percent: 0,
-  dry_parch: 0,
+  dry_parch: null,
   dry_p_todate: 0,
   wp_dp_percent: 0,
-  dry_cherry: 0,
+  dry_cherry: null,
   dry_cherry_todate: 0,
   dry_cherry_percent: 0,
   dry_p_bags: 0,
@@ -77,6 +77,7 @@ function ProcessingTab() {
   const [recentRecords, setRecentRecords] = useState<ProcessingRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -105,73 +106,81 @@ function ProcessingTab() {
     setRecord((prev) => {
       const updated = { ...prev }
 
-      // Calculate crop_todate: previous todate + today
+      // Convert all values to numbers explicitly
+      const cropToday = Number(prev.crop_today) || 0
+      const ripeToday = Number(prev.ripe_today) || 0
+      const greenToday = Number(prev.green_today) || 0
+      const floatToday = Number(prev.float_today) || 0
+      const wetParchment = Number(prev.wet_parchment) || 0
+      const dryParch = Number(prev.dry_parch) || 0
+      const dryCherry = Number(prev.dry_cherry) || 0
+
+      // Calculate crop_todate: previous todate + today (ensure numeric addition)
       if (previousRecord) {
-        updated.crop_todate = (previousRecord.crop_todate || 0) + (prev.crop_today || 0)
-        updated.ripe_todate = (previousRecord.ripe_todate || 0) + (prev.ripe_today || 0)
-        updated.green_todate = (previousRecord.green_todate || 0) + (prev.green_today || 0)
-        updated.float_todate = (previousRecord.float_todate || 0) + (prev.float_today || 0)
-        updated.dry_p_todate = (previousRecord.dry_p_todate || 0) + (prev.dry_parch || 0)
-        updated.dry_cherry_todate = (previousRecord.dry_cherry_todate || 0) + (prev.dry_cherry || 0)
+        const prevCropTodate = Number(previousRecord.crop_todate) || 0
+        const prevRipeTodate = Number(previousRecord.ripe_todate) || 0
+        const prevGreenTodate = Number(previousRecord.green_todate) || 0
+        const prevFloatTodate = Number(previousRecord.float_todate) || 0
+        const prevDryPTodate = Number(previousRecord.dry_p_todate) || 0
+        const prevDryCherryTodate = Number(previousRecord.dry_cherry_todate) || 0
+        const prevDryPBagsTodate = Number(previousRecord.dry_p_bags_todate) || 0
+        const prevDryCherryBagsTodate = Number(previousRecord.dry_cherry_bags_todate) || 0
+
+        updated.crop_todate = Number.parseFloat((prevCropTodate + cropToday).toFixed(2))
+        updated.ripe_todate = Number.parseFloat((prevRipeTodate + ripeToday).toFixed(2))
+        updated.green_todate = Number.parseFloat((prevGreenTodate + greenToday).toFixed(2))
+        updated.float_todate = Number.parseFloat((prevFloatTodate + floatToday).toFixed(2))
+        updated.dry_p_todate = Number.parseFloat((prevDryPTodate + dryParch).toFixed(2))
+        updated.dry_cherry_todate = Number.parseFloat((prevDryCherryTodate + dryCherry).toFixed(2))
+
+        // Calculate bags: kg / 50 (with 2 decimal places)
+        const dryPBags = Number.parseFloat((dryParch / 50).toFixed(2))
+        const dryCherryBags = Number.parseFloat((dryCherry / 50).toFixed(2))
+
+        updated.dry_p_bags = dryPBags
+        updated.dry_cherry_bags = dryCherryBags
+        updated.dry_p_bags_todate = Number.parseFloat((prevDryPBagsTodate + dryPBags).toFixed(2))
+        updated.dry_cherry_bags_todate = Number.parseFloat((prevDryCherryBagsTodate + dryCherryBags).toFixed(2))
       } else {
-        updated.crop_todate = prev.crop_today || 0
-        updated.ripe_todate = prev.ripe_today || 0
-        updated.green_todate = prev.green_today || 0
-        updated.float_todate = prev.float_today || 0
-        updated.dry_p_todate = prev.dry_parch || 0
-        updated.dry_cherry_todate = prev.dry_cherry || 0
+        updated.crop_todate = cropToday
+        updated.ripe_todate = ripeToday
+        updated.green_todate = greenToday
+        updated.float_todate = floatToday
+        updated.dry_p_todate = dryParch
+        updated.dry_cherry_todate = dryCherry
+
+        // Calculate bags: kg / 50 (with 2 decimal places)
+        updated.dry_p_bags = Number.parseFloat((dryParch / 50).toFixed(2))
+        updated.dry_cherry_bags = Number.parseFloat((dryCherry / 50).toFixed(2))
+        updated.dry_p_bags_todate = updated.dry_p_bags
+        updated.dry_cherry_bags_todate = updated.dry_cherry_bags
       }
 
       // Calculate percentages
-      const cropToday = prev.crop_today || 0
       if (cropToday > 0) {
-        updated.ripe_percent = Number.parseFloat((((prev.ripe_today || 0) / cropToday) * 100).toFixed(2))
-        updated.green_percent = Number.parseFloat((((prev.green_today || 0) / cropToday) * 100).toFixed(2))
-        updated.float_percent = Number.parseFloat((((prev.float_today || 0) / cropToday) * 100).toFixed(2))
+        updated.ripe_percent = Number.parseFloat(((ripeToday / cropToday) * 100).toFixed(2))
+        updated.green_percent = Number.parseFloat(((greenToday / cropToday) * 100).toFixed(2))
+        updated.float_percent = Number.parseFloat(((floatToday / cropToday) * 100).toFixed(2))
+        updated.dry_cherry_percent = Number.parseFloat(((dryCherry / cropToday) * 100).toFixed(2))
       } else {
         updated.ripe_percent = 0
         updated.green_percent = 0
         updated.float_percent = 0
+        updated.dry_cherry_percent = 0
       }
 
       // FR-WP %: wet parchment / ripe today * 100
-      const ripeToday = prev.ripe_today || 0
       if (ripeToday > 0) {
-        updated.fr_wp_percent = Number.parseFloat((((prev.wet_parchment || 0) / ripeToday) * 100).toFixed(2))
+        updated.fr_wp_percent = Number.parseFloat(((wetParchment / ripeToday) * 100).toFixed(2))
       } else {
         updated.fr_wp_percent = 0
       }
 
       // WP-DP %: dry parch / wet parchment * 100
-      const wetParchment = prev.wet_parchment || 0
       if (wetParchment > 0) {
-        updated.wp_dp_percent = Number.parseFloat((((prev.dry_parch || 0) / wetParchment) * 100).toFixed(2))
+        updated.wp_dp_percent = Number.parseFloat(((dryParch / wetParchment) * 100).toFixed(2))
       } else {
         updated.wp_dp_percent = 0
-      }
-
-      // Dry Cherry %: dry cherry / crop today * 100
-      if (cropToday > 0) {
-        updated.dry_cherry_percent = Number.parseFloat((((prev.dry_cherry || 0) / cropToday) * 100).toFixed(2))
-      } else {
-        updated.dry_cherry_percent = 0
-      }
-
-      // Calculate bags: kg / 50 (with 2 decimal places)
-      updated.dry_p_bags = Number.parseFloat(((prev.dry_parch || 0) / 50).toFixed(2))
-      updated.dry_cherry_bags = Number.parseFloat(((prev.dry_cherry || 0) / 50).toFixed(2))
-
-      // Calculate bags to date
-      if (previousRecord) {
-        updated.dry_p_bags_todate = Number.parseFloat(
-          ((previousRecord.dry_p_bags_todate || 0) + updated.dry_p_bags).toFixed(2),
-        )
-        updated.dry_cherry_bags_todate = Number.parseFloat(
-          ((previousRecord.dry_cherry_bags_todate || 0) + updated.dry_cherry_bags).toFixed(2),
-        )
-      } else {
-        updated.dry_p_bags_todate = updated.dry_p_bags
-        updated.dry_cherry_bags_todate = updated.dry_cherry_bags
       }
 
       return updated
@@ -182,11 +191,19 @@ function ProcessingTab() {
     try {
       const response = await fetch("/api/processing-records")
       const data = await response.json()
-      if (data.success) {
-        setRecentRecords(data.records || [])
+      console.log("Recent records response:", data)
+
+      if (data.success && Array.isArray(data.records)) {
+        setRecentRecords(data.records)
+      } else if (Array.isArray(data)) {
+        setRecentRecords(data)
+      } else {
+        console.error("Unexpected response format:", data)
+        setRecentRecords([])
       }
     } catch (error) {
       console.error("Error loading recent records:", error)
+      setRecentRecords([])
     }
   }
 
@@ -200,7 +217,19 @@ function ProcessingTab() {
       const data = await response.json()
 
       if (data.success && data.record) {
-        setRecord(data.record)
+        // Ensure all numeric fields are actually numbers
+        const record = data.record
+        Object.keys(record).forEach((key) => {
+          if (
+            typeof record[key] === "string" &&
+            !isNaN(Number(record[key])) &&
+            key !== "process_date" &&
+            key !== "notes"
+          ) {
+            record[key] = Number(record[key])
+          }
+        })
+        setRecord(record)
       } else {
         setRecord({ ...emptyRecord, process_date: dateStr })
       }
@@ -214,7 +243,19 @@ function ProcessingTab() {
       const prevData = await prevResponse.json()
 
       if (prevData.success && prevData.record) {
-        setPreviousRecord(prevData.record)
+        // Ensure all numeric fields are actually numbers
+        const prevRecord = prevData.record
+        Object.keys(prevRecord).forEach((key) => {
+          if (
+            typeof prevRecord[key] === "string" &&
+            !isNaN(Number(prevRecord[key])) &&
+            key !== "process_date" &&
+            key !== "notes"
+          ) {
+            prevRecord[key] = Number(prevRecord[key])
+          }
+        })
+        setPreviousRecord(prevRecord)
       } else {
         setPreviousRecord(null)
       }
@@ -233,6 +274,8 @@ function ProcessingTab() {
   const handleSave = async () => {
     setIsSaving(true)
     try {
+      console.log("Saving record:", record)
+
       const response = await fetch("/api/processing-records", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -240,17 +283,28 @@ function ProcessingTab() {
       })
 
       const data = await response.json()
+      console.log("Save response:", data)
 
       if (data.success) {
         toast({
           title: "Success",
           description: "Processing record saved successfully",
         })
-        loadRecentRecords()
+
+        // Reload recent records to show the new entry
+        await loadRecentRecords()
+
+        // Move to next day and clear form
+        const nextDay = new Date(date)
+        nextDay.setDate(nextDay.getDate() + 1)
+        setDate(nextDay)
+
+        // The form will be cleared automatically by loadRecordForDate via the useEffect
       } else {
         throw new Error(data.error)
       }
     } catch (error: any) {
+      console.error("Save error:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to save processing record",
@@ -290,7 +344,122 @@ function ProcessingTab() {
     }
   }
 
-  const updateField = (field: keyof ProcessingRecord, value: number | string) => {
+  const handleExportCSV = async () => {
+    setIsExporting(true)
+    try {
+      const response = await fetch("/api/processing-records")
+      const data = await response.json()
+
+      console.log("Export data:", data)
+
+      let records: ProcessingRecord[] = []
+
+      if (data.success && Array.isArray(data.records)) {
+        records = data.records
+      } else if (Array.isArray(data)) {
+        records = data
+      } else {
+        throw new Error("No records to export")
+      }
+
+      if (records.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No records available to export",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Define CSV headers
+      const headers = [
+        "Date",
+        "Crop Today (kg)",
+        "Crop To Date (kg)",
+        "Ripe Today (kg)",
+        "Ripe To Date (kg)",
+        "Ripe %",
+        "Green Today (kg)",
+        "Green To Date (kg)",
+        "Green %",
+        "Float Today (kg)",
+        "Float To Date (kg)",
+        "Float %",
+        "Wet Parchment (kg)",
+        "FR-WP %",
+        "Dry Parch (kg)",
+        "Dry P To Date (kg)",
+        "WP-DP %",
+        "Dry Cherry (kg)",
+        "Dry Cherry To Date (kg)",
+        "Dry Cherry %",
+        "Dry P Bags",
+        "Dry P Bags To Date",
+        "Dry Cherry Bags",
+        "Dry Cherry Bags To Date",
+        "Notes",
+      ]
+
+      // Convert records to CSV rows
+      const rows = records.map((rec: ProcessingRecord) => [
+        rec.process_date,
+        rec.crop_today ?? "",
+        rec.crop_todate,
+        rec.ripe_today ?? "",
+        rec.ripe_todate,
+        rec.ripe_percent,
+        rec.green_today ?? "",
+        rec.green_todate,
+        rec.green_percent,
+        rec.float_today ?? "",
+        rec.float_todate,
+        rec.float_percent,
+        rec.wet_parchment ?? "",
+        rec.fr_wp_percent,
+        rec.dry_parch ?? "",
+        rec.dry_p_todate,
+        rec.wp_dp_percent,
+        rec.dry_cherry ?? "",
+        rec.dry_cherry_todate,
+        rec.dry_cherry_percent,
+        rec.dry_p_bags,
+        rec.dry_p_bags_todate,
+        rec.dry_cherry_bags,
+        rec.dry_cherry_bags_todate,
+        `"${(rec.notes || "").replace(/"/g, '""')}"`, // Escape quotes in notes
+      ])
+
+      // Create CSV content
+      const csvContent = [headers.join(","), ...rows.map((row: any[]) => row.join(","))].join("\n")
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute("download", `processing-records-${format(new Date(), "yyyy-MM-dd")}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({
+        title: "Success",
+        description: "Processing records exported to CSV",
+      })
+    } catch (error: any) {
+      console.error("Export error:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to export CSV",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const updateField = (field: keyof ProcessingRecord, value: number | string | null) => {
     setRecord((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -298,8 +467,25 @@ function ProcessingTab() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Processing Records</CardTitle>
-          <CardDescription>Track daily coffee processing from cherry to final bags</CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>Processing Records</CardTitle>
+              <CardDescription>Track daily coffee processing from cherry to final bags</CardDescription>
+            </div>
+            <Button onClick={handleExportCSV} disabled={isExporting} variant="outline">
+              {isExporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export to CSV
+                </>
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Date Picker */}
@@ -335,8 +521,11 @@ function ProcessingTab() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.crop_today}
-                      onChange={(e) => updateField("crop_today", Number.parseFloat(e.target.value) || 0)}
+                      value={record.crop_today ?? ""}
+                      onChange={(e) =>
+                        updateField("crop_today", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="Enter crop today"
                     />
                   </div>
                   <div>
@@ -364,8 +553,11 @@ function ProcessingTab() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.ripe_today}
-                      onChange={(e) => updateField("ripe_today", Number.parseFloat(e.target.value) || 0)}
+                      value={record.ripe_today ?? ""}
+                      onChange={(e) =>
+                        updateField("ripe_today", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="Enter ripe today"
                     />
                   </div>
                   <div>
@@ -404,8 +596,11 @@ function ProcessingTab() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.green_today}
-                      onChange={(e) => updateField("green_today", Number.parseFloat(e.target.value) || 0)}
+                      value={record.green_today ?? ""}
+                      onChange={(e) =>
+                        updateField("green_today", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="Enter green today"
                     />
                   </div>
                   <div>
@@ -444,8 +639,11 @@ function ProcessingTab() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.float_today}
-                      onChange={(e) => updateField("float_today", Number.parseFloat(e.target.value) || 0)}
+                      value={record.float_today ?? ""}
+                      onChange={(e) =>
+                        updateField("float_today", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="Enter float today"
                     />
                   </div>
                   <div>
@@ -484,8 +682,11 @@ function ProcessingTab() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.wet_parchment}
-                      onChange={(e) => updateField("wet_parchment", Number.parseFloat(e.target.value) || 0)}
+                      value={record.wet_parchment ?? ""}
+                      onChange={(e) =>
+                        updateField("wet_parchment", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="Enter wet parchment"
                     />
                   </div>
                   <div>
@@ -513,8 +714,11 @@ function ProcessingTab() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.dry_parch}
-                      onChange={(e) => updateField("dry_parch", Number.parseFloat(e.target.value) || 0)}
+                      value={record.dry_parch ?? ""}
+                      onChange={(e) =>
+                        updateField("dry_parch", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="Enter dry parch"
                     />
                   </div>
                   <div>
@@ -553,8 +757,11 @@ function ProcessingTab() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.dry_cherry}
-                      onChange={(e) => updateField("dry_cherry", Number.parseFloat(e.target.value) || 0)}
+                      value={record.dry_cherry ?? ""}
+                      onChange={(e) =>
+                        updateField("dry_cherry", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="Enter dry cherry"
                     />
                   </div>
                   <div>
@@ -690,7 +897,7 @@ function ProcessingTab() {
                     setDate(new Date(rec.process_date))
                   }}
                 >
-                  {format(new Date(rec.process_date), "PPP")} - Crop: {rec.crop_today}kg, Bags: {rec.dry_p_bags}
+                  {format(new Date(rec.process_date), "PPP")} - Crop: {rec.crop_today ?? 0}kg, Bags: {rec.dry_p_bags}
                 </Button>
               ))}
             </div>

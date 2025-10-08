@@ -6,8 +6,16 @@ function getDatabaseUrl(dbName: string): string {
   if (!baseUrl) {
     throw new Error("DATABASE_URL environment variable is not set")
   }
+
+  console.log("Base URL (first 50 chars):", baseUrl.substring(0, 50))
+
   // Replace the database name in the connection string
-  return baseUrl.replace(/\/[^/]*(\?|$)/, `/${dbName}$1`)
+  // Handle both formats: postgres://...dbname and postgres://.../dbname?params
+  const newUrl = baseUrl.replace(/\/[^/?]*(\?|$)/, `/${dbName}$1`)
+
+  console.log(`Database URL for ${dbName} (first 50 chars):`, newUrl.substring(0, 50))
+
+  return newUrl
 }
 
 // Create SQL clients for each database
@@ -146,12 +154,13 @@ export async function initializeTables() {
         dry_cherry_todate DECIMAL(10,2) DEFAULT 0,
         dry_cherry_percent DECIMAL(5,2) DEFAULT 0,
         
-        dry_p_bags INTEGER DEFAULT 0,
-        dry_p_bags_todate INTEGER DEFAULT 0,
-        dry_cherry_bags INTEGER DEFAULT 0,
-        dry_cherry_bags_todate INTEGER DEFAULT 0,
+        dry_p_bags DECIMAL(10,2) DEFAULT 0,
+        dry_p_bags_todate DECIMAL(10,2) DEFAULT 0,
+        dry_cherry_bags DECIMAL(10,2) DEFAULT 0,
+        dry_cherry_bags_todate DECIMAL(10,2) DEFAULT 0,
         
         notes TEXT,
+        
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
