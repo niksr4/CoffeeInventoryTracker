@@ -1845,7 +1845,211 @@ export default function InventorySystem() {
         </div>
       </div>
 
-      {/* Dialogs remain the same */}
+      {/* Add New Item Dialog */}
+      {isNewItemDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-green-700 mb-4">Add New Item</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                <Input
+                  placeholder="Enter item name"
+                  value={newItem.name}
+                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                <Select value={newItem.unit} onValueChange={(value) => setNewItem({ ...newItem, unit: value })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="L">L</SelectItem>
+                    <SelectItem value="units">units</SelectItem>
+                    <SelectItem value="bags">bags</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Initial Quantity</label>
+                <Input
+                  type="number"
+                  placeholder="Enter quantity"
+                  value={newItem.quantity}
+                  onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <Button
+                onClick={() => {
+                  setIsNewItemDialogOpen(false)
+                  setNewItem({ name: "", unit: "kg", quantity: "0" })
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleAddNewItem} className="flex-1 bg-green-700 hover:bg-green-800">
+                Add Item
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Inventory Item Dialog */}
+      {isInventoryEditDialogOpen && editingInventoryItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-green-700 mb-4">Edit Item</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                <Input
+                  value={editingInventoryItem.name}
+                  onChange={(e) => setEditingInventoryItem({ ...editingInventoryItem, name: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                <Input
+                  type="number"
+                  value={editingInventoryItem.quantity}
+                  onChange={(e) =>
+                    setEditingInventoryItem({ ...editingInventoryItem, quantity: Number(e.target.value) })
+                  }
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                <Select
+                  value={editingInventoryItem.unit}
+                  onValueChange={(value) => setEditingInventoryItem({ ...editingInventoryItem, unit: value })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="L">L</SelectItem>
+                    <SelectItem value="units">units</SelectItem>
+                    <SelectItem value="bags">bags</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price per unit</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editingInventoryItem.price}
+                  onChange={(e) => setEditingInventoryItem({ ...editingInventoryItem, price: Number(e.target.value) })}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <Button
+                onClick={() => {
+                  setIsInventoryEditDialogOpen(false)
+                  setEditingInventoryItem(null)
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveInventoryEdit} className="flex-1 bg-green-700 hover:bg-green-800">
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Dialog */}
+      {isEditDialogOpen && editingTransaction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-green-700 mb-4">Edit Transaction</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Type</label>
+                <Input value={editingTransaction.itemType} disabled className="w-full bg-gray-100" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                <Input
+                  type="number"
+                  value={editingTransaction.quantity}
+                  onChange={(e) => setEditingTransaction({ ...editingTransaction, quantity: Number(e.target.value) })}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <Textarea
+                  value={editingTransaction.notes}
+                  onChange={(e) => setEditingTransaction({ ...editingTransaction, notes: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <Button
+                onClick={() => {
+                  setIsEditDialogOpen(false)
+                  setEditingTransaction(null)
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit} className="flex-1 bg-green-700 hover:bg-green-800">
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Transaction Confirmation Dialog */}
+      {deleteConfirmDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-red-700 mb-4">Confirm Deletion</h2>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete this transaction? This action will mark the transaction as deleted and
+              recalculate the inventory.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => {
+                  setDeleteConfirmDialogOpen(false)
+                  setTransactionToDelete(null)
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleDeleteTransaction} variant="destructive" className="flex-1">
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
