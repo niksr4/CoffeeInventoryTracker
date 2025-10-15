@@ -55,8 +55,6 @@ import AccountsPage from "@/components/accounts-page"
 import ProcessingTab from "@/components/processing-tab"
 import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 import WeatherTab from "@/components/weather-tab"
-import InventoryTracker from "./inventory-tracker"
-import NeonInventoryDisplay from "./neon-inventory-display"
 import { PepperTab } from "./pepper-tab"
 import Link from "next/link"
 
@@ -1436,13 +1434,398 @@ export default function InventorySystem() {
                   Weather
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="inventory" className="space-y-8 pt-6">
-                <InventoryTracker />
-                <NeonInventoryDisplay />
+              <TabsContent value="inventory" className="space-y-8">
+                <InventoryValueSummary inventory={inventory} transactions={transactions} summary={summary} />
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                    <h2 className="text-lg font-medium text-green-700 flex items-center mb-5">
+                      <span className="mr-2">+</span> New Inventory Transaction
+                    </h2>
+                    <div className="border-t border-gray-200 pt-5">
+                      <div className="mb-5">
+                        <label className="block text-gray-700 mb-2">Item Type</label>
+                        <Select
+                          value={newTransaction.itemType}
+                          onValueChange={(value) => {
+                            const unit = getUnitForItem(value)
+                            setNewTransaction({ ...newTransaction, itemType: value, selectedUnit: unit })
+                          }}
+                        >
+                          <SelectTrigger className="w-full border-gray-300 h-12">
+                            <SelectValue placeholder="Select item type" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[40vh] overflow-y-auto">
+                            {activeItemTypesForDropdown.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="mb-5">
+                        <label className="block text-gray-700 mb-2">Quantity</label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            placeholder="Enter quantity"
+                            value={newTransaction.quantity}
+                            onChange={(e) => setNewTransaction({ ...newTransaction, quantity: e.target.value })}
+                            className="border-gray-300 pr-12 h-12"
+                          />
+                          {newTransaction.selectedUnit && (
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
+                              {newTransaction.selectedUnit}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {newTransaction.transactionType === "Restocking" && (
+                        <div className="mb-5">
+                          <label className="block text-gray-700 mb-2">
+                            Price per {newTransaction.selectedUnit || "unit"}
+                          </label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Enter price per unit"
+                              value={newTransaction.price}
+                              onChange={(e) => setNewTransaction({ ...newTransaction, price: e.target.value })}
+                              className="border-gray-300 pl-8 h-12"
+                            />
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                              ₹
+                            </div>
+                            {newTransaction.quantity && newTransaction.price && (
+                              <div className="mt-1 text-sm text-gray-600">
+                                Total cost: ₹
+                                {(Number(newTransaction.quantity) * Number(newTransaction.price)).toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <div className="mb-5">
+                        <label className="block text-gray-700 mb-2">Transaction Type</label>
+                        <RadioGroup
+                          value={newTransaction.transactionType}
+                          onValueChange={(value: "Depleting" | "Restocking") =>
+                            setNewTransaction({ ...newTransaction, transactionType: value })
+                          }
+                          className="flex flex-col sm:flex-row gap-4"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <RadioGroupItem value="Depleting" id="depleting-nonAdmin" className="h-5 w-5" />
+                            <Label htmlFor="depleting-nonAdmin" className="text-base">
+                              Depleting
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <RadioGroupItem value="Restocking" id="restocking-nonAdmin" className="h-5 w-5" />
+                            <Label htmlFor="restocking-nonAdmin" className="text-base">
+                              Restocking
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      <div className="mb-6">
+                        <label className="block text-gray-700 mb-2">Notes (Optional)</label>
+                        <Textarea
+                          placeholder="Add any additional details"
+                          value={newTransaction.notes}
+                          onChange={(e) => setNewTransaction({ ...newTransaction, notes: e.target.value })}
+                          className="border-gray-300 min-h-[100px]"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleRecordTransaction}
+                        className="w-full bg-green-700 hover:bg-green-800 text-white h-12 text-base"
+                      >
+                        <Check className="mr-2 h-5 w-5" /> Record Transaction
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                    <div className="flex justify-between items-center mb-5">
+                      <h2 className="text-lg font-medium text-green-700 flex items-center">
+                        <List className="mr-2 h-5 w-5" /> Current Inventory Levels
+                      </h2>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={exportInventoryToCSV}
+                          className="h-10 bg-transparent"
+                        >
+                          <Download className="mr-2 h-4 w-4" /> Export
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => setIsNewItemDialogOpen(true)}
+                          className="bg-green-700 hover:bg-green-800 h-10"
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Add New Item
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                      <div className="relative flex-grow">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search inventory..."
+                          value={inventorySearchTerm}
+                          onChange={(e) => setInventorySearchTerm(e.target.value)}
+                          className="pl-10 h-10"
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleInventorySort}
+                        className="flex items-center gap-1 h-10 whitespace-nowrap bg-transparent"
+                      >
+                        {inventorySortOrder === "asc" ? (
+                          <>
+                            <SortAsc className="h-4 w-4 mr-1" /> Sort A-Z
+                          </>
+                        ) : inventorySortOrder === "desc" ? (
+                          <>
+                            <SortDesc className="h-4 w-4 mr-1" /> Sort Z-A
+                          </>
+                        ) : (
+                          <>
+                            <SortAsc className="h-4 w-4 mr-1" /> Sort
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="border-t border-gray-200 pt-5">
+                      <div className="grid grid-cols-1 gap-4">
+                        {filteredAndSortedInventory.map((item, index) => {
+                          const valueInfo = itemValues[item.name]
+                          const itemValue = valueInfo ? valueInfo.totalValue : 0
+                          const avgPrice = valueInfo ? valueInfo.avgPrice : 0
+                          return (
+                            <div
+                              key={`${item.name}-${index}`}
+                              className="flex justify-between items-center py-4 border-b last:border-0 px-2 hover:bg-gray-50 rounded"
+                            >
+                              <div className="font-medium text-base">{item.name}</div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-right">
+                                  <div className="text-base">
+                                    {item.quantity} {item.unit}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    ₹{itemValue.toFixed(2)}{" "}
+                                    {avgPrice > 0 && `(avg: ₹${avgPrice.toFixed(2)}/${item.unit || "unit"})`}
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditInventoryItem(item)}
+                                  className="text-amber-600 p-2 h-auto"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteInventoryItem(item)}
+                                  className="text-red-600 p-2 h-auto"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {filteredAndSortedInventory.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          {inventorySearchTerm
+                            ? "No items match your search."
+                            : "Inventory is empty or not yet loaded."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </TabsContent>
               {showTransactionHistory && (
-                <TabsContent value="transactions" className="space-y-6 pt-6">
-                  {/* Transaction history content - keeping existing implementation */}
+                <TabsContent value="transactions" className="space-y-6">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                    <div className="flex justify-between items-center mb-5">
+                      <h2 className="text-lg font-medium text-green-700 flex items-center">
+                        <History className="mr-2 h-5 w-5" /> Transaction History
+                      </h2>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={exportToCSV} className="h-10 bg-transparent">
+                          <Download className="mr-2 h-4 w-4" /> Export
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row justify-between mb-5 gap-4">
+                      <div className="flex flex-col sm:flex-row gap-3 flex-grow">
+                        <div className="relative flex-grow">
+                          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <Input
+                            placeholder="Search transactions..."
+                            value={transactionSearchTerm}
+                            onChange={(e) => setTransactionSearchTerm(e.target.value)}
+                            className="pl-10 h-10"
+                          />
+                        </div>
+                        <Select value={filterType} onValueChange={setFilterType}>
+                          <SelectTrigger className="w-full sm:w-40 h-10 border-gray-300">
+                            <SelectValue placeholder="All Types" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[40vh] overflow-y-auto">
+                            <SelectItem value="All Types">All Types</SelectItem>
+                            {allItemTypesForDropdown.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleTransactionSort}
+                        className="flex items-center gap-1 h-10 whitespace-nowrap bg-transparent"
+                      >
+                        {transactionSortOrder === "desc" ? (
+                          <>
+                            <SortDesc className="h-4 w-4 mr-1" /> Date: Newest First
+                          </>
+                        ) : (
+                          <>
+                            <SortAsc className="h-4 w-4 mr-1" /> Date: Oldest First
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="border rounded-md overflow-x-auto">
+                      <table className="min-w-full">
+                        <thead>
+                          <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b">
+                            <th className="py-4 px-4 text-left">DATE</th>
+                            <th className="py-4 px-4 text-left">ITEM TYPE</th>
+                            <th className="py-4 px-4 text-left">QUANTITY</th>
+                            <th className="py-4 px-4 text-left">TRANSACTION</th>
+                            {!isMobile && (
+                              <>
+                                <th className="py-4 px-4 text-left">PRICE</th>
+                                <th className="py-4 px-4 text-left">NOTES</th>
+                                <th className="py-4 px-4 text-left">USER</th>
+                              </>
+                            )}
+                            <th className="py-4 px-4 text-left">ACTIONS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentTransactions.map((transaction) => (
+                            <tr key={transaction.id} className="border-b last:border-0 hover:bg-gray-50">
+                              <td className="py-4 px-4">{formatDate(transaction.date)}</td>
+                              <td className="py-4 px-4">{transaction.itemType}</td>
+                              <td className="py-4 px-4">
+                                {transaction.quantity} {transaction.unit}
+                              </td>
+                              <td className="py-4 px-4">
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    transaction.transactionType === "Depleting"
+                                      ? "bg-red-100 text-red-700 border-red-200"
+                                      : transaction.transactionType === "Restocking"
+                                        ? "bg-green-100 text-green-700 border-green-200"
+                                        : transaction.transactionType === "Item Deleted"
+                                          ? "bg-gray-100 text-gray-700 border-gray-200"
+                                          : "bg-blue-100 text-blue-700 border-blue-200"
+                                  }
+                                >
+                                  {transaction.transactionType}
+                                </Badge>
+                              </td>
+                              {!isMobile && (
+                                <>
+                                  <td className="py-4 px-4">
+                                    {transaction.price ? `₹${transaction.price.toFixed(2)}` : "-"}
+                                  </td>
+                                  <td className="py-4 px-4 max-w-xs truncate" title={transaction.notes}>
+                                    {transaction.notes}
+                                  </td>
+                                  <td className="py-4 px-4">{transaction.user}</td>
+                                </>
+                              )}
+                              <td className="py-4 px-4">
+                                {(isAdmin || user?.username === "KAB123") &&
+                                  transaction.transactionType !== "Item Deleted" &&
+                                  transaction.transactionType !== "Unit Change" && (
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleEditTransaction(transaction)}
+                                        className="text-amber-600 p-2 h-auto"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteConfirm(transaction.id)}
+                                        className="text-red-600 p-2 h-auto"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {transactions.length === 0 && (
+                        <div className="text-center py-10 text-gray-500">No transactions recorded yet.</div>
+                      )}
+                      {transactions.length > 0 && filteredTransactions.length === 0 && (
+                        <div className="text-center py-10 text-gray-500">
+                          No transactions found matching your current filters.
+                        </div>
+                      )}
+                    </div>
+                    {filteredTransactions.length > 0 && (
+                      <div className="flex justify-between items-center mt-4">
+                        <div className="text-sm text-gray-500">
+                          Showing {Math.min(startIndex + 1, filteredTransactions.length)} to {endIndex} of{" "}
+                          {filteredTransactions.length} transactions
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
               )}
               <TabsContent value="accounts" className="space-y-6 pt-6">
