@@ -13,11 +13,10 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Coins, PlusCircle, Factory, Settings, Users, Receipt } from "lucide-react"
+import { FileText, Coins, PlusCircle, Settings, Users, Receipt } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
-import ProcessingTab from "./processing-tab"
 import { toast } from "sonner"
 
 interface AccountActivity {
@@ -339,7 +338,12 @@ export default function AccountsPage() {
     deploymentsToExport
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .forEach((d) => {
-        const date = formatDateForQIF(d.date)
+        const date = new Date(d.date)
+        const month = date.getMonth() + 1
+        const day = date.getDate()
+        const year = date.getFullYear()
+        const formattedDate = `${month}/${day}/${year}`
+
         const amount = d.entryType === "Labor" ? d.totalCost : (d as ConsumableDeployment).amount
 
         let payee = ""
@@ -347,21 +351,22 @@ export default function AccountsPage() {
         let memo = ""
 
         if (d.entryType === "Labor") {
-          // For labor entries
           payee = d.reference
           category = `${d.code} ${d.reference}`
 
-          // Build labor details for memo
+          let laborDetails = ""
           if (d.laborEntries) {
             const hfDetail = d.laborEntries[0]
               ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
               : ""
             const outsideDetail = d.laborEntries
               .slice(1)
-              .map((le, index) => `OS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
+              .map((le, index) => {
+                // Use DS1, DS2, etc. for outside labor instead of OS1, OS2
+                return `DS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`
+              })
               .join("; ")
 
-            let laborDetails = ""
             if (hfDetail && outsideDetail) {
               laborDetails = `${hfDetail}; ${outsideDetail}`
             } else if (hfDetail) {
@@ -369,24 +374,25 @@ export default function AccountsPage() {
             } else if (outsideDetail) {
               laborDetails = outsideDetail
             }
+          }
 
-            if (d.notes) {
-              memo = laborDetails ? `${laborDetails} | Notes: ${d.notes}` : d.notes
-            } else {
-              memo = laborDetails
-            }
+          memo = ""
+          if (laborDetails) {
+            memo = laborDetails
+          }
+          if (d.notes) {
+            memo += memo ? ` | Notes: ${d.notes}` : d.notes
           }
         } else {
-          // For other expenses
-          const expenseEntry = d as ConsumableDeployment
-          // Use description as payee (the main identifier for the expense)
-          payee = expenseEntry.description || expenseEntry.reference || d.code
-          category = `${d.code} ${d.reference}`
-          // Put additional notes in memo if available
+          const reference = d.reference || activities.find((a) => a.code === d.code)?.reference || d.code
+
+          payee = reference
+          category = `${d.code} ${reference}`
+
           memo = d.notes || ""
         }
 
-        qifContent += `D${date}\n`
+        qifContent += `D${formattedDate}\n`
         qifContent += `T-${amount.toFixed(2)}\n`
         qifContent += `P${payee}\n`
         qifContent += `L${category}\n`
@@ -434,7 +440,7 @@ export default function AccountsPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Accounts Management</h1>
-        <p className="text-muted-foreground">Track labor deployments, expenses, processing, and pepper records</p>
+        <p className="text-muted-foreground">Track labor deployments, expenses, and pepper records</p>
       </div>
 
       {isAdmin && combinedDeployments.length > 0 && (
@@ -520,7 +526,7 @@ export default function AccountsPage() {
       )}
 
       <Tabs defaultValue="labor" className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="labor" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Labor Deployments
@@ -528,10 +534,6 @@ export default function AccountsPage() {
           <TabsTrigger value="expenses" className="flex items-center gap-2">
             <Receipt className="h-4 w-4" />
             Other Expenses
-          </TabsTrigger>
-          <TabsTrigger value="processing" className="flex items-center gap-2">
-            <Factory className="h-4 w-4" />
-            Processing
           </TabsTrigger>
           <TabsTrigger value="activities" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -545,10 +547,6 @@ export default function AccountsPage() {
 
         <TabsContent value="expenses" className="mt-6">
           <OtherExpensesTab />
-        </TabsContent>
-
-        <TabsContent value="processing" className="mt-6">
-          <ProcessingTab />
         </TabsContent>
 
         <TabsContent value="activities">
