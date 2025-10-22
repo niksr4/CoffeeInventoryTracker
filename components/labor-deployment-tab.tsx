@@ -247,15 +247,16 @@ export default function LaborDeploymentTab() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="hfLaborers" className="text-base">
-                      Number of Laborers
+                      Number of Laborers (0.5 for half day)
                     </Label>
                     <Input
                       id="hfLaborers"
                       type="number"
                       min="0"
+                      step="0.5"
                       value={formData.hfLaborers}
                       onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, hfLaborers: Number.parseInt(e.target.value) || 0 }))
+                        setFormData((prev) => ({ ...prev, hfLaborers: Number.parseFloat(e.target.value) || 0 }))
                       }
                       className="h-11"
                     />
@@ -291,15 +292,16 @@ export default function LaborDeploymentTab() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="outsideLaborers" className="text-base">
-                      Number of Laborers
+                      Number of Laborers (0.5 for half day)
                     </Label>
                     <Input
                       id="outsideLaborers"
                       type="number"
                       min="0"
+                      step="0.5"
                       value={formData.outsideLaborers}
                       onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, outsideLaborers: Number.parseInt(e.target.value) || 0 }))
+                        setFormData((prev) => ({ ...prev, outsideLaborers: Number.parseFloat(e.target.value) || 0 }))
                       }
                       className="h-11"
                     />
