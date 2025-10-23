@@ -103,9 +103,9 @@ export async function initializeTables() {
         id SERIAL PRIMARY KEY,
         deployment_date TIMESTAMP NOT NULL,
         code VARCHAR(50) NOT NULL,
-        hf_laborers INTEGER DEFAULT 0,
+        hf_laborers DECIMAL(10,2) DEFAULT 0,
         hf_cost_per_laborer DECIMAL(10,2) DEFAULT 0,
-        outside_laborers INTEGER DEFAULT 0,
+        outside_laborers DECIMAL(10,2) DEFAULT 0,
         outside_cost_per_laborer DECIMAL(10,2) DEFAULT 0,
         total_cost DECIMAL(10,2) NOT NULL,
         notes TEXT

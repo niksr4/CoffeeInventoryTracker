@@ -351,45 +351,33 @@ export default function AccountsPage() {
         let memo = ""
 
         if (d.entryType === "Labor") {
-          payee = d.reference
+          // Payee is the notes
+          payee = d.notes || ""
+
+          // Category is code + reference
           category = `${d.code} ${d.reference}`
 
-          let laborDetails = ""
-          if (d.laborEntries) {
+          if (d.laborEntries && d.laborEntries.length > 0) {
             const hfDetail = d.laborEntries[0]
               ? `HF: ${d.laborEntries[0].laborCount}@${d.laborEntries[0].costPerLabor.toFixed(2)}`
               : ""
-            const outsideDetail = d.laborEntries
+            const outsideDetails = d.laborEntries
               .slice(1)
-              .map((le, index) => {
-                // Use DS1, DS2, etc. for outside labor instead of OS1, OS2
-                return `DS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`
-              })
+              .map((le, index) => `DS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
               .join("; ")
-
-            if (hfDetail && outsideDetail) {
-              laborDetails = `${hfDetail}; ${outsideDetail}`
-            } else if (hfDetail) {
-              laborDetails = hfDetail
-            } else if (outsideDetail) {
-              laborDetails = outsideDetail
-            }
-          }
-
-          memo = ""
-          if (laborDetails) {
-            memo = laborDetails
-          }
-          if (d.notes) {
-            memo += memo ? ` | Notes: ${d.notes}` : d.notes
+            memo = [hfDetail, outsideDetails].filter(Boolean).join("; ")
           }
         } else {
           const reference = d.reference || activities.find((a) => a.code === d.code)?.reference || d.code
 
-          payee = reference
+          // Payee is the notes
+          payee = d.notes || ""
+
+          // Category is code + reference
           category = `${d.code} ${reference}`
 
-          memo = d.notes || ""
+          // Memo is blank for other expenses
+          memo = ""
         }
 
         qifContent += `D${formattedDate}\n`

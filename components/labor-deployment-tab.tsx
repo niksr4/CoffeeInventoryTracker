@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useLaborData } from "@/hooks/use-labor-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,17 @@ interface ActivityCode {
   reference: string
 }
 
+interface FormData {
+  date: string
+  code: string
+  reference: string
+  hfLaborers: number
+  hfCostPerLaborer: number
+  outsideLaborers: number
+  outsideCostPerLaborer: number
+  notes: string
+}
+
 export default function LaborDeploymentTab() {
   const { deployments, loading, addDeployment, updateDeployment, deleteDeployment } = useLaborData()
 
@@ -26,9 +37,7 @@ export default function LaborDeploymentTab() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [activities, setActivities] = useState<ActivityCode[]>([])
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
-
-  // Form state - Changed outsideCostPerLaborer default from 0 to 450
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split("T")[0],
     code: "",
     reference: "",
@@ -38,6 +47,8 @@ export default function LaborDeploymentTab() {
     outsideCostPerLaborer: 450,
     notes: "",
   })
+
+  const formRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchActivities()
@@ -127,6 +138,8 @@ export default function LaborDeploymentTab() {
   }
 
   const startEdit = (deployment: any) => {
+    console.log("[v0] startEdit called with deployment:", deployment)
+
     const hfEntry = deployment.laborEntries[0]
     const outsideEntry = deployment.laborEntries[1]
 
@@ -142,6 +155,12 @@ export default function LaborDeploymentTab() {
     })
     setEditingId(deployment.id)
     setIsAdding(true)
+
+    console.log("[v0] Form state updated, isAdding:", true, "editingId:", deployment.id)
+
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 100)
   }
 
   const toggleRow = (id: number) => {
@@ -189,7 +208,7 @@ export default function LaborDeploymentTab() {
               <PlusCircle className="mr-2 h-5 w-5" /> Add Labor Deployment
             </Button>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 border rounded-lg p-3 sm:p-4 bg-muted/50">
+            <form onSubmit={handleSubmit} className="space-y-4 border rounded-lg p-3 sm:p-4 bg-muted/50" ref={formRef}>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="date" className="text-base">
