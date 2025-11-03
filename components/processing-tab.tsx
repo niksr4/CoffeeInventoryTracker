@@ -283,7 +283,7 @@ export default function ProcessingTab() {
       } else {
         setPreviousRecord(null)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading record:", error)
       toast({
         title: "Error",
@@ -387,6 +387,43 @@ export default function ProcessingTab() {
         return
       }
 
+      records.sort((a, b) => new Date(a.process_date).getTime() - new Date(b.process_date).getTime())
+
+      let cumulativeCrop = 0
+      let cumulativeRipe = 0
+      let cumulativeGreen = 0
+      let cumulativeFloat = 0
+      let cumulativeWetParchment = 0
+      let cumulativeDryP = 0
+      let cumulativeDryCherry = 0
+      let cumulativeDryPBags = 0
+      let cumulativeDryCherryBags = 0
+
+      const processedRecords = records.map((rec) => {
+        cumulativeCrop += Number(rec.crop_today) || 0
+        cumulativeRipe += Number(rec.ripe_today) || 0
+        cumulativeGreen += Number(rec.green_today) || 0
+        cumulativeFloat += Number(rec.float_today) || 0
+        cumulativeWetParchment += Number(rec.wet_parchment) || 0
+        cumulativeDryP += Number(rec.dry_parch) || 0
+        cumulativeDryCherry += Number(rec.dry_cherry) || 0
+        cumulativeDryPBags += Number(rec.dry_p_bags) || 0
+        cumulativeDryCherryBags += Number(rec.dry_cherry_bags) || 0
+
+        return {
+          ...rec,
+          crop_todate: cumulativeCrop,
+          ripe_todate: cumulativeRipe,
+          green_todate: cumulativeGreen,
+          float_todate: cumulativeFloat,
+          wet_parchment_todate: cumulativeWetParchment,
+          dry_p_todate: cumulativeDryP,
+          dry_cherry_todate: cumulativeDryCherry,
+          dry_p_bags_todate: cumulativeDryPBags,
+          dry_cherry_bags_todate: cumulativeDryCherryBags,
+        }
+      })
+
       const headers = [
         "Date",
         "Crop Today (kg)",
@@ -401,6 +438,7 @@ export default function ProcessingTab() {
         "Float To Date (kg)",
         "Float %",
         "Wet Parchment (kg)",
+        "Wet Parchment To-Date (kg)",
         "FR-WP %",
         "Dry Parch (kg)",
         "Dry P To Date (kg)",
@@ -415,8 +453,8 @@ export default function ProcessingTab() {
         "Notes",
       ]
 
-      const rows = records.map((rec: ProcessingRecord) => [
-        rec.process_date,
+      const rows = processedRecords.map((rec: any) => [
+        format(new Date(rec.process_date), "dd-MM-yyyy"),
         rec.crop_today ?? "",
         rec.crop_todate,
         rec.ripe_today ?? "",
@@ -429,6 +467,7 @@ export default function ProcessingTab() {
         rec.float_todate,
         rec.float_percent,
         rec.wet_parchment ?? "",
+        rec.wet_parchment_todate,
         rec.fr_wp_percent,
         rec.dry_parch ?? "",
         rec.dry_p_todate,
