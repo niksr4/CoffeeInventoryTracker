@@ -13,6 +13,7 @@ import { CalendarIcon, Loader2, Save, Trash2, Download } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface ProcessingRecord {
   id?: number
@@ -71,6 +72,19 @@ const emptyRecord: Omit<ProcessingRecord, "id"> = {
   notes: "",
 }
 
+interface DashboardData {
+  location: string
+  cropToDate: number
+  ripeToDate: number
+  greenToDate: number
+  floatToDate: number
+  wetParchmentToDate: number
+  dryPToDate: number
+  dryCherryToDate: number
+  dryPBagsToDate: number
+  dryCherryBagsToDate: number
+}
+
 const LOCATIONS = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
 
 export default function ProcessingTab() {
@@ -83,7 +97,13 @@ export default function ProcessingTab() {
   const [isLoadingRecords, setIsLoadingRecords] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [dashboardData, setDashboardData] = useState<DashboardData[]>([])
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
 
   useEffect(() => {
     console.log("Location changed to:", location)
@@ -295,6 +315,83 @@ export default function ProcessingTab() {
     }
   }
 
+  const loadDashboardData = async () => {
+    setIsLoadingDashboard(true)
+    try {
+      const dashboardPromises = LOCATIONS.map(async (loc) => {
+        const response = await fetch(`/api/processing-records?location=${encodeURIComponent(loc)}`)
+        const data = await response.json()
+
+        if (data.success && Array.isArray(data.records) && data.records.length > 0) {
+          const sortedRecords = [...data.records].sort(
+            (a, b) => new Date(a.process_date).getTime() - new Date(b.process_date).getTime(),
+          )
+
+          // Calculate cumulative totals by summing all "today" values
+          let cumulativeCrop = 0
+          let cumulativeRipe = 0
+          let cumulativeGreen = 0
+          let cumulativeFloat = 0
+          let cumulativeWetParchment = 0
+          let cumulativeDryP = 0
+          let cumulativeDryCherry = 0
+          let cumulativeDryPBags = 0
+          let cumulativeDryCherryBags = 0
+
+          sortedRecords.forEach((rec) => {
+            cumulativeCrop += Number(rec.crop_today) || 0
+            cumulativeRipe += Number(rec.ripe_today) || 0
+            cumulativeGreen += Number(rec.green_today) || 0
+            cumulativeFloat += Number(rec.float_today) || 0
+            cumulativeWetParchment += Number(rec.wet_parchment) || 0
+            cumulativeDryP += Number(rec.dry_parch) || 0
+            cumulativeDryCherry += Number(rec.dry_cherry) || 0
+            cumulativeDryPBags += Number(rec.dry_p_bags) || 0
+            cumulativeDryCherryBags += Number(rec.dry_cherry_bags) || 0
+          })
+
+          return {
+            location: loc,
+            cropToDate: Number(cumulativeCrop.toFixed(2)),
+            ripeToDate: Number(cumulativeRipe.toFixed(2)),
+            greenToDate: Number(cumulativeGreen.toFixed(2)),
+            floatToDate: Number(cumulativeFloat.toFixed(2)),
+            wetParchmentToDate: Number(cumulativeWetParchment.toFixed(2)),
+            dryPToDate: Number(cumulativeDryP.toFixed(2)),
+            dryCherryToDate: Number(cumulativeDryCherry.toFixed(2)),
+            dryPBagsToDate: Number(cumulativeDryPBags.toFixed(2)),
+            dryCherryBagsToDate: Number(cumulativeDryCherryBags.toFixed(2)),
+          }
+        } else {
+          return {
+            location: loc,
+            cropToDate: 0,
+            ripeToDate: 0,
+            greenToDate: 0,
+            floatToDate: 0,
+            wetParchmentToDate: 0,
+            dryPToDate: 0,
+            dryCherryToDate: 0,
+            dryPBagsToDate: 0,
+            dryCherryBagsToDate: 0,
+          }
+        }
+      })
+
+      const results = await Promise.all(dashboardPromises)
+      setDashboardData(results)
+    } catch (error) {
+      console.error("Error loading dashboard data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingDashboard(false)
+    }
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     try {
@@ -313,6 +410,7 @@ export default function ProcessingTab() {
         })
 
         await loadRecentRecords()
+        await loadDashboardData()
 
         const nextDay = new Date(date)
         nextDay.setDate(nextDay.getDate() + 1)
@@ -521,6 +619,56 @@ export default function ProcessingTab() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
+          <CardTitle>Processing Dashboard - All Locations</CardTitle>
+          <CardDescription>Cumulative "To Date" values for all processing locations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingDashboard ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading dashboard...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-semibold">Location</TableHead>
+                    <TableHead className="text-right">Crop To Date (kg)</TableHead>
+                    <TableHead className="text-right">Ripe To Date (kg)</TableHead>
+                    <TableHead className="text-right">Green To Date (kg)</TableHead>
+                    <TableHead className="text-right">Float To Date (kg)</TableHead>
+                    <TableHead className="text-right">WP To Date (kg)</TableHead>
+                    <TableHead className="text-right">Dry P To Date (kg)</TableHead>
+                    <TableHead className="text-right">Dry Cherry To Date (kg)</TableHead>
+                    <TableHead className="text-right">Dry P Bags To Date</TableHead>
+                    <TableHead className="text-right">Dry Cherry Bags To Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.map((data) => (
+                    <TableRow key={data.location}>
+                      <TableCell className="font-medium">{data.location}</TableCell>
+                      <TableCell className="text-right">{data.cropToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.ripeToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.greenToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.floatToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.wetParchmentToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.dryPToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.dryCherryToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.dryPBagsToDate.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{data.dryCherryBagsToDate.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <div className="flex justify-between items-start">
             <div>
               <CardTitle>Processing Records</CardTitle>
@@ -542,7 +690,6 @@ export default function ProcessingTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Date and Location Picker */}
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Label>Location:</Label>
@@ -582,7 +729,6 @@ export default function ProcessingTab() {
 
           {!isLoading && (
             <>
-              {/* Crop Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Crop</CardTitle>
@@ -614,7 +760,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Ripe Cherry Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Ripe Cherry</CardTitle>
@@ -657,7 +802,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Green Cherry Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Green Cherry</CardTitle>
@@ -700,7 +844,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Float Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Float</CardTitle>
@@ -743,7 +886,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Wet Parchment Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Wet Parchment</CardTitle>
@@ -775,7 +917,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Dry Parchment Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Dry Parchment</CardTitle>
@@ -818,7 +959,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Dry Cherry Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Dry Cherry</CardTitle>
@@ -861,7 +1001,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Bags Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Bags</CardTitle>
@@ -914,7 +1053,6 @@ export default function ProcessingTab() {
                 </CardContent>
               </Card>
 
-              {/* Notes */}
               <div>
                 <Label>Notes</Label>
                 <Textarea
@@ -925,7 +1063,6 @@ export default function ProcessingTab() {
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-4">
                 <Button onClick={handleSave} disabled={isSaving}>
                   {isSaving ? (
@@ -952,7 +1089,6 @@ export default function ProcessingTab() {
         </CardContent>
       </Card>
 
-      {/* Recent Records - Always show this section */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Records - {location}</CardTitle>
