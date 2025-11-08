@@ -278,29 +278,45 @@ export default function ProcessingTab() {
         setRecord({ ...emptyRecord, process_date: dateStr })
       }
 
-      const previousDate = new Date(selectedDate)
-      previousDate.setDate(previousDate.getDate() - 1)
-      const prevDateStr = format(previousDate, "yyyy-MM-dd")
+      // Fetch all records for this location
+      const allRecordsResponse = await fetch(`/api/processing-records?location=${encodeURIComponent(location)}`)
+      const allRecordsData = await allRecordsResponse.json()
 
-      const prevResponse = await fetch(
-        `/api/processing-records?date=${prevDateStr}&location=${encodeURIComponent(location)}`,
-      )
-      const prevData = await prevResponse.json()
+      if (allRecordsData.success && Array.isArray(allRecordsData.records) && allRecordsData.records.length > 0) {
+        // Filter records that are before the selected date
+        const recordsBeforeDate = allRecordsData.records.filter(
+          (rec: ProcessingRecord) => new Date(rec.process_date) < new Date(selectedDate),
+        )
 
-      if (prevData.success && prevData.record) {
-        const prevRecord = prevData.record
-        Object.keys(prevRecord).forEach((key) => {
-          if (
-            typeof prevRecord[key] === "string" &&
-            !isNaN(Number(prevRecord[key])) &&
-            key !== "process_date" &&
-            key !== "notes"
-          ) {
-            prevRecord[key] = Number(prevRecord[key])
-          }
-        })
-        setPreviousRecord(prevRecord)
+        if (recordsBeforeDate.length > 0) {
+          // Sort by date descending and take the most recent one
+          recordsBeforeDate.sort(
+            (a: ProcessingRecord, b: ProcessingRecord) =>
+              new Date(b.process_date).getTime() - new Date(a.process_date).getTime(),
+          )
+
+          const prevRecord = recordsBeforeDate[0]
+
+          // Convert string numbers to actual numbers
+          Object.keys(prevRecord).forEach((key) => {
+            if (
+              typeof prevRecord[key] === "string" &&
+              !isNaN(Number(prevRecord[key])) &&
+              key !== "process_date" &&
+              key !== "notes"
+            ) {
+              prevRecord[key] = Number(prevRecord[key])
+            }
+          })
+
+          console.log("Found previous record:", prevRecord.process_date, "with crop_todate:", prevRecord.crop_todate)
+          setPreviousRecord(prevRecord)
+        } else {
+          console.log("No records found before the selected date")
+          setPreviousRecord(null)
+        }
       } else {
+        console.log("No records available for this location")
         setPreviousRecord(null)
       }
     } catch (error: any) {
