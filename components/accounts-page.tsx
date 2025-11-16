@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Coins, PlusCircle, Settings, Users, Receipt } from "lucide-react"
+import { FileText, Coins, PlusCircle, Settings, Users, Receipt } from 'lucide-react'
 import { Skeleton } from "@/components/ui/skeleton"
 import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
@@ -257,13 +257,15 @@ export default function AccountsPage() {
       if (d.entryType === "Labor") {
         if (d.laborEntries && d.laborEntries.length > 0) {
           const hfEntry = d.laborEntries[0]
-          totalHfLaborCount += hfEntry.laborCount
-          totalHfLaborCost += hfEntry.laborCount * hfEntry.costPerLabor
+          const hfCount = typeof hfEntry.laborCount === 'number' ? hfEntry.laborCount : parseFloat(String(hfEntry.laborCount)) || 0
+          totalHfLaborCount += hfCount
+          totalHfLaborCost += hfCount * hfEntry.costPerLabor
         }
         if (d.laborEntries && d.laborEntries.length > 1) {
           d.laborEntries.slice(1).forEach((le) => {
-            totalOutsideLaborCount += le.laborCount
-            totalOutsideLaborCost += le.laborCount * le.costPerLabor
+            const outsideCount = typeof le.laborCount === 'number' ? le.laborCount : parseFloat(String(le.laborCount)) || 0
+            totalOutsideLaborCount += outsideCount
+            totalOutsideLaborCost += outsideCount * le.costPerLabor
           })
         }
       } else {
@@ -281,7 +283,7 @@ export default function AccountsPage() {
       "",
       "",
       "Total HF Labor",
-      `${totalHfLaborCount} laborers`,
+      `HF: ${totalHfLaborCount.toFixed(1)} laborers`,
       "",
       totalHfLaborCost.toFixed(2),
       "",
@@ -293,13 +295,14 @@ export default function AccountsPage() {
       "",
       "",
       "Total Outside Labor",
+      `Outside: ${totalOutsideLaborCount.toFixed(1)} laborers`,
       "",
-      `${totalOutsideLaborCount} laborers`,
       totalOutsideLaborCost.toFixed(2),
       "",
       "",
     ]
     csvContent += "\n" + outsideSummaryRow.map(escapeCsvField).join(",")
+
     const consumablesSummaryRow = ["", "", "", "Total Other Expenses", "", "", totalConsumablesCost.toFixed(2), "", ""]
     csvContent += "\n" + consumablesSummaryRow.map(escapeCsvField).join(",")
     const totalRow = ["", "", "", "GRAND TOTAL", "", "", grandTotalForExport.toFixed(2), "", ""]
