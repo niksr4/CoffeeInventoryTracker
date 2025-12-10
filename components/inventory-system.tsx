@@ -231,25 +231,78 @@ export default function InventorySystem() {
     setAnalysisError("")
     try {
       const activeInventory = inventory
+
+      const [processingRes, accountsRes] = await Promise.all([
+        fetch("/api/processing-neon").catch(() => null),
+        fetch("/api/get-recent-accounts").catch(() => null),
+      ])
+
+      const processingRecords = processingRes?.ok ? await processingRes.json() : null
+      const accountsData = accountsRes?.ok ? await accountsRes.json() : null
+
       const analysisData = {
         inventory: activeInventory,
         transactions: transactions.slice(0, 50),
         laborDeployments: laborDeployments.slice(0, 50),
+        processingRecords: processingRecords?.records?.slice(0, 20) || [],
+        accountsData: accountsData
+          ? {
+              laborTotal: accountsData.laborTotal || 0,
+              expensesTotal: accountsData.expensesTotal || 0,
+              recentDeployments: accountsData.recentDeployments?.slice(0, 20) || [],
+            }
+          : null,
         totalItems: inventory.length,
         totalTransactions: transactions.length,
         recentActivity: transactions.filter((t) => isWithinLast24Hours(t.date)).length,
       }
+
+      console.log("[v0] Sending analysis data:", {
+        inventoryCount: analysisData.inventory.length,
+        transactionsCount: analysisData.transactions.length,
+        laborCount: analysisData.laborDeployments.length,
+        processingCount: analysisData.processingRecords.length,
+        hasAccountsData: !!analysisData.accountsData,
+      })
+
+      console.log("[v0] Fetching from /api/ai-analysis")
       const response = await fetch("/api/ai-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(analysisData),
       })
-      if (!response.ok) throw new Error("Failed to generate analysis")
-      const data = await response.json()
+
+      console.log("[v0] Response status:", response.status)
+      console.log("[v0] Response content-type:", response.headers.get("content-type"))
+
+      const responseText = await response.text()
+      console.log("[v0] Response text (first 200 chars):", responseText.substring(0, 200))
+
+      if (!response.ok) {
+        let errorData
+        try {
+          errorData = JSON.parse(responseText)
+        } catch {
+          throw new Error(`HTTP ${response.status}: Received HTML instead of JSON. The API route may not exist.`)
+        }
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to generate analysis`)
+      }
+
+      const data = JSON.parse(responseText)
+
+      if (!data.success) {
+        throw new Error(data.error || "Analysis generation failed")
+      }
+
       setAiAnalysis(data.analysis)
+      console.log("[v0] AI analysis generated successfully")
     } catch (error) {
       console.error("AI Analysis error:", error)
-      setAnalysisError("Failed to generate AI analysis. Please try again.")
+      setAnalysisError(
+        error instanceof Error
+          ? `Failed to generate AI analysis: ${error.message}`
+          : "Failed to generate AI analysis. Please try again.",
+      )
     } finally {
       setIsAnalyzing(false)
     }

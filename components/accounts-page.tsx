@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Coins, PlusCircle, Settings, Users, Receipt } from 'lucide-react'
+import { FileText, Coins, PlusCircle, Settings, Users, Receipt } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
@@ -75,10 +75,12 @@ export default function AccountsPage() {
   const fetchAccountActivities = async () => {
     setLoadingActivities(true)
     try {
+      console.log("[v0] Fetching account activities...")
       const response = await fetch("/api/get-activity")
       const data = await response.json()
-      console.log("Account activities response:", data)
+      console.log("[v0] Account activities response:", data)
       if (data.success && data.activities) {
+        console.log("[v0] Setting account activities:", data.activities)
         setAccountActivities(data.activities)
       }
     } catch (error) {
@@ -99,6 +101,7 @@ export default function AccountsPage() {
     setIsSubmitting(true)
 
     try {
+      console.log("[v0] Adding activity:", { code: newActivityCode, reference: newActivityReference })
       const response = await fetch("/api/add-activity", {
         method: "POST",
         headers: {
@@ -106,19 +109,21 @@ export default function AccountsPage() {
         },
         body: JSON.stringify({
           code: newActivityCode.trim(),
-          activity: newActivityReference.trim(),
+          reference: newActivityReference.trim(),
         }),
       })
 
       const data = await response.json()
+      console.log("[v0] Add activity response:", data)
 
       if (data.success) {
         toast.success("Activity added successfully")
         setNewActivityCode("")
         setNewActivityReference("")
         setIsAddingActivity(false)
-        fetchAccountActivities()
-        fetchAllActivities()
+        await fetchAccountActivities()
+        await fetchAllActivities()
+        console.log("[v0] Activities refetched after add")
       } else {
         toast.error(data.error || "Failed to add activity")
       }
@@ -257,13 +262,17 @@ export default function AccountsPage() {
       if (d.entryType === "Labor") {
         if (d.laborEntries && d.laborEntries.length > 0) {
           const hfEntry = d.laborEntries[0]
-          const hfCount = typeof hfEntry.laborCount === 'number' ? hfEntry.laborCount : parseFloat(String(hfEntry.laborCount)) || 0
+          const hfCount =
+            typeof hfEntry.laborCount === "number"
+              ? hfEntry.laborCount
+              : Number.parseFloat(String(hfEntry.laborCount)) || 0
           totalHfLaborCount += hfCount
           totalHfLaborCost += hfCount * hfEntry.costPerLabor
         }
         if (d.laborEntries && d.laborEntries.length > 1) {
           d.laborEntries.slice(1).forEach((le) => {
-            const outsideCount = typeof le.laborCount === 'number' ? le.laborCount : parseFloat(String(le.laborCount)) || 0
+            const outsideCount =
+              typeof le.laborCount === "number" ? le.laborCount : Number.parseFloat(String(le.laborCount)) || 0
             totalOutsideLaborCount += outsideCount
             totalOutsideLaborCost += outsideCount * le.costPerLabor
           })
