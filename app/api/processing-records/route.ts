@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // Get all records, most recent first
-      const query = `SELECT * FROM ${tableName} ORDER BY process_date DESC LIMIT 30`
+      const query = `SELECT * FROM ${tableName} ORDER BY process_date DESC`
       console.log("Executing query:", query)
 
       const results = await processingSql.query(query, [])
