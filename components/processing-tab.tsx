@@ -395,7 +395,34 @@ export default function ProcessingTab() {
       })
 
       const results = await Promise.all(dashboardPromises)
-      setDashboardData(results)
+
+      const hfRobusta = results.find((r) => r.location === "HF Robusta")
+      const mvRobusta = results.find((r) => r.location === "MV Robusta")
+      const pgRobusta = results.find((r) => r.location === "PG Robusta")
+
+      const totalRobusta: DashboardData = {
+        location: "Total Robusta",
+        cropToDate: (hfRobusta?.cropToDate || 0) + (mvRobusta?.cropToDate || 0) + (pgRobusta?.cropToDate || 0),
+        ripeToDate: (hfRobusta?.ripeToDate || 0) + (mvRobusta?.ripeToDate || 0) + (pgRobusta?.ripeToDate || 0),
+        greenToDate: (hfRobusta?.greenToDate || 0) + (mvRobusta?.greenToDate || 0) + (pgRobusta?.greenToDate || 0),
+        floatToDate: (hfRobusta?.floatToDate || 0) + (mvRobusta?.floatToDate || 0) + (pgRobusta?.floatToDate || 0),
+        wetParchmentToDate:
+          (hfRobusta?.wetParchmentToDate || 0) +
+          (mvRobusta?.wetParchmentToDate || 0) +
+          (pgRobusta?.wetParchmentToDate || 0),
+        dryPToDate: (hfRobusta?.dryPToDate || 0) + (mvRobusta?.dryPToDate || 0) + (pgRobusta?.dryPToDate || 0),
+        dryCherryToDate:
+          (hfRobusta?.dryCherryToDate || 0) + (mvRobusta?.dryCherryToDate || 0) + (pgRobusta?.dryCherryToDate || 0),
+        dryPBagsToDate:
+          (hfRobusta?.dryPBagsToDate || 0) + (mvRobusta?.dryPBagsToDate || 0) + (pgRobusta?.dryPBagsToDate || 0),
+        dryCherryBagsToDate:
+          (hfRobusta?.dryCherryBagsToDate || 0) +
+          (mvRobusta?.dryCherryBagsToDate || 0) +
+          (pgRobusta?.dryCherryBagsToDate || 0),
+      }
+
+      // Add Total Robusta row after the individual Robusta locations
+      setDashboardData([...results, totalRobusta])
     } catch (error) {
       console.error("Error loading dashboard data:", error)
       toast({
@@ -663,7 +690,12 @@ export default function ProcessingTab() {
                 </TableHeader>
                 <TableBody>
                   {dashboardData.map((data) => (
-                    <TableRow key={data.location}>
+                    <TableRow
+                      key={data.location}
+                      className={
+                        data.location === "Total Robusta" ? "border-t-2 border-gray-400 font-semibold bg-gray-50" : ""
+                      }
+                    >
                       <TableCell className="font-medium">{data.location}</TableCell>
                       <TableCell className="text-right">{data.cropToDate.toFixed(2)}</TableCell>
                       <TableCell className="text-right">{data.ripeToDate.toFixed(2)}</TableCell>
