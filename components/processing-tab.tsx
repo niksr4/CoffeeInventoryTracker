@@ -182,7 +182,12 @@ export default function ProcessingTab() {
         updated.ripe_percent = Number.parseFloat(((ripeToday / cropToday) * 100).toFixed(2))
         updated.green_percent = Number.parseFloat(((greenToday / cropToday) * 100).toFixed(2))
         updated.float_percent = Number.parseFloat(((floatToday / cropToday) * 100).toFixed(2))
-        updated.dry_cherry_percent = Number.parseFloat(((dryCherry / cropToday) * 100).toFixed(2))
+        const greenPlusFloat = greenToday + floatToday
+        if (greenPlusFloat > 0) {
+          updated.dry_cherry_percent = Number.parseFloat(((dryCherry * 100) / greenPlusFloat).toFixed(2))
+        } else {
+          updated.dry_cherry_percent = 0
+        }
       } else {
         updated.ripe_percent = 0
         updated.green_percent = 0
