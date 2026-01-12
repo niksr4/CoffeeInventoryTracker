@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get("date")
     const location = searchParams.get("location") || "HF Pepper"
+    const fiscalYearStart = searchParams.get("fiscalYearStart")
+    const fiscalYearEnd = searchParams.get("fiscalYearEnd")
     const tableName = getTableName(location)
 
     console.log("GET pepper request - location:", location, "tableName:", tableName, "date:", date)
@@ -48,11 +50,18 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, record: null })
       }
     } else {
-      // Get all records, most recent first
-      const query = `SELECT * FROM ${tableName} ORDER BY process_date DESC LIMIT 30`
-      console.log("Executing query:", query)
+      let query = `SELECT * FROM ${tableName}`
+      const queryParams: string[] = []
 
-      const results = await processingSql.query(query, [])
+      if (fiscalYearStart && fiscalYearEnd) {
+        query += ` WHERE process_date >= $1 AND process_date <= $2`
+        queryParams.push(fiscalYearStart, fiscalYearEnd)
+      }
+
+      query += ` ORDER BY process_date DESC LIMIT 30`
+      console.log("Executing query:", query, queryParams)
+
+      const results = await processingSql.query(query, queryParams)
       console.log("Query results:", results)
 
       if (!results || !results.rows || !Array.isArray(results.rows)) {

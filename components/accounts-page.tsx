@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useMemo } from "react"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
 import { toast } from "sonner"
+import { getCurrentFiscalYear, getAvailableFiscalYears, type FiscalYear } from "@/lib/fiscal-year-utils"
 
 interface AccountActivity {
   code: string
@@ -33,6 +34,9 @@ export default function AccountsPage() {
   const { isAdmin } = useAuth()
   const { deployments: laborDeployments, loading: laborLoading } = useLaborData()
   const { deployments: consumableDeployments, loading: consumablesLoading } = useConsumablesData()
+
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
+  const availableFiscalYears = getAvailableFiscalYears()
 
   const [exportStartDate, setExportStartDate] = useState<string>("")
   const [exportEndDate, setExportEndDate] = useState<string>("")
@@ -162,8 +166,33 @@ export default function AccountsPage() {
     return allDeployments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [laborDeployments, consumableDeployments])
 
+  const filteredCombinedDeployments = useMemo(() => {
+    return combinedDeployments.filter((d) => {
+      const deploymentDate = new Date(d.date)
+      const fyStart = new Date(selectedFiscalYear.startDate)
+      const fyEnd = new Date(selectedFiscalYear.endDate)
+      return deploymentDate >= fyStart && deploymentDate <= fyEnd
+    })
+  }, [combinedDeployments, selectedFiscalYear])
+
+  const filteredLaborTotal = useMemo(() => {
+    return filteredCombinedDeployments
+      .filter((d) => d.entryType === "Labor")
+      .reduce((total, deployment) => total + deployment.totalCost, 0)
+  }, [filteredCombinedDeployments])
+
+  const filteredOtherExpensesTotal = useMemo(() => {
+    return filteredCombinedDeployments
+      .filter((d) => d.entryType === "Other Expense")
+      .reduce((total, deployment) => total + (deployment as ConsumableDeployment).amount, 0)
+  }, [filteredCombinedDeployments])
+
+  const filteredGrandTotal = useMemo(() => {
+    return filteredLaborTotal + filteredOtherExpensesTotal
+  }, [filteredLaborTotal, filteredOtherExpensesTotal])
+
   const getFilteredDeploymentsForExport = () => {
-    let deploymentsToExport = [...combinedDeployments]
+    let deploymentsToExport = [...filteredCombinedDeployments]
     if (exportStartDate && exportEndDate) {
       const startDate = new Date(exportStartDate)
       startDate.setHours(0, 0, 0, 0)
@@ -443,7 +472,34 @@ export default function AccountsPage() {
         <p className="text-muted-foreground">Track labor deployments, expenses, and pepper records</p>
       </div>
 
-      {isAdmin && combinedDeployments.length > 0 && (
+      <Card>
+        <CardHeader>
+          <CardTitle>Fiscal Year</CardTitle>
+          <CardDescription>Select the accounting year to view (April 1 - March 31)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={selectedFiscalYear.label}
+            onValueChange={(value) => {
+              const fy = availableFiscalYears.find((f) => f.label === value)
+              if (fy) setSelectedFiscalYear(fy)
+            }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availableFiscalYears.map((fy) => (
+                <SelectItem key={fy.label} value={fy.label}>
+                  {fy.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {isAdmin && filteredCombinedDeployments.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex justify-between items-start">
@@ -460,16 +516,23 @@ export default function AccountsPage() {
                 ) : (
                   <div className="space-y-1">
                     <p className="text-2xl font-bold">
-                      ₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₹
+                      {filteredGrandTotal.toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </p>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       <div>
                         Labor: ₹
-                        {laborTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {filteredLaborTotal.toLocaleString("en-IN", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </div>
                       <div>
                         Other: ₹
-                        {otherExpensesTotal.toLocaleString("en-IN", {
+                        {filteredOtherExpensesTotal.toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
@@ -507,7 +570,7 @@ export default function AccountsPage() {
               onClick={exportCombinedCSV}
               variant="outline"
               size="sm"
-              disabled={combinedDeployments.length === 0 || laborLoading || consumablesLoading}
+              disabled={filteredCombinedDeployments.length === 0 || laborLoading || consumablesLoading}
               className="w-full sm:w-auto bg-transparent"
             >
               <FileText className="mr-2 h-4 w-4" /> Export CSV
@@ -516,7 +579,7 @@ export default function AccountsPage() {
               onClick={exportQIF}
               variant="outline"
               size="sm"
-              disabled={combinedDeployments.length === 0 || laborLoading || consumablesLoading}
+              disabled={filteredCombinedDeployments.length === 0 || laborLoading || consumablesLoading}
               className="w-full sm:w-auto bg-transparent"
             >
               <Coins className="mr-2 h-4 w-4" /> Export QIF

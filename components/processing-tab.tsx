@@ -14,6 +14,7 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { getCurrentFiscalYear, getAvailableFiscalYears, type FiscalYear } from "@/lib/fiscal-year-utils"
 
 interface ProcessingRecord {
   id?: number
@@ -88,6 +89,9 @@ interface DashboardData {
 const LOCATIONS = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
 
 export default function ProcessingTab() {
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
+  const availableFiscalYears = getAvailableFiscalYears()
+
   const [date, setDate] = useState<Date>(new Date())
   const [location, setLocation] = useState<string>("HF Arabica")
   const [record, setRecord] = useState<Omit<ProcessingRecord, "id">>(emptyRecord)
@@ -127,6 +131,11 @@ export default function ProcessingTab() {
     record.dry_cherry,
     previousRecord,
   ])
+
+  useEffect(() => {
+    loadRecentRecords()
+    loadDashboardData()
+  }, [selectedFiscalYear])
 
   const autoCalculateFields = () => {
     setRecord((prev) => {
@@ -215,7 +224,7 @@ export default function ProcessingTab() {
     console.log("loadRecentRecords called for location:", location)
     setIsLoadingRecords(true)
     try {
-      const url = `/api/processing-records?location=${encodeURIComponent(location)}`
+      const url = `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${selectedFiscalYear.startDate}&fiscalYearEnd=${selectedFiscalYear.endDate}`
       console.log("Fetching from URL:", url)
 
       const response = await fetch(url)
@@ -664,7 +673,36 @@ export default function ProcessingTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Fiscal Year Selector */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Fiscal Year</CardTitle>
+          <CardDescription>Select the accounting year to view (April 1 - March 31)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={selectedFiscalYear.label}
+            onValueChange={(value) => {
+              const fy = availableFiscalYears.find((f) => f.label === value)
+              if (fy) setSelectedFiscalYear(fy)
+            }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availableFiscalYears.map((fy) => (
+                <SelectItem key={fy.label} value={fy.label}>
+                  {fy.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {/* Processing Dashboard */}
       <Card>
         <CardHeader>
           <CardTitle>Processing Dashboard - All Locations</CardTitle>
@@ -720,6 +758,7 @@ export default function ProcessingTab() {
         </CardContent>
       </Card>
 
+      {/* Processing Records */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
@@ -1142,6 +1181,7 @@ export default function ProcessingTab() {
         </CardContent>
       </Card>
 
+      {/* Recent Records */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Records - {location}</CardTitle>

@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CalendarIcon, Download, Loader2, Save, Leaf } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { getCurrentFiscalYear, getAvailableFiscalYears, type FiscalYear } from "@/lib/fiscal-year-utils"
 
 const locations = ["HF Pepper", "PG Pepper", "MV Pepper"]
 
@@ -32,6 +33,9 @@ interface PepperRecord {
 }
 
 export function PepperTab() {
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
+  const availableFiscalYears = getAvailableFiscalYears()
+
   const [selectedLocation, setSelectedLocation] = useState("HF Pepper")
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [kgPicked, setKgPicked] = useState("")
@@ -55,7 +59,9 @@ export function PepperTab() {
   const fetchRecentRecords = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/pepper-records?location=${encodeURIComponent(selectedLocation)}`)
+      const response = await fetch(
+        `/api/pepper-records?location=${encodeURIComponent(selectedLocation)}&fiscalYearStart=${selectedFiscalYear.startDate}&fiscalYearEnd=${selectedFiscalYear.endDate}`,
+      )
       const data = await response.json()
 
       if (data.success) {
@@ -104,6 +110,10 @@ export function PepperTab() {
   useEffect(() => {
     fetchRecordForDate(selectedDate)
   }, [selectedDate, selectedLocation])
+
+  useEffect(() => {
+    fetchRecentRecords()
+  }, [selectedFiscalYear])
 
   const handleSave = async () => {
     if (!kgPicked || !greenPepper || !dryPepper) {
@@ -181,18 +191,41 @@ export function PepperTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Leaf className="h-6 w-6 text-green-600" />
-          <h2 className="text-2xl font-bold">Pepper Tracking</h2>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Fiscal Year</CardTitle>
+          <CardDescription>Select the accounting year to view (April 1 - March 31)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={selectedFiscalYear.label}
+            onValueChange={(value) => {
+              const fy = availableFiscalYears.find((f) => f.label === value)
+              if (fy) setSelectedFiscalYear(fy)
+            }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availableFiscalYears.map((fy) => (
+                <SelectItem key={fy.label} value={fy.label}>
+                  {fy.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {/* Location and Date Selection */}
       <Card>
         <CardHeader>
-          <CardTitle>Record Pepper Data</CardTitle>
-          <CardDescription>Track pepper harvest and processing by location</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Leaf className="h-5 w-5" />
+            Pepper Processing Record
+          </CardTitle>
+          <CardDescription>Record pepper picking and processing data</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
