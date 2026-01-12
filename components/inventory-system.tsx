@@ -24,6 +24,7 @@ import {
   Factory,
   Leaf,
   Settings,
+  CloudRain,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -57,6 +58,7 @@ import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 import WeatherTab from "@/components/weather-tab"
 import { PepperTab } from "./pepper-tab"
 import Link from "next/link"
+import RainfallTab from "@/components/rainfall-tab" // Import RainfallTab
 
 const parseCustomDateString = (dateString: string): Date | null => {
   if (!dateString || typeof dateString !== "string") return null
@@ -856,6 +858,11 @@ export default function InventorySystem() {
                   <Factory className="h-4 w-4 mr-2" />
                   Processing
                 </TabsTrigger>
+                {/* CHANGE: Added Rainfall tab between Processing and Pepper */}
+                <TabsTrigger value="rainfall">
+                  <CloudRain className="h-4 w-4 mr-2" />
+                  Rainfall
+                </TabsTrigger>
                 <TabsTrigger value="pepper" className="flex items-center gap-2">
                   <Leaf className="h-4 w-4" />
                   Pepper
@@ -1268,11 +1275,15 @@ export default function InventorySystem() {
               <TabsContent value="accounts" className="space-y-6">
                 <AccountsPage />
               </TabsContent>
-              <TabsContent value="processing" className="space-y-6">
-                <ProcessingTab />
+              <TabsContent value="processing">
+                <ProcessingTab username={user?.username || "unknown"} />
+              </TabsContent>
+              {/* CHANGE: Added Rainfall tab content */}
+              <TabsContent value="rainfall">
+                <RainfallTab username={user?.username || "unknown"} />
               </TabsContent>
               <TabsContent value="pepper" className="space-y-6">
-                <PepperTab />
+                <PepperTab username={user?.username || "unknown"} isAdmin={isAdmin} />
               </TabsContent>
               <TabsContent value="ai-analysis" className="space-y-6">
                 <AiAnalysisCharts inventory={inventory} transactions={transactions} />
@@ -1403,6 +1414,11 @@ export default function InventorySystem() {
                 <TabsTrigger value="processing">
                   <Factory className="h-4 w-4 mr-2" />
                   Processing
+                </TabsTrigger>
+                {/* CHANGE: Added Rainfall tab for non-admin users */}
+                <TabsTrigger value="rainfall">
+                  <CloudRain className="h-4 w-4 mr-2" />
+                  Rainfall
                 </TabsTrigger>
                 <TabsTrigger value="pepper" className="flex items-center gap-2">
                   <Leaf className="h-4 w-4" />
@@ -1810,11 +1826,15 @@ export default function InventorySystem() {
               <TabsContent value="accounts" className="space-y-6 pt-6">
                 <AccountsPage />
               </TabsContent>
-              <TabsContent value="processing" className="space-y-6 pt-6">
-                <ProcessingTab />
+              <TabsContent value="processing">
+                <ProcessingTab username={user?.username || "unknown"} />
               </TabsContent>
-              <TabsContent value="pepper" className="space-y-6 pt-6">
-                <PepperTab />
+              {/* CHANGE: Added Rainfall tab content for non-admin */}
+              <TabsContent value="rainfall">
+                <RainfallTab username={user?.username || "unknown"} />
+              </TabsContent>
+              <TabsContent value="pepper" className="space-y-6">
+                <PepperTab username={user?.username || "unknown"} isAdmin={isAdmin} />
               </TabsContent>
               <TabsContent value="weather" className="space-y-6 pt-6">
                 <WeatherTab />
