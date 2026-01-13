@@ -147,6 +147,22 @@ export default function RainfallTab({ username }: RainfallTabProps) {
       }
     })
 
+    const monthlyTotals: number[] = []
+    for (let month = 0; month < 12; month++) {
+      let monthTotal = 0
+      for (let day = 1; day <= 31; day++) {
+        const dateStr = `${currentYear}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+        if (rainfallMap[dateStr]) {
+          const [inches, cents] = rainfallMap[dateStr].split(".").map(Number)
+          monthTotal += inches + cents / 100
+        }
+      }
+      monthlyTotals.push(monthTotal)
+    }
+
+    // Calculate annual total (sum of all monthly totals)
+    const annualTotal = monthlyTotals.reduce((sum, total) => sum + total, 0)
+
     // Build CSV with days as rows and months as columns
     const csvRows: string[] = []
 
@@ -165,6 +181,15 @@ export default function RainfallTab({ username }: RainfallTabProps) {
 
       csvRows.push(row.join(","))
     }
+
+    const totalsRow = ["TOTAL"]
+    monthlyTotals.forEach((total) => {
+      totalsRow.push(total.toFixed(2))
+    })
+    csvRows.push(totalsRow.join(","))
+
+    const annualRow = ["ANNUAL TOTAL", "", "", "", "", "", "", "", "", "", "", "", annualTotal.toFixed(2)]
+    csvRows.push(annualRow.join(","))
 
     // Download CSV
     const csvContent = csvRows.join("\n")
