@@ -6,6 +6,27 @@ import { getFiscalYearDateRange, getCurrentFiscalYear } from "@/lib/fiscal-year-
 const getAccountsDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/?]+(\?|$)/, "/accounts_db$1"))
 const getProcessingDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/?]+(\?|$)/, "/processing_db$1"))
 
+// Helper functions to fetch from each processing table
+async function fetchHfArabica(start: string, end: string) {
+  const sql = getProcessingDb()
+  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_arabica WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+}
+
+async function fetchHfRobusta(start: string, end: string) {
+  const sql = getProcessingDb()
+  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+}
+
+async function fetchMvRobusta(start: string, end: string) {
+  const sql = getProcessingDb()
+  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM mv_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+}
+
+async function fetchPgRobusta(start: string, end: string) {
+  const sql = getProcessingDb()
+  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM pg_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -19,7 +40,7 @@ export async function GET(request: Request) {
     const end = fiscalYearEnd || endDate
 
     // Fetch labor data
-    let laborData: any[] = []
+    let laborData: unknown[] = []
     try {
       const sql = getAccountsDb()
       laborData = await sql`
@@ -32,49 +53,33 @@ export async function GET(request: Request) {
           total_cost,
           code
         FROM labor_transactions
-        WHERE deployment_date >= ${start} AND deployment_date <= ${end}
+        WHERE deployment_date >= ${start}::date AND deployment_date <= ${end}::date
         ORDER BY deployment_date DESC
       `
     } catch (error) {
       console.error("Error fetching labor data:", error)
     }
 
-    // Fetch processing data from all locations
-    const processingData: Record<string, any[]> = {}
-    const locations = ["hf_arabica", "hf_robusta", "mv_robusta", "pg_robusta"]
-    const locationLabels: Record<string, string> = {
-      "hf_arabica": "HF Arabica",
-      "hf_robusta": "HF Robusta",
-      "mv_robusta": "MV Robusta",
-      "pg_robusta": "PG Robusta"
+    // Fetch processing data from all locations in parallel
+    const processingData: Record<string, unknown[]> = {
+      "HF Arabica": [],
+      "HF Robusta": [],
+      "MV Robusta": [],
+      "PG Robusta": []
     }
 
     try {
-      const sql = getProcessingDb()
-      for (const location of locations) {
-        try {
-          // Use sql.unsafe() for dynamic table names
-          const result = await sql.unsafe(
-            `SELECT 
-              process_date,
-              crop_today,
-              ripe_today,
-              dry_p_today,
-              dry_cherry_today,
-              dry_p_bags,
-              dry_cherry_bags,
-              dry_p_bags_todate,
-              dry_cherry_bags_todate
-            FROM ${location}
-            WHERE process_date >= '${start}' AND process_date <= '${end}'
-            ORDER BY process_date DESC`
-          )
-          processingData[locationLabels[location]] = result
-        } catch (error) {
-          console.error(`Error fetching ${location} processing data:`, error)
-          processingData[locationLabels[location]] = []
-        }
-      }
+      const [hfArabica, hfRobusta, mvRobusta, pgRobusta] = await Promise.all([
+        fetchHfArabica(start, end).catch(() => []),
+        fetchHfRobusta(start, end).catch(() => []),
+        fetchMvRobusta(start, end).catch(() => []),
+        fetchPgRobusta(start, end).catch(() => [])
+      ])
+      
+      processingData["HF Arabica"] = hfArabica
+      processingData["HF Robusta"] = hfRobusta
+      processingData["MV Robusta"] = mvRobusta
+      processingData["PG Robusta"] = pgRobusta
     } catch (error) {
       console.error("Error fetching processing data:", error)
     }
