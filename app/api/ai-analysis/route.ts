@@ -107,11 +107,12 @@ async function fetchLaborData(startDate: string, endDate: string) {
     const result = await sql`
       SELECT 
         deployment_date,
-        hf_workers,
-        hf_amount,
-        outside_workers,
-        outside_amount,
-        activity_code,
+        hf_laborers,
+        hf_cost_per_laborer,
+        outside_laborers,
+        outside_cost_per_laborer,
+        total_cost,
+        code,
         notes
       FROM labor_transactions
       WHERE deployment_date >= ${startDate} AND deployment_date <= ${endDate}
@@ -189,13 +190,13 @@ async function fetchExpenseData(startDate: string, endDate: string) {
     const sql = getAccountsDb()
     const result = await sql`
       SELECT 
-        expense_date,
-        activity_code,
-        description,
-        amount
+        entry_date,
+        code,
+        total_amount,
+        notes
       FROM expense_transactions
-      WHERE expense_date >= ${startDate} AND expense_date <= ${endDate}
-      ORDER BY expense_date DESC
+      WHERE entry_date >= ${startDate} AND entry_date <= ${endDate}
+      ORDER BY entry_date DESC
       LIMIT 100
     `
     return result
@@ -208,10 +209,10 @@ async function fetchExpenseData(startDate: string, endDate: string) {
 interface DataSummaryInput {
   inventory: Array<{ name: string; quantity: number; unit: string }>
   transactions: Array<{ itemType: string; quantity: number; transactionType: string; date: string; totalCost?: number }>
-  laborData: Array<{ deployment_date: string; hf_workers: number; hf_amount: number; outside_workers: number; outside_amount: number; activity_code: string }>
+  laborData: Array<{ deployment_date: string; hf_laborers: number; hf_cost_per_laborer: number; outside_laborers: number; outside_cost_per_laborer: number; total_cost: number; code: string }>
   processingData: Record<string, Array<{ process_date: string; crop_today: number; ripe_today: number; dry_p_bags: number; dry_cherry_bags: number }>>
   rainfallData: Array<{ record_date: string; inches: number; cents: number }>
-  expenseData: Array<{ expense_date: string; activity_code: string; amount: number }>
+  expenseData: Array<{ entry_date: string; code: string; total_amount: number }>
   fiscalYear: string
 }
 
@@ -248,14 +249,15 @@ function buildDataSummary(data: DataSummaryInput): string {
   // Labor summary
   if (data.laborData && data.laborData.length > 0) {
     sections.push("\n## Labor Deployment Summary")
-    const totalHFWorkers = data.laborData.reduce((sum, l) => sum + (Number(l.hf_workers) || 0), 0)
-    const totalHFAmount = data.laborData.reduce((sum, l) => sum + (Number(l.hf_amount) || 0), 0)
-    const totalOutsideWorkers = data.laborData.reduce((sum, l) => sum + (Number(l.outside_workers) || 0), 0)
-    const totalOutsideAmount = data.laborData.reduce((sum, l) => sum + (Number(l.outside_amount) || 0), 0)
+    const totalHFWorkers = data.laborData.reduce((sum, l) => sum + (Number(l.hf_laborers) || 0), 0)
+    const totalHFAmount = data.laborData.reduce((sum, l) => sum + (Number(l.hf_laborers) || 0) * (Number(l.hf_cost_per_laborer) || 0), 0)
+    const totalOutsideWorkers = data.laborData.reduce((sum, l) => sum + (Number(l.outside_laborers) || 0), 0)
+    const totalOutsideAmount = data.laborData.reduce((sum, l) => sum + (Number(l.outside_laborers) || 0) * (Number(l.outside_cost_per_laborer) || 0), 0)
+    const totalCost = data.laborData.reduce((sum, l) => sum + (Number(l.total_cost) || 0), 0)
     sections.push(`- Total labor entries: ${data.laborData.length}`)
     sections.push(`- HF Workers deployed: ${totalHFWorkers} (Total: ₹${totalHFAmount.toLocaleString()})`)
     sections.push(`- Outside Workers deployed: ${totalOutsideWorkers} (Total: ₹${totalOutsideAmount.toLocaleString()})`)
-    sections.push(`- Total labor cost: ₹${(totalHFAmount + totalOutsideAmount).toLocaleString()}`)
+    sections.push(`- Total labor cost: ₹${totalCost.toLocaleString()}`)
   }
   
   // Processing summary
@@ -296,12 +298,12 @@ function buildDataSummary(data: DataSummaryInput): string {
   // Expense summary
   if (data.expenseData && data.expenseData.length > 0) {
     sections.push("\n## Other Expenses Summary")
-    const totalExpenses = data.expenseData.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+    const totalExpenses = data.expenseData.reduce((sum, e) => sum + (Number(e.total_amount) || 0), 0)
     const byActivity: Record<string, number> = {}
     data.expenseData.forEach(e => {
-      const code = e.activity_code || "Uncategorized"
+      const code = e.code || "Uncategorized"
       if (!byActivity[code]) byActivity[code] = 0
-      byActivity[code] += Number(e.amount) || 0
+      byActivity[code] += Number(e.total_amount) || 0
     })
     sections.push(`- Total other expenses: ₹${totalExpenses.toLocaleString()}`)
     sections.push(`- Number of expense entries: ${data.expenseData.length}`)
