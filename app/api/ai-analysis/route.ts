@@ -131,24 +131,25 @@ async function fetchLaborData(startDate: string, endDate: string) {
 }
 
 // Helper functions for each processing table (Neon requires tagged template literals)
+// Using correct column names: dry_parch, dry_cherry (not dry_p_today, dry_cherry_today)
 async function fetchHfArabicaProcessing(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wp_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_arabica WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
+  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wet_parchment, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_arabica WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
 }
 
 async function fetchHfRobustaProcessing(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wp_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
+  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wet_parchment, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
 }
 
 async function fetchMvRobustaProcessing(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wp_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM mv_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
+  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wet_parchment, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM mv_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
 }
 
 async function fetchPgRobustaProcessing(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wp_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM pg_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
+  return sql`SELECT process_date, crop_today, ripe_today, green_today, float_today, wet_parchment, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM pg_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC LIMIT 50`
 }
 
 async function fetchProcessingData(startDate: string, endDate: string) {

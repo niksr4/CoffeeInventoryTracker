@@ -6,25 +6,25 @@ import { getFiscalYearDateRange, getCurrentFiscalYear } from "@/lib/fiscal-year-
 const getAccountsDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/?]+(\?|$)/, "/accounts_db$1"))
 const getProcessingDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/?]+(\?|$)/, "/processing_db$1"))
 
-// Helper functions to fetch from each processing table
+// Helper functions to fetch from each processing table (using correct column names)
 async function fetchHfArabica(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_arabica WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_arabica WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
 }
 
 async function fetchHfRobusta(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
 }
 
 async function fetchMvRobusta(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM mv_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM mv_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
 }
 
 async function fetchPgRobusta(start: string, end: string) {
   const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_p_today, dry_cherry_today, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM pg_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
+  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM pg_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
 }
 
 export async function GET(request: Request) {
