@@ -1,12 +1,5 @@
-import { createGroq } from "@ai-sdk/groq"
-import { generateText } from "ai"
 import { neon } from "@neondatabase/serverless"
 import { getFiscalYearDateRange, getCurrentFiscalYear } from "@/lib/fiscal-year-utils"
-
-// Initialize Groq with API key
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-})
 
 // Get database connections
 const getInventoryDb = () => neon(process.env.DATABASE_URL!)
@@ -45,12 +38,23 @@ export async function POST(req: Request) {
       fiscalYear: fiscalYear.label
     })
 
-    // Generate AI analysis using Groq
-    const { text } = await generateText({
-      model: groq("llama-3.3-70b-versatile"),
-      maxOutputTokens: 2000,
-      temperature: 0.7,
-      prompt: `You are an expert agricultural business analyst for a coffee and pepper estate in India. Analyze the following data from the Honey Farm Inventory System and provide actionable insights.
+    // Generate AI analysis using Groq REST API directly
+    const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert agricultural business analyst for a coffee and pepper estate in India. Provide detailed, actionable insights based on the data provided."
+          },
+          {
+            role: "user",
+            content: `Analyze the following data from the Honey Farm Inventory System and provide actionable insights.
 
 ${dataSummary}
 
@@ -58,22 +62,35 @@ Please provide a comprehensive analysis covering:
 
 1. **Inventory Insights**: Analyze stock levels, consumption patterns, and restocking needs. Identify items that may need attention.
 
-2. **Processing Performance**: Evaluate coffee processing efficiency across locations (HF Arabica, HF Robusta, MV Robusta, PG Robusta). Compare yields and identify any anomalies.
+2. **Processing Performance**: Evaluate coffee processing efficiency across locations (HF Arabica, HF Robusta, MV Robusta, PG Robusta). Compare yields, dry parchment vs dry cherry output, and identify any anomalies or trends.
 
-3. **Labor & Cost Analysis**: Review labor deployment patterns and expense trends. Identify opportunities for cost optimization.
+3. **Labor & Cost Analysis**: Review labor deployment patterns - HF workers vs outside workers, cost per day, and activity distribution. Identify opportunities for cost optimization and labor efficiency.
 
-4. **Weather Impact**: If rainfall data is available, correlate it with processing activities and suggest optimal timing.
+4. **Weather Impact**: If rainfall data is available, correlate it with processing activities and suggest optimal timing for various operations.
 
-5. **Cross-Tab Patterns**: Identify connections between different data points (e.g., labor costs vs processing output, inventory consumption vs processing volume).
+5. **Cross-Tab Patterns**: Identify connections between different data points (e.g., labor costs vs processing output, inventory consumption vs processing volume, rainfall vs labor deployment).
 
-6. **Recommendations**: Provide 3-5 specific, actionable recommendations to improve operations.
+6. **Recommendations**: Provide 3-5 specific, actionable recommendations to improve operations, reduce costs, and increase efficiency.
 
 Format your response with clear sections using markdown headers (##). Be specific with numbers and percentages where data allows. Keep the tone professional but accessible.`
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+      }),
     })
+
+    if (!groqResponse.ok) {
+      const errorData = await groqResponse.json()
+      throw new Error(errorData.error?.message || "Groq API request failed")
+    }
+
+    const groqData = await groqResponse.json()
+    const analysisText = groqData.choices?.[0]?.message?.content || "No analysis generated"
 
     return Response.json({
       success: true,
-      analysis: text
+      analysis: analysisText
     })
   } catch (error) {
     console.error("AI Analysis error:", error)
@@ -96,7 +113,7 @@ async function fetchLaborData(startDate: string, endDate: string) {
         outside_amount,
         activity_code,
         notes
-      FROM labor_deployments
+      FROM labor_transactions
       WHERE deployment_date >= ${startDate} AND deployment_date <= ${endDate}
       ORDER BY deployment_date DESC
       LIMIT 100
@@ -176,7 +193,7 @@ async function fetchExpenseData(startDate: string, endDate: string) {
         activity_code,
         description,
         amount
-      FROM other_expenses
+      FROM expense_transactions
       WHERE expense_date >= ${startDate} AND expense_date <= ${endDate}
       ORDER BY expense_date DESC
       LIMIT 100
@@ -273,7 +290,7 @@ function buildDataSummary(data: DataSummaryInput): string {
     })
     sections.push(`- Total rainfall this year: ${totalRainfall.toFixed(2)} inches`)
     sections.push(`- Recording days: ${data.rainfallData.length}`)
-    sections.push(`- Monthly breakdown: ${Object.entries(monthlyRain).map(([m, v]) => `${m}: ${v.toFixed(2)}"`).join(", ")}`)
+    sections.push(`- Monthly breakdown: ${Object.entries(monthlyRain).map(([m, v]) => `${m}: ${v.toFixed(2)}`).join(", ")}`)
   }
   
   // Expense summary
