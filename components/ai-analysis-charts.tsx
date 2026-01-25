@@ -27,11 +27,12 @@ interface AiAnalysisChartsProps {
 
 interface LaborRecord {
   deployment_date: string
-  hf_workers: number
-  hf_amount: number
-  outside_workers: number
-  outside_amount: number
-  activity_code: string
+  hf_laborers: number
+  hf_cost_per_laborer: number
+  outside_laborers: number
+  outside_cost_per_laborer: number
+  total_cost: number
+  code: string
 }
 
 interface ProcessingRecord {
@@ -223,8 +224,11 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       if (!monthlyLabor[monthKey]) {
         monthlyLabor[monthKey] = { month: monthLabel, hfCost: 0, outsideCost: 0 }
       }
-      monthlyLabor[monthKey].hfCost += Number(record.hf_amount) || 0
-      monthlyLabor[monthKey].outsideCost += Number(record.outside_amount) || 0
+      // Calculate cost: laborers * cost_per_laborer
+      const hfCost = (Number(record.hf_laborers) || 0) * (Number(record.hf_cost_per_laborer) || 0)
+      const outsideCost = (Number(record.outside_laborers) || 0) * (Number(record.outside_cost_per_laborer) || 0)
+      monthlyLabor[monthKey].hfCost += hfCost
+      monthlyLabor[monthKey].outsideCost += outsideCost
     })
 
     return Object.entries(monthlyLabor)
