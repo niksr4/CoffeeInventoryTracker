@@ -91,8 +91,11 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
   const fetchBagTotals = useCallback(async () => {
     try {
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
+      console.log("[v0] Fetching bag totals for fiscal year:", selectedFiscalYear.label, "dates:", startDate, "to", endDate)
       const response = await fetch(`/api/processing-records?startDate=${startDate}&endDate=${endDate}`)
       const data = await response.json()
+
+      console.log("[v0] Processing records response:", data.success, "record count:", data.records?.length)
 
       if (data.success && data.records) {
         // Group by location and get the latest record for each
@@ -100,6 +103,7 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
         
         for (const record of data.records) {
           const location = record.location
+          console.log("[v0] Processing record:", location, "dry_p_bags_todate:", record.dry_p_bags_todate, "dry_cherry_bags_todate:", record.dry_cherry_bags_todate)
           if (!locationTotals[location]) {
             // First record for this location (most recent due to ORDER BY)
             locationTotals[location] = {
@@ -108,6 +112,8 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
             }
           }
         }
+
+        console.log("[v0] Location totals:", locationTotals)
 
         // Calculate Arabica totals (only HF Arabica)
         const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
@@ -123,6 +129,8 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
           (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
           (locationTotals["PG Robusta"]?.dryCherryBags || 0)
 
+        console.log("[v0] Final bag totals - Arabica DryP:", arabicaDryP, "DryCherry:", arabicaDryCherry, "Robusta DryP:", robustaDryP, "DryCherry:", robustaDryCherry)
+
         setBagTotals({
           arabica_dry_p_bags: arabicaDryP,
           arabica_dry_cherry_bags: arabicaDryCherry,
@@ -131,7 +139,7 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
         })
       }
     } catch (error) {
-      console.error("Error fetching bag totals:", error)
+      console.error("[v0] Error fetching bag totals:", error)
     }
   }, [selectedFiscalYear])
 
