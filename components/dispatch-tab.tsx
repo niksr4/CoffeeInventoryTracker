@@ -87,59 +87,55 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
     return totals
   }, [dispatchRecords])
 
-  // Fetch bag totals from processing data
+  // Fetch bag totals from processing data - need to fetch each location separately
   const fetchBagTotals = useCallback(async () => {
     try {
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
-      console.log("[v0] Fetching bag totals for fiscal year:", selectedFiscalYear.label, "dates:", startDate, "to", endDate)
-      const response = await fetch(`/api/processing-records?startDate=${startDate}&endDate=${endDate}`)
-      const data = await response.json()
+      const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
+      
+      const locationTotals: Record<string, { dryPBags: number; dryCherryBags: number }> = {}
 
-      console.log("[v0] Processing records response:", data.success, "record count:", data.records?.length)
+      // Fetch data for each location
+      await Promise.all(
+        locations.map(async (location) => {
+          const response = await fetch(
+            `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`
+          )
+          const data = await response.json()
 
-      if (data.success && data.records) {
-        // Group by location and get the latest record for each
-        const locationTotals: Record<string, { dryPBags: number; dryCherryBags: number }> = {}
-        
-        for (const record of data.records) {
-          const location = record.location
-          console.log("[v0] Processing record:", location, "dry_p_bags_todate:", record.dry_p_bags_todate, "dry_cherry_bags_todate:", record.dry_cherry_bags_todate)
-          if (!locationTotals[location]) {
-            // First record for this location (most recent due to ORDER BY)
+          if (data.success && data.records && data.records.length > 0) {
+            // First record is the most recent (ordered by process_date DESC)
+            const latestRecord = data.records[0]
             locationTotals[location] = {
-              dryPBags: Number(record.dry_p_bags_todate) || 0,
-              dryCherryBags: Number(record.dry_cherry_bags_todate) || 0,
+              dryPBags: Number(latestRecord.dry_p_bags_todate) || 0,
+              dryCherryBags: Number(latestRecord.dry_cherry_bags_todate) || 0,
             }
           }
-        }
-
-        console.log("[v0] Location totals:", locationTotals)
-
-        // Calculate Arabica totals (only HF Arabica)
-        const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
-        const arabicaDryCherry = locationTotals["HF Arabica"]?.dryCherryBags || 0
-
-        // Calculate Robusta totals (HF Robusta + MV Robusta + PG Robusta)
-        const robustaDryP = 
-          (locationTotals["HF Robusta"]?.dryPBags || 0) +
-          (locationTotals["MV Robusta"]?.dryPBags || 0) +
-          (locationTotals["PG Robusta"]?.dryPBags || 0)
-        const robustaDryCherry = 
-          (locationTotals["HF Robusta"]?.dryCherryBags || 0) +
-          (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
-          (locationTotals["PG Robusta"]?.dryCherryBags || 0)
-
-        console.log("[v0] Final bag totals - Arabica DryP:", arabicaDryP, "DryCherry:", arabicaDryCherry, "Robusta DryP:", robustaDryP, "DryCherry:", robustaDryCherry)
-
-        setBagTotals({
-          arabica_dry_p_bags: arabicaDryP,
-          arabica_dry_cherry_bags: arabicaDryCherry,
-          robusta_dry_p_bags: robustaDryP,
-          robusta_dry_cherry_bags: robustaDryCherry,
         })
-      }
+      )
+
+      // Calculate Arabica totals (only HF Arabica)
+      const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
+      const arabicaDryCherry = locationTotals["HF Arabica"]?.dryCherryBags || 0
+
+      // Calculate Robusta totals (HF Robusta + MV Robusta + PG Robusta)
+      const robustaDryP = 
+        (locationTotals["HF Robusta"]?.dryPBags || 0) +
+        (locationTotals["MV Robusta"]?.dryPBags || 0) +
+        (locationTotals["PG Robusta"]?.dryPBags || 0)
+      const robustaDryCherry = 
+        (locationTotals["HF Robusta"]?.dryCherryBags || 0) +
+        (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
+        (locationTotals["PG Robusta"]?.dryCherryBags || 0)
+
+      setBagTotals({
+        arabica_dry_p_bags: arabicaDryP,
+        arabica_dry_cherry_bags: arabicaDryCherry,
+        robusta_dry_p_bags: robustaDryP,
+        robusta_dry_cherry_bags: robustaDryCherry,
+      })
     } catch (error) {
-      console.error("[v0] Error fetching bag totals:", error)
+      console.error("Error fetching bag totals:", error)
     }
   }, [selectedFiscalYear])
 
