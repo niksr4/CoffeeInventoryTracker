@@ -129,13 +129,19 @@ async function fetchLaborData(startDate: string, endDate: string) {
 async function fetchProcessingData(startDate: string, endDate: string) {
   try {
     const sql = getProcessingDb()
-    const locations = ["hf_arabica", "hf_robusta", "mv_robusta", "pg_robusta"]
+    const locationConfig = [
+      { table: "hf_arabica", label: "HF Arabica" },
+      { table: "hf_robusta", label: "HF Robusta" },
+      { table: "mv_robusta", label: "MV Robusta" },
+      { table: "pg_robusta", label: "PG Robusta" }
+    ]
     const allData: Record<string, unknown[]> = {}
     
-    for (const location of locations) {
+    for (const { table, label } of locationConfig) {
       try {
-        const result = await sql`
-          SELECT 
+        // Use raw SQL to avoid parameterization issues with table names
+        const result = await sql(
+          `SELECT 
             process_date,
             crop_today,
             ripe_today,
@@ -145,15 +151,19 @@ async function fetchProcessingData(startDate: string, endDate: string) {
             dry_p_today,
             dry_cherry_today,
             dry_p_bags,
-            dry_cherry_bags
-          FROM ${sql(location)}
-          WHERE process_date >= ${startDate} AND process_date <= ${endDate}
+            dry_cherry_bags,
+            dry_p_bags_todate,
+            dry_cherry_bags_todate
+          FROM ${table}
+          WHERE process_date >= $1 AND process_date <= $2
           ORDER BY process_date DESC
-          LIMIT 50
-        `
-        allData[location] = result
-      } catch {
-        allData[location] = []
+          LIMIT 50`,
+          [startDate, endDate]
+        )
+        allData[label] = result
+      } catch (err) {
+        console.error(`Error fetching ${label}:`, err)
+        allData[label] = []
       }
     }
     
@@ -263,19 +273,31 @@ function buildDataSummary(data: DataSummaryInput): string {
   // Processing summary
   if (data.processingData && Object.keys(data.processingData).length > 0) {
     sections.push("\n## Coffee Processing Summary")
+    let totalAllCrop = 0
+    let totalAllDryP = 0
+    let totalAllDryCherry = 0
+    
     for (const [location, records] of Object.entries(data.processingData)) {
       if (records && records.length > 0) {
         const totalCrop = records.reduce((sum, r) => sum + (Number(r.crop_today) || 0), 0)
+        const totalRipe = records.reduce((sum, r) => sum + (Number(r.ripe_today) || 0), 0)
         const totalDryPBags = records.reduce((sum, r) => sum + (Number(r.dry_p_bags) || 0), 0)
         const totalDryCherryBags = records.reduce((sum, r) => sum + (Number(r.dry_cherry_bags) || 0), 0)
-        const locationName = location.replace(/_/g, " ").toUpperCase()
-        sections.push(`\n### ${locationName}`)
+        
+        totalAllCrop += totalCrop
+        totalAllDryP += totalDryPBags
+        totalAllDryCherry += totalDryCherryBags
+        
+        sections.push(`\n### ${location}`)
         sections.push(`- Processing days: ${records.length}`)
-        sections.push(`- Total crop processed: ${totalCrop.toFixed(2)} kg`)
-        sections.push(`- Dry P Bags: ${totalDryPBags.toFixed(2)}`)
-        sections.push(`- Dry Cherry Bags: ${totalDryCherryBags.toFixed(2)}`)
+        sections.push(`- Total crop: ${totalCrop.toFixed(2)} kg, Ripe: ${totalRipe.toFixed(2)} kg`)
+        sections.push(`- Dry P Bags: ${totalDryPBags.toFixed(2)}, Dry Cherry Bags: ${totalDryCherryBags.toFixed(2)}`)
       }
     }
+    
+    sections.push(`\n### Overall Processing Totals`)
+    sections.push(`- Total crop processed: ${totalAllCrop.toFixed(2)} kg`)
+    sections.push(`- Total Dry P Bags: ${totalAllDryP.toFixed(2)}, Total Dry Cherry Bags: ${totalAllDryCherry.toFixed(2)}`)
   }
   
   // Rainfall summary

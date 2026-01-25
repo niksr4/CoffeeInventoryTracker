@@ -62,41 +62,27 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
   const [laborData, setLaborData] = React.useState<LaborRecord[]>([])
   const [processingData, setProcessingData] = React.useState<Record<string, ProcessingRecord[]>>({})
 
-  // Fetch labor and processing data
+  // Fetch labor and processing data from dedicated API
   React.useEffect(() => {
     const fetchData = async () => {
       const fiscalYear = getCurrentFiscalYear()
       const { startDate, endDate } = getFiscalYearDateRange(fiscalYear)
 
-      // Fetch labor data
       try {
-        const laborRes = await fetch(`/api/labor-neon?fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`)
-        const laborJson = await laborRes.json()
-        if (laborJson.success && laborJson.records) {
-          setLaborData(laborJson.records)
+        const response = await fetch(`/api/ai-charts-data?fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`)
+        const data = await response.json()
+        
+        if (data.success) {
+          if (data.laborData) {
+            setLaborData(data.laborData)
+          }
+          if (data.processingData) {
+            setProcessingData(data.processingData)
+          }
         }
       } catch (error) {
-        console.error("Error fetching labor data:", error)
+        console.error("Error fetching AI charts data:", error)
       }
-
-      // Fetch processing data from all locations
-      const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
-      const allProcessing: Record<string, ProcessingRecord[]> = {}
-      
-      for (const location of locations) {
-        try {
-          const procRes = await fetch(
-            `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`
-          )
-          const procJson = await procRes.json()
-          if (procJson.success && procJson.records) {
-            allProcessing[location] = procJson.records
-          }
-        } catch (error) {
-          console.error(`Error fetching ${location} processing data:`, error)
-        }
-      }
-      setProcessingData(allProcessing)
     }
 
     fetchData()
