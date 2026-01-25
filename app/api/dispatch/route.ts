@@ -33,9 +33,15 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, records })
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    // Check if database doesn't exist yet
+    if (errorMessage.includes("does not exist")) {
+      console.log("Dispatch database not set up yet")
+      return NextResponse.json({ success: true, records: [] })
+    }
     console.error("Error fetching dispatch records:", error)
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: errorMessage },
       { status: 500 }
     )
   }

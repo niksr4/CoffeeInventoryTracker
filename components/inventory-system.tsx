@@ -223,11 +223,32 @@ export default function InventorySystem() {
   }
 
   const generateAIAnalysis = async () => {
-    setAnalysisError(
-      "AI Analysis is temporarily unavailable due to a technical issue. This feature will be restored in a future update.",
-    )
-    return
-    // </CHANGE>
+    setIsAnalyzing(true)
+    setAnalysisError(null)
+    setAiAnalysis(null)
+
+    try {
+      const response = await fetch("/api/ai-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inventory, transactions }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to generate analysis")
+      }
+
+      setAiAnalysis(data.analysis)
+    } catch (error) {
+      console.error("AI Analysis error:", error)
+      setAnalysisError(
+        error instanceof Error ? error.message : "Failed to generate AI analysis. Please try again.",
+      )
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   const handleEditTransaction = (transaction: Transaction) => {
