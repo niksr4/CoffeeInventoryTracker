@@ -103,6 +103,9 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
           )
           const data = await response.json()
 
+          console.log("[v0] Location:", location, "Records count:", data.records?.length, "First record date:", data.records?.[0]?.process_date)
+          console.log("[v0] First record dry_p_bags_todate:", data.records?.[0]?.dry_p_bags_todate, "dry_cherry_bags_todate:", data.records?.[0]?.dry_cherry_bags_todate)
+
           if (data.success && data.records && data.records.length > 0) {
             // First record is the most recent (ordered by process_date DESC)
             const latestRecord = data.records[0]
@@ -113,6 +116,8 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
           }
         })
       )
+
+      console.log("[v0] Final locationTotals:", locationTotals)
 
       // Calculate Arabica totals (only HF Arabica)
       const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
