@@ -6,6 +6,7 @@ const getInventoryDb = () => neon(process.env.DATABASE_URL!)
 const getAccountsDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/]+$/, "/accounts_db"))
 const getProcessingDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/]+$/, "/processing_db"))
 const getRainfallDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/]+$/, "/Rainfall"))
+const getDispatchDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/]+$/, "/dispatch"))
 
 export async function POST(req: Request) {
   try {
@@ -19,12 +20,14 @@ export async function POST(req: Request) {
       laborData,
       processingData,
       rainfallData,
-      expenseData
+      expenseData,
+      dispatchData
     ] = await Promise.all([
       fetchLaborData(startDate, endDate),
       fetchProcessingData(startDate, endDate),
       fetchRainfallData(),
-      fetchExpenseData(startDate, endDate)
+      fetchExpenseData(startDate, endDate),
+      fetchDispatchData(startDate, endDate)
     ])
 
     // Build comprehensive data summary for AI
@@ -35,6 +38,7 @@ export async function POST(req: Request) {
       processingData,
       rainfallData,
       expenseData,
+      dispatchData,
       fiscalYear: fiscalYear.label
     })
 
@@ -139,8 +143,8 @@ async function fetchProcessingData(startDate: string, endDate: string) {
     
     for (const { table, label } of locationConfig) {
       try {
-        // Use raw SQL to avoid parameterization issues with table names
-        const result = await sql(
+        // Use sql.unsafe() for dynamic table names
+        const result = await sql.unsafe(
           `SELECT 
             process_date,
             crop_today,
@@ -155,10 +159,9 @@ async function fetchProcessingData(startDate: string, endDate: string) {
             dry_p_bags_todate,
             dry_cherry_bags_todate
           FROM ${table}
-          WHERE process_date >= $1 AND process_date <= $2
+          WHERE process_date >= '${startDate}' AND process_date <= '${endDate}'
           ORDER BY process_date DESC
-          LIMIT 50`,
-          [startDate, endDate]
+          LIMIT 50`
         )
         allData[label] = result
       } catch (err) {
@@ -216,6 +219,34 @@ async function fetchExpenseData(startDate: string, endDate: string) {
   }
 }
 
+async function fetchDispatchData(startDate: string, endDate: string) {
+  try {
+    const sql = getDispatchDb()
+    const result = await sql`
+      SELECT 
+        dispatch_date,
+        estate,
+        coffee_type,
+        bag_type,
+        bags_dispatched,
+        price_per_bag,
+        buyer_name
+      FROM dispatch_records
+      WHERE dispatch_date >= ${startDate}::date AND dispatch_date <= ${endDate}::date
+      ORDER BY dispatch_date DESC
+      LIMIT 100
+    `
+    return result
+  } catch (error) {
+    // Silently handle if table doesn't exist yet
+    const errorMessage = error instanceof Error ? error.message : ""
+    if (!errorMessage.includes("does not exist")) {
+      console.error("Error fetching dispatch data:", error)
+    }
+    return []
+  }
+}
+
 interface DataSummaryInput {
   inventory: Array<{ name: string; quantity: number; unit: string }>
   transactions: Array<{ itemType: string; quantity: number; transactionType: string; date: string; totalCost?: number }>
@@ -223,6 +254,7 @@ interface DataSummaryInput {
   processingData: Record<string, Array<{ process_date: string; crop_today: number; ripe_today: number; dry_p_bags: number; dry_cherry_bags: number }>>
   rainfallData: Array<{ record_date: string; inches: number; cents: number }>
   expenseData: Array<{ entry_date: string; code: string; total_amount: number }>
+  dispatchData: Array<{ dispatch_date: string; estate: string; coffee_type: string; bag_type: string; bags_dispatched: number; price_per_bag: number; buyer_name: string }>
   fiscalYear: string
 }
 
@@ -332,6 +364,43 @@ function buildDataSummary(data: DataSummaryInput): string {
     const topExpenses = Object.entries(byActivity).sort((a, b) => b[1] - a[1]).slice(0, 5)
     if (topExpenses.length > 0) {
       sections.push(`- Top expense categories: ${topExpenses.map(([code, amt]) => `${code}: ₹${amt.toLocaleString()}`).join(", ")}`)
+    }
+  }
+  
+  // Dispatch summary
+  if (data.dispatchData && data.dispatchData.length > 0) {
+    sections.push("\n## Dispatch Summary")
+    const totalDispatches = data.dispatchData.length
+    const totalBagsDispatched = data.dispatchData.reduce((sum, d) => sum + (Number(d.bags_dispatched) || 0), 0)
+    const totalRevenue = data.dispatchData.reduce((sum, d) => sum + ((Number(d.bags_dispatched) || 0) * (Number(d.price_per_bag) || 0)), 0)
+    
+    // Group by coffee type
+    const byCoffeeType: Record<string, { bags: number; revenue: number }> = {}
+    data.dispatchData.forEach(d => {
+      const coffeeType = d.coffee_type || "Unknown"
+      if (!byCoffeeType[coffeeType]) byCoffeeType[coffeeType] = { bags: 0, revenue: 0 }
+      byCoffeeType[coffeeType].bags += Number(d.bags_dispatched) || 0
+      byCoffeeType[coffeeType].revenue += (Number(d.bags_dispatched) || 0) * (Number(d.price_per_bag) || 0)
+    })
+    
+    // Group by buyer
+    const byBuyer: Record<string, number> = {}
+    data.dispatchData.forEach(d => {
+      const buyer = d.buyer_name || "Unknown"
+      if (!byBuyer[buyer]) byBuyer[buyer] = 0
+      byBuyer[buyer] += Number(d.bags_dispatched) || 0
+    })
+    
+    sections.push(`- Total dispatch entries: ${totalDispatches}`)
+    sections.push(`- Total bags dispatched: ${totalBagsDispatched.toFixed(2)}`)
+    sections.push(`- Total revenue: ₹${totalRevenue.toLocaleString()}`)
+    
+    const coffeeTypeSummary = Object.entries(byCoffeeType).map(([type, data]) => `${type}: ${data.bags.toFixed(2)} bags (₹${data.revenue.toLocaleString()})`).join(", ")
+    sections.push(`- By coffee type: ${coffeeTypeSummary}`)
+    
+    const topBuyers = Object.entries(byBuyer).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    if (topBuyers.length > 0) {
+      sections.push(`- Top buyers: ${topBuyers.map(([buyer, bags]) => `${buyer}: ${bags.toFixed(2)} bags`).join(", ")}`)
     }
   }
   

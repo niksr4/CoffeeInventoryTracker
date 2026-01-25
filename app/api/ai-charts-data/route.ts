@@ -53,8 +53,9 @@ export async function GET(request: Request) {
       const sql = getProcessingDb()
       for (const location of locations) {
         try {
-          const result = await sql`
-            SELECT 
+          // Use sql.unsafe() for dynamic table names
+          const result = await sql.unsafe(
+            `SELECT 
               process_date,
               crop_today,
               ripe_today,
@@ -64,10 +65,10 @@ export async function GET(request: Request) {
               dry_cherry_bags,
               dry_p_bags_todate,
               dry_cherry_bags_todate
-            FROM ${sql(location)}
-            WHERE process_date >= ${start} AND process_date <= ${end}
-            ORDER BY process_date DESC
-          `
+            FROM ${location}
+            WHERE process_date >= '${start}' AND process_date <= '${end}'
+            ORDER BY process_date DESC`
+          )
           processingData[locationLabels[location]] = result
         } catch (error) {
           console.error(`Error fetching ${location} processing data:`, error)
