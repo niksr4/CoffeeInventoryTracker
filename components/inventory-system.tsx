@@ -25,6 +25,7 @@ import {
   Leaf,
   Settings,
   CloudRain,
+  Truck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,7 +59,8 @@ import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 import WeatherTab from "@/components/weather-tab"
 import { PepperTab } from "./pepper-tab"
 import Link from "next/link"
-import RainfallTab from "@/components/rainfall-tab" // Import RainfallTab
+import RainfallTab from "@/components/rainfall-tab"
+import DispatchTab from "@/components/dispatch-tab"
 
 const parseCustomDateString = (dateString: string): Date | null => {
   if (!dateString || typeof dateString !== "string") return null
@@ -858,7 +860,10 @@ export default function InventorySystem() {
                   <Factory className="h-4 w-4 mr-2" />
                   Processing
                 </TabsTrigger>
-                {/* CHANGE: Added Rainfall tab between Processing and Pepper */}
+                <TabsTrigger value="dispatch">
+                  <Truck className="h-4 w-4 mr-2" />
+                  Dispatch
+                </TabsTrigger>
                 <TabsTrigger value="rainfall">
                   <CloudRain className="h-4 w-4 mr-2" />
                   Rainfall
@@ -1278,7 +1283,9 @@ export default function InventorySystem() {
               <TabsContent value="processing">
                 <ProcessingTab username={user?.username || "unknown"} />
               </TabsContent>
-              {/* CHANGE: Added Rainfall tab content */}
+              <TabsContent value="dispatch">
+                <DispatchTab isAdmin={true} />
+              </TabsContent>
               <TabsContent value="rainfall">
                 <RainfallTab username={user?.username || "unknown"} />
               </TabsContent>
@@ -1415,7 +1422,10 @@ export default function InventorySystem() {
                   <Factory className="h-4 w-4 mr-2" />
                   Processing
                 </TabsTrigger>
-                {/* CHANGE: Added Rainfall tab for non-admin users */}
+                <TabsTrigger value="dispatch">
+                  <Truck className="h-4 w-4 mr-2" />
+                  Dispatch
+                </TabsTrigger>
                 <TabsTrigger value="rainfall">
                   <CloudRain className="h-4 w-4 mr-2" />
                   Rainfall
@@ -1829,7 +1839,9 @@ export default function InventorySystem() {
               <TabsContent value="processing">
                 <ProcessingTab username={user?.username || "unknown"} />
               </TabsContent>
-              {/* CHANGE: Added Rainfall tab content for non-admin */}
+              <TabsContent value="dispatch">
+                <DispatchTab isAdmin={false} />
+              </TabsContent>
               <TabsContent value="rainfall">
                 <RainfallTab username={user?.username || "unknown"} />
               </TabsContent>
