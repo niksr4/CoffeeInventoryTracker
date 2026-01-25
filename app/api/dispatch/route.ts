@@ -1,11 +1,11 @@
 import { neon } from "@neondatabase/serverless"
 import { NextResponse } from "next/server"
 
-// Connect to Dispatch database
+// Connect to dispatch database (lowercase)
 function getDispatchDb() {
   const baseUrl = process.env.DATABASE_URL || ""
-  // Replace database name with "Dispatch"
-  const dispatchUrl = baseUrl.replace(/\/[^/?]+(\?|$)/, "/Dispatch$1")
+  // Replace database name with "dispatch"
+  const dispatchUrl = baseUrl.replace(/\/[^/?]+(\?|$)/, "/dispatch$1")
   return neon(dispatchUrl)
 }
 

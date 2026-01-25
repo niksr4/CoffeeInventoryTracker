@@ -1,6 +1,12 @@
+import { createGroq } from "@ai-sdk/groq"
 import { generateText } from "ai"
 import { neon } from "@neondatabase/serverless"
 import { getFiscalYearDateRange, getCurrentFiscalYear } from "@/lib/fiscal-year-utils"
+
+// Initialize Groq with API key
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+})
 
 // Get database connections
 const getInventoryDb = () => neon(process.env.DATABASE_URL!)
@@ -41,7 +47,7 @@ export async function POST(req: Request) {
 
     // Generate AI analysis using Groq
     const { text } = await generateText({
-      model: "groq/llama-3.3-70b-versatile",
+      model: groq("llama-3.3-70b-versatile"),
       maxOutputTokens: 2000,
       temperature: 0.7,
       prompt: `You are an expert agricultural business analyst for a coffee and pepper estate in India. Analyze the following data from the Honey Farm Inventory System and provide actionable insights.
