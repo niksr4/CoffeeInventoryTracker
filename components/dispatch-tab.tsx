@@ -88,6 +88,7 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
   }, [dispatchRecords])
 
   // Fetch bag totals from processing data - need to fetch each location separately
+  // Calculate cumulative totals by summing all "today" values (same as processing dashboard)
   const fetchBagTotals = useCallback(async () => {
     try {
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
@@ -103,21 +104,23 @@ export default function DispatchTab({ isAdmin }: DispatchTabProps) {
           )
           const data = await response.json()
 
-          console.log("[v0] Location:", location, "Records count:", data.records?.length, "First record date:", data.records?.[0]?.process_date)
-          console.log("[v0] First record dry_p_bags_todate:", data.records?.[0]?.dry_p_bags_todate, "dry_cherry_bags_todate:", data.records?.[0]?.dry_cherry_bags_todate)
-
           if (data.success && data.records && data.records.length > 0) {
-            // First record is the most recent (ordered by process_date DESC)
-            const latestRecord = data.records[0]
+            // Calculate cumulative totals by summing all "today" bag values from all records
+            let cumulativeDryPBags = 0
+            let cumulativeDryCherryBags = 0
+            
+            for (const record of data.records) {
+              cumulativeDryPBags += Number(record.dry_p_bags) || 0
+              cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
+            }
+            
             locationTotals[location] = {
-              dryPBags: Number(latestRecord.dry_p_bags_todate) || 0,
-              dryCherryBags: Number(latestRecord.dry_cherry_bags_todate) || 0,
+              dryPBags: Number(cumulativeDryPBags.toFixed(2)),
+              dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
             }
           }
         })
       )
-
-      console.log("[v0] Final locationTotals:", locationTotals)
 
       // Calculate Arabica totals (only HF Arabica)
       const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
