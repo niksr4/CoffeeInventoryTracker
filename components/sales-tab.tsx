@@ -21,7 +21,9 @@ interface SalesRecord {
   sale_date: string
   coffee_type: string
   bag_type: string
-  weight_kgs: number
+  bags_sent: number
+  kgs_sent: number
+  kgs_received: number
   price_per_kg: number
   total_revenue: number
   buyer_name: string | null
@@ -45,10 +47,14 @@ export default function SalesTab() {
   const [date, setDate] = useState<Date>(new Date())
   const [coffeeType, setCoffeeType] = useState<string>("Arabica")
   const [bagType, setBagType] = useState<string>("Dry P")
-  const [weightKgs, setWeightKgs] = useState<string>("")
+  const [bagsSent, setBagsSent] = useState<string>("")
+  const [kgsReceived, setKgsReceived] = useState<string>("")
   const [pricePerKg, setPricePerKg] = useState<string>("")
   const [buyerName, setBuyerName] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
+  
+  // Auto-calculate kgs sent as bags x 50
+  const kgsSent = bagsSent ? Number(bagsSent) * 50 : 0
   
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
   const [dispatchedTotals, setDispatchedTotals] = useState<DispatchedTotals>({
@@ -61,7 +67,7 @@ export default function SalesTab() {
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
 
-  // Calculate sold totals from sales records
+  // Calculate sold totals from sales records (using kgs_received as the actual sold amount)
   const calculateSoldTotals = useCallback(() => {
     const totals = {
       arabica_dry_p: 0,
@@ -73,7 +79,7 @@ export default function SalesTab() {
     salesRecords.forEach((record) => {
       const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
       if (totals[key] !== undefined) {
-        totals[key] += Number(record.weight_kgs)
+        totals[key] += Number(record.kgs_received)
       }
     })
 
@@ -123,14 +129,18 @@ export default function SalesTab() {
   // Calculate revenue totals
   const calculateTotals = useCallback(() => {
     const totals = {
-      totalWeight: 0,
+      totalBagsSent: 0,
+      totalKgsSent: 0,
+      totalKgsReceived: 0,
       totalRevenue: 0,
       arabicaRevenue: 0,
       robustaRevenue: 0,
     }
 
     salesRecords.forEach((record) => {
-      totals.totalWeight += Number(record.weight_kgs)
+      totals.totalBagsSent += Number(record.bags_sent)
+      totals.totalKgsSent += Number(record.kgs_sent)
+      totals.totalKgsReceived += Number(record.kgs_received)
       totals.totalRevenue += Number(record.total_revenue)
       if (record.coffee_type === "Arabica") {
         totals.arabicaRevenue += Number(record.total_revenue)
@@ -168,10 +178,19 @@ export default function SalesTab() {
   }, [fetchDispatchedTotals, fetchSalesRecords])
 
   const handleSave = async () => {
-    if (!weightKgs || Number(weightKgs) <= 0) {
+    if (!bagsSent || Number(bagsSent) <= 0) {
       toast({
         title: "Error",
-        description: "Please enter a valid weight in KGs",
+        description: "Please enter the number of bags sent",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!kgsReceived || Number(kgsReceived) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter the kgs received",
         variant: "destructive",
       })
       return
@@ -200,10 +219,10 @@ export default function SalesTab() {
     const key = `${coffeeType.toLowerCase()}_${bagType.toLowerCase().replace(" ", "_")}` as keyof typeof available
     const availableAmount = available[key] || 0
     
-    if (Number(weightKgs) > availableAmount) {
+    if (Number(kgsReceived) > availableAmount) {
       toast({
         title: "Insufficient Inventory",
-        description: `Only ${availableAmount.toFixed(2)} KGs of ${coffeeType} ${bagType} available for sale. You are trying to sell ${weightKgs} KGs.`,
+        description: `Only ${availableAmount.toFixed(2)} KGs of ${coffeeType} ${bagType} available for sale. You are trying to sell ${kgsReceived} KGs.`,
         variant: "destructive",
       })
       return
@@ -218,7 +237,9 @@ export default function SalesTab() {
           sale_date: format(date, "yyyy-MM-dd"),
           coffee_type: coffeeType,
           bag_type: bagType,
-          weight_kgs: Number(weightKgs),
+          bags_sent: Number(bagsSent),
+          kgs_sent: kgsSent,
+          kgs_received: Number(kgsReceived),
           price_per_kg: Number(pricePerKg),
           buyer_name: buyerName,
           notes: notes || null,
@@ -233,7 +254,8 @@ export default function SalesTab() {
           description: "Sales record saved successfully",
         })
         // Reset form
-        setWeightKgs("")
+        setBagsSent("")
+        setKgsReceived("")
         setPricePerKg("")
         setBuyerName("")
         setNotes("")
@@ -290,12 +312,14 @@ export default function SalesTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "Coffee Type", "Bag Type", "Weight (KGs)", "Price/KG", "Total Revenue", "Buyer", "Notes"]
+    const headers = ["Date", "Coffee Type", "Bag Type", "Bags Sent", "KGs Sent", "KGs Received", "Price/KG", "Total Revenue", "Buyer", "Notes"]
     const rows = salesRecords.map((record) => [
       format(new Date(record.sale_date), "yyyy-MM-dd"),
       record.coffee_type,
       record.bag_type,
-      record.weight_kgs.toString(),
+      record.bags_sent.toString(),
+      record.kgs_sent.toString(),
+      record.kgs_received.toString(),
       record.price_per_kg.toString(),
       record.total_revenue.toString(),
       record.buyer_name || "",
@@ -316,7 +340,7 @@ export default function SalesTab() {
   const totals = calculateTotals()
   const soldTotals = calculateSoldTotals()
   const availableToSell = getAvailableToSell()
-  const calculatedRevenue = weightKgs && pricePerKg ? (Number(weightKgs) * Number(pricePerKg)) : 0
+  const calculatedRevenue = kgsReceived && pricePerKg ? (Number(kgsReceived) * Number(pricePerKg)) : 0
 
   // Get current selected available amount
   const currentSelectedKey = `${coffeeType.toLowerCase()}_${bagType.toLowerCase().replace(" ", "_")}` as keyof typeof availableToSell
@@ -419,15 +443,15 @@ export default function SalesTab() {
           </CardContent>
         </Card>
 
-        {/* Total Weight */}
+        {/* Total KGs Received */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Weight Sold</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total KGs Received</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.totalWeight.toFixed(2)} KGs</div>
+            <div className="text-2xl font-bold">{totals.totalKgsReceived.toFixed(2)} KGs</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Avg: ₹{totals.totalWeight > 0 ? (totals.totalRevenue / totals.totalWeight).toFixed(2) : "0"}/KG
+              Bags: {totals.totalBagsSent} | Sent: {totals.totalKgsSent.toFixed(2)} KGs
             </div>
           </CardContent>
         </Card>
@@ -529,18 +553,40 @@ export default function SalesTab() {
               </p>
             </div>
 
-            {/* Weight in KGs */}
+            {/* Bags Sent */}
             <div className="space-y-2">
-              <Label>Weight (KGs)</Label>
+              <Label>Number of Bags Sent</Label>
+              <Input
+                type="number"
+                step="1"
+                min="1"
+                placeholder="Enter number of bags"
+                value={bagsSent}
+                onChange={(e) => setBagsSent(e.target.value)}
+              />
+            </div>
+
+            {/* KGs Sent (Auto-calculated) */}
+            <div className="space-y-2">
+              <Label>KGs Sent (Bags x 50)</Label>
+              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+                <span className="font-medium">{kgsSent.toFixed(2)} KGs</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Auto-calculated</p>
+            </div>
+
+            {/* KGs Received */}
+            <div className="space-y-2">
+              <Label>KGs Received</Label>
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Enter weight in KGs"
-                value={weightKgs}
-                onChange={(e) => setWeightKgs(e.target.value)}
+                placeholder="Enter kgs received"
+                value={kgsReceived}
+                onChange={(e) => setKgsReceived(e.target.value)}
                 max={currentAvailable}
               />
-              {weightKgs && Number(weightKgs) > currentAvailable && (
+              {kgsReceived && Number(kgsReceived) > currentAvailable && (
                 <p className="text-xs text-red-600">
                   Exceeds available inventory!
                 </p>
@@ -641,7 +687,9 @@ export default function SalesTab() {
                     <TableHead>Date</TableHead>
                     <TableHead>Coffee Type</TableHead>
                     <TableHead>Bag Type</TableHead>
-                    <TableHead className="text-right">Weight (KGs)</TableHead>
+                    <TableHead className="text-right">Bags Sent</TableHead>
+                    <TableHead className="text-right">KGs Sent</TableHead>
+                    <TableHead className="text-right">KGs Received</TableHead>
                     <TableHead className="text-right">Price/KG</TableHead>
                     <TableHead className="text-right">Total Revenue</TableHead>
                     <TableHead>Buyer</TableHead>
@@ -655,7 +703,9 @@ export default function SalesTab() {
                       <TableCell>{format(new Date(record.sale_date), "dd MMM yyyy")}</TableCell>
                       <TableCell>{record.coffee_type}</TableCell>
                       <TableCell>{record.bag_type}</TableCell>
-                      <TableCell className="text-right">{Number(record.weight_kgs).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>
+                      <TableCell className="text-right">{Number(record.kgs_sent).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{Number(record.kgs_received).toFixed(2)}</TableCell>
                       <TableCell className="text-right">₹{Number(record.price_per_kg).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-medium text-green-600">
                         ₹{Number(record.total_revenue).toLocaleString()}

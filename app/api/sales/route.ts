@@ -53,26 +53,28 @@ export async function POST(request: Request) {
       sale_date, 
       coffee_type, 
       bag_type, 
-      weight_kgs,
+      bags_sent,
+      kgs_sent,
+      kgs_received,
       price_per_kg,
       buyer_name, 
       notes 
     } = body
 
-    if (!sale_date || !coffee_type || !bag_type || weight_kgs === undefined || price_per_kg === undefined) {
+    if (!sale_date || !coffee_type || !bag_type || bags_sent === undefined || kgs_received === undefined || price_per_kg === undefined) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
       )
     }
 
-    const total_revenue = Number(weight_kgs) * Number(price_per_kg)
+    const total_revenue = Number(kgs_received) * Number(price_per_kg)
 
     const result = await sql`
       INSERT INTO sales_records (
-        sale_date, coffee_type, bag_type, weight_kgs, price_per_kg, total_revenue, buyer_name, notes
+        sale_date, coffee_type, bag_type, bags_sent, kgs_sent, kgs_received, price_per_kg, total_revenue, buyer_name, notes
       ) VALUES (
-        ${sale_date}::date, ${coffee_type}, ${bag_type}, ${weight_kgs}, ${price_per_kg}, ${total_revenue}, ${buyer_name || null}, ${notes || null}
+        ${sale_date}::date, ${coffee_type}, ${bag_type}, ${bags_sent}, ${kgs_sent}, ${kgs_received}, ${price_per_kg}, ${total_revenue}, ${buyer_name || null}, ${notes || null}
       )
       RETURNING *
     `
