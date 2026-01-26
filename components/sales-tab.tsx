@@ -162,12 +162,16 @@ const fetchSalesRecords = useCallback(async () => {
   const response = await fetch(`/api/sales?startDate=${startDate}&endDate=${endDate}`)
   const data = await response.json()
   
+  console.log("[v0] Sales API response:", data)
   if (data.success) {
     setSalesRecords(data.records || [])
     // Check if migration is needed (records exist but new columns are missing/zero)
     if (data.records && data.records.length > 0) {
       const firstRecord = data.records[0]
+      console.log("[v0] First record:", firstRecord)
+      console.log("[v0] bags_sent:", firstRecord.bags_sent, "kgs_received:", firstRecord.kgs_received)
       if (firstRecord.bags_sent === undefined || firstRecord.kgs_received === undefined) {
+        console.log("[v0] Setting needsMigration to true - columns missing")
         setNeedsMigration(true)
       } else {
         setNeedsMigration(false)
@@ -175,7 +179,9 @@ const fetchSalesRecords = useCallback(async () => {
     }
   } else {
     // Check if error is about missing columns
-    if (data.error && data.error.includes('column')) {
+    console.log("[v0] Error from API:", data.error)
+    if (data.error && (data.error.includes('column') || data.error.includes('does not exist'))) {
+      console.log("[v0] Setting needsMigration to true - error about columns")
       setNeedsMigration(true)
     }
     console.error("Error fetching sales records:", data.error)
