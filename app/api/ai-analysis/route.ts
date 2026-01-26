@@ -21,13 +21,15 @@ export async function POST(req: Request) {
       processingData,
       rainfallData,
       expenseData,
-      dispatchData
+      dispatchData,
+      salesData
     ] = await Promise.all([
       fetchLaborData(startDate, endDate),
       fetchProcessingData(startDate, endDate),
       fetchRainfallData(),
       fetchExpenseData(startDate, endDate),
-      fetchDispatchData(startDate, endDate)
+      fetchDispatchData(startDate, endDate),
+      fetchSalesData(startDate, endDate)
     ])
 
     // Build comprehensive data summary for AI
@@ -39,6 +41,7 @@ export async function POST(req: Request) {
       rainfallData,
       expenseData,
       dispatchData,
+      salesData,
       fiscalYear: fiscalYear.label
     })
 
@@ -224,9 +227,7 @@ async function fetchDispatchData(startDate: string, endDate: string) {
         estate,
         coffee_type,
         bag_type,
-        bags_dispatched,
-        price_per_bag,
-        buyer_name
+        bags_dispatched
       FROM dispatch_records
       WHERE dispatch_date >= ${startDate}::date AND dispatch_date <= ${endDate}::date
       ORDER BY dispatch_date DESC
@@ -243,6 +244,33 @@ async function fetchDispatchData(startDate: string, endDate: string) {
   }
 }
 
+async function fetchSalesData(startDate: string, endDate: string) {
+  try {
+    const sql = getDispatchDb()
+    const result = await sql`
+      SELECT 
+        sale_date,
+        coffee_type,
+        bag_type,
+        weight_kgs,
+        price_per_kg,
+        total_revenue,
+        buyer_name
+      FROM sales_records
+      WHERE sale_date >= ${startDate}::date AND sale_date <= ${endDate}::date
+      ORDER BY sale_date DESC
+      LIMIT 100
+    `
+    return result
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : ""
+    if (!errorMessage.includes("does not exist")) {
+      console.error("Error fetching sales data:", error)
+    }
+    return []
+  }
+}
+
 interface DataSummaryInput {
   inventory: Array<{ name: string; quantity: number; unit: string }>
   transactions: Array<{ itemType: string; quantity: number; transactionType: string; date: string; totalCost?: number }>
@@ -250,7 +278,8 @@ interface DataSummaryInput {
   processingData: Record<string, Array<{ process_date: string; crop_today: number; ripe_today: number; dry_p_bags: number; dry_cherry_bags: number }>>
   rainfallData: Array<{ record_date: string; inches: number; cents: number }>
   expenseData: Array<{ entry_date: string; code: string; total_amount: number }>
-  dispatchData: Array<{ dispatch_date: string; estate: string; coffee_type: string; bag_type: string; bags_dispatched: number; price_per_bag: number; buyer_name: string }>
+  dispatchData: Array<{ dispatch_date: string; estate: string; coffee_type: string; bag_type: string; bags_dispatched: number }>
+  salesData: Array<{ sale_date: string; coffee_type: string; bag_type: string; weight_kgs: number; price_per_kg: number; total_revenue: number; buyer_name: string }>
   fiscalYear: string
 }
 
@@ -368,35 +397,68 @@ function buildDataSummary(data: DataSummaryInput): string {
     sections.push("\n## Dispatch Summary")
     const totalDispatches = data.dispatchData.length
     const totalBagsDispatched = data.dispatchData.reduce((sum, d) => sum + (Number(d.bags_dispatched) || 0), 0)
-    const totalRevenue = data.dispatchData.reduce((sum, d) => sum + ((Number(d.bags_dispatched) || 0) * (Number(d.price_per_bag) || 0)), 0)
-    
     // Group by coffee type
-    const byCoffeeType: Record<string, { bags: number; revenue: number }> = {}
+    const byCoffeeType: Record<string, number> = {}
     data.dispatchData.forEach(d => {
       const coffeeType = d.coffee_type || "Unknown"
-      if (!byCoffeeType[coffeeType]) byCoffeeType[coffeeType] = { bags: 0, revenue: 0 }
-      byCoffeeType[coffeeType].bags += Number(d.bags_dispatched) || 0
-      byCoffeeType[coffeeType].revenue += (Number(d.bags_dispatched) || 0) * (Number(d.price_per_bag) || 0)
+      if (!byCoffeeType[coffeeType]) byCoffeeType[coffeeType] = 0
+      byCoffeeType[coffeeType] += Number(d.bags_dispatched) || 0
     })
     
-    // Group by buyer
-    const byBuyer: Record<string, number> = {}
+    // Group by bag type
+    const byBagType: Record<string, number> = {}
     data.dispatchData.forEach(d => {
-      const buyer = d.buyer_name || "Unknown"
-      if (!byBuyer[buyer]) byBuyer[buyer] = 0
-      byBuyer[buyer] += Number(d.bags_dispatched) || 0
+      const bagType = d.bag_type || "Unknown"
+      if (!byBagType[bagType]) byBagType[bagType] = 0
+      byBagType[bagType] += Number(d.bags_dispatched) || 0
     })
     
     sections.push(`- Total dispatch entries: ${totalDispatches}`)
     sections.push(`- Total bags dispatched: ${totalBagsDispatched.toFixed(2)}`)
-    sections.push(`- Total revenue: ₹${totalRevenue.toLocaleString()}`)
     
-    const coffeeTypeSummary = Object.entries(byCoffeeType).map(([type, data]) => `${type}: ${data.bags.toFixed(2)} bags (₹${data.revenue.toLocaleString()})`).join(", ")
+    const coffeeTypeSummary = Object.entries(byCoffeeType).map(([type, bags]) => `${type}: ${bags.toFixed(2)} bags`).join(", ")
     sections.push(`- By coffee type: ${coffeeTypeSummary}`)
     
-    const topBuyers = Object.entries(byBuyer).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    const bagTypeSummary = Object.entries(byBagType).map(([type, bags]) => `${type}: ${bags.toFixed(2)} bags`).join(", ")
+    sections.push(`- By bag type: ${bagTypeSummary}`)
+  }
+
+  // Sales summary
+  if (data.salesData && data.salesData.length > 0) {
+    sections.push("\n## Sales Summary")
+    const totalSales = data.salesData.length
+    const totalWeightSold = data.salesData.reduce((sum, s) => sum + (Number(s.weight_kgs) || 0), 0)
+    const totalRevenue = data.salesData.reduce((sum, s) => sum + (Number(s.total_revenue) || 0), 0)
+    
+    // Group by coffee type
+    const byCoffeeType: Record<string, { weight: number; revenue: number }> = {}
+    data.salesData.forEach(s => {
+      const coffeeType = s.coffee_type || "Unknown"
+      if (!byCoffeeType[coffeeType]) byCoffeeType[coffeeType] = { weight: 0, revenue: 0 }
+      byCoffeeType[coffeeType].weight += Number(s.weight_kgs) || 0
+      byCoffeeType[coffeeType].revenue += Number(s.total_revenue) || 0
+    })
+    
+    // Group by buyer
+    const byBuyer: Record<string, { weight: number; revenue: number }> = {}
+    data.salesData.forEach(s => {
+      const buyer = s.buyer_name || "Unknown"
+      if (!byBuyer[buyer]) byBuyer[buyer] = { weight: 0, revenue: 0 }
+      byBuyer[buyer].weight += Number(s.weight_kgs) || 0
+      byBuyer[buyer].revenue += Number(s.total_revenue) || 0
+    })
+    
+    sections.push(`- Total sales entries: ${totalSales}`)
+    sections.push(`- Total weight sold: ${totalWeightSold.toFixed(2)} KGs`)
+    sections.push(`- Total revenue: ₹${totalRevenue.toLocaleString()}`)
+    sections.push(`- Average price per KG: ₹${totalWeightSold > 0 ? (totalRevenue / totalWeightSold).toFixed(2) : "0"}`)
+    
+    const coffeeTypeSummary = Object.entries(byCoffeeType).map(([type, data]) => `${type}: ${data.weight.toFixed(2)} KGs (₹${data.revenue.toLocaleString()})`).join(", ")
+    sections.push(`- By coffee type: ${coffeeTypeSummary}`)
+    
+    const topBuyers = Object.entries(byBuyer).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 3)
     if (topBuyers.length > 0) {
-      sections.push(`- Top buyers: ${topBuyers.map(([buyer, bags]) => `${buyer}: ${bags.toFixed(2)} bags`).join(", ")}`)
+      sections.push(`- Top buyers: ${topBuyers.map(([buyer, data]) => `${buyer}: ${data.weight.toFixed(2)} KGs (₹${data.revenue.toLocaleString()})`).join(", ")}`)
     }
   }
   

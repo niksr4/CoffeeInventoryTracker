@@ -28,6 +28,13 @@ interface SalesRecord {
   notes: string | null
 }
 
+interface DispatchedTotals {
+  arabica_dry_p: number
+  arabica_dry_cherry: number
+  robusta_dry_p: number
+  robusta_dry_cherry: number
+}
+
 const COFFEE_TYPES = ["Arabica", "Robusta"]
 const BAG_TYPES = ["Dry P", "Dry Cherry"]
 
@@ -44,11 +51,76 @@ export default function SalesTab() {
   const [notes, setNotes] = useState<string>("")
   
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
+  const [dispatchedTotals, setDispatchedTotals] = useState<DispatchedTotals>({
+    arabica_dry_p: 0,
+    arabica_dry_cherry: 0,
+    robusta_dry_p: 0,
+    robusta_dry_cherry: 0,
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
 
-  // Calculate totals
+  // Calculate sold totals from sales records
+  const calculateSoldTotals = useCallback(() => {
+    const totals = {
+      arabica_dry_p: 0,
+      arabica_dry_cherry: 0,
+      robusta_dry_p: 0,
+      robusta_dry_cherry: 0,
+    }
+
+    salesRecords.forEach((record) => {
+      const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
+      if (totals[key] !== undefined) {
+        totals[key] += Number(record.weight_kgs)
+      }
+    })
+
+    return totals
+  }, [salesRecords])
+
+  // Calculate available to sell (dispatched - sold)
+  const getAvailableToSell = useCallback(() => {
+    const sold = calculateSoldTotals()
+    return {
+      arabica_dry_p: Math.max(0, dispatchedTotals.arabica_dry_p - sold.arabica_dry_p),
+      arabica_dry_cherry: Math.max(0, dispatchedTotals.arabica_dry_cherry - sold.arabica_dry_cherry),
+      robusta_dry_p: Math.max(0, dispatchedTotals.robusta_dry_p - sold.robusta_dry_p),
+      robusta_dry_cherry: Math.max(0, dispatchedTotals.robusta_dry_cherry - sold.robusta_dry_cherry),
+    }
+  }, [dispatchedTotals, calculateSoldTotals])
+
+  // Fetch dispatched totals from dispatch records
+  const fetchDispatchedTotals = useCallback(async () => {
+    try {
+      const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
+      const response = await fetch(`/api/dispatch?startDate=${startDate}&endDate=${endDate}`)
+      const data = await response.json()
+
+      if (data.success && data.records) {
+        const totals = {
+          arabica_dry_p: 0,
+          arabica_dry_cherry: 0,
+          robusta_dry_p: 0,
+          robusta_dry_cherry: 0,
+        }
+
+        data.records.forEach((record: { coffee_type: string; bag_type: string; bags_dispatched: number }) => {
+          const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
+          if (totals[key] !== undefined) {
+            totals[key] += Number(record.bags_dispatched)
+          }
+        })
+
+        setDispatchedTotals(totals)
+      }
+    } catch (error) {
+      console.error("Error fetching dispatched totals:", error)
+    }
+  }, [selectedFiscalYear])
+
+  // Calculate revenue totals
   const calculateTotals = useCallback(() => {
     const totals = {
       totalWeight: 0,
@@ -91,8 +163,9 @@ export default function SalesTab() {
   }, [selectedFiscalYear])
 
   useEffect(() => {
+    fetchDispatchedTotals()
     fetchSalesRecords()
-  }, [fetchSalesRecords])
+  }, [fetchDispatchedTotals, fetchSalesRecords])
 
   const handleSave = async () => {
     if (!weightKgs || Number(weightKgs) <= 0) {
@@ -117,6 +190,20 @@ export default function SalesTab() {
       toast({
         title: "Error",
         description: "Please enter the buyer name",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check available inventory
+    const available = getAvailableToSell()
+    const key = `${coffeeType.toLowerCase()}_${bagType.toLowerCase().replace(" ", "_")}` as keyof typeof available
+    const availableAmount = available[key] || 0
+    
+    if (Number(weightKgs) > availableAmount) {
+      toast({
+        title: "Insufficient Inventory",
+        description: `Only ${availableAmount.toFixed(2)} KGs of ${coffeeType} ${bagType} available for sale. You are trying to sell ${weightKgs} KGs.`,
         variant: "destructive",
       })
       return
@@ -227,7 +314,13 @@ export default function SalesTab() {
   }
 
   const totals = calculateTotals()
+  const soldTotals = calculateSoldTotals()
+  const availableToSell = getAvailableToSell()
   const calculatedRevenue = weightKgs && pricePerKg ? (Number(weightKgs) * Number(pricePerKg)) : 0
+
+  // Get current selected available amount
+  const currentSelectedKey = `${coffeeType.toLowerCase()}_${bagType.toLowerCase().replace(" ", "_")}` as keyof typeof availableToSell
+  const currentAvailable = availableToSell[currentSelectedKey] || 0
 
   return (
     <div className="space-y-6">
@@ -259,7 +352,59 @@ export default function SalesTab() {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Inventory Summary - Dispatched vs Sold vs Available */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Inventory Available for Sale</CardTitle>
+          <CardDescription>Coffee dispatched from processing that is available to sell</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Arabica Dry P */}
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="text-sm font-medium text-muted-foreground">Arabica Dry P</div>
+              <div className="mt-1">
+                <div className="text-lg font-bold text-green-600">{availableToSell.arabica_dry_p.toFixed(2)} KGs</div>
+                <div className="text-xs text-muted-foreground">
+                  Dispatched: {dispatchedTotals.arabica_dry_p.toFixed(2)} | Sold: {soldTotals.arabica_dry_p.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            {/* Arabica Dry Cherry */}
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="text-sm font-medium text-muted-foreground">Arabica Dry Cherry</div>
+              <div className="mt-1">
+                <div className="text-lg font-bold text-green-600">{availableToSell.arabica_dry_cherry.toFixed(2)} KGs</div>
+                <div className="text-xs text-muted-foreground">
+                  Dispatched: {dispatchedTotals.arabica_dry_cherry.toFixed(2)} | Sold: {soldTotals.arabica_dry_cherry.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            {/* Robusta Dry P */}
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="text-sm font-medium text-muted-foreground">Robusta Dry P</div>
+              <div className="mt-1">
+                <div className="text-lg font-bold text-amber-600">{availableToSell.robusta_dry_p.toFixed(2)} KGs</div>
+                <div className="text-xs text-muted-foreground">
+                  Dispatched: {dispatchedTotals.robusta_dry_p.toFixed(2)} | Sold: {soldTotals.robusta_dry_p.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            {/* Robusta Dry Cherry */}
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="text-sm font-medium text-muted-foreground">Robusta Dry Cherry</div>
+              <div className="mt-1">
+                <div className="text-lg font-bold text-amber-600">{availableToSell.robusta_dry_cherry.toFixed(2)} KGs</div>
+                <div className="text-xs text-muted-foreground">
+                  Dispatched: {dispatchedTotals.robusta_dry_cherry.toFixed(2)} | Sold: {soldTotals.robusta_dry_cherry.toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Revenue Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue */}
         <Card>
@@ -376,6 +521,12 @@ export default function SalesTab() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className={cn(
+                "text-xs",
+                currentAvailable > 0 ? "text-green-600" : "text-red-600"
+              )}>
+                Available: {currentAvailable.toFixed(2)} KGs
+              </p>
             </div>
 
             {/* Weight in KGs */}
@@ -387,7 +538,13 @@ export default function SalesTab() {
                 placeholder="Enter weight in KGs"
                 value={weightKgs}
                 onChange={(e) => setWeightKgs(e.target.value)}
+                max={currentAvailable}
               />
+              {weightKgs && Number(weightKgs) > currentAvailable && (
+                <p className="text-xs text-red-600">
+                  Exceeds available inventory!
+                </p>
+              )}
             </div>
 
             {/* Price per KG */}

@@ -176,6 +176,17 @@ export default function DispatchTab() {
       return
     }
 
+    // Check if we have enough bags available from processing
+    const balance = getBalanceForSelection()
+    if (Number(bagsDispatched) > balance) {
+      toast({
+        title: "Insufficient Inventory",
+        description: `Only ${balance.toFixed(2)} ${coffeeType} ${bagType} bags available from processing. You are trying to dispatch ${bagsDispatched} bags.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSaving(true)
     try {
       const response = await fetch("/api/dispatch", {
@@ -283,6 +294,16 @@ export default function DispatchTab() {
   const balanceArabicaDryCherry = bagTotals.arabica_dry_cherry_bags - dispatchedTotals.arabica_dry_cherry
   const balanceRobustaDryP = bagTotals.robusta_dry_p_bags - dispatchedTotals.robusta_dry_p
   const balanceRobustaDryCherry = bagTotals.robusta_dry_cherry_bags - dispatchedTotals.robusta_dry_cherry
+
+  // Get current selected balance
+  const getBalanceForSelection = () => {
+    if (coffeeType === "Arabica" && bagType === "Dry P") return balanceArabicaDryP
+    if (coffeeType === "Arabica" && bagType === "Dry Cherry") return balanceArabicaDryCherry
+    if (coffeeType === "Robusta" && bagType === "Dry P") return balanceRobustaDryP
+    if (coffeeType === "Robusta" && bagType === "Dry Cherry") return balanceRobustaDryCherry
+    return 0
+  }
+  const currentBalance = getBalanceForSelection()
 
   return (
     <div className="space-y-6">
@@ -460,6 +481,12 @@ export default function DispatchTab() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className={cn(
+                "text-xs",
+                currentBalance > 0 ? "text-green-600" : "text-red-600"
+              )}>
+                Available: {currentBalance.toFixed(2)} bags
+              </p>
             </div>
 
             {/* Bags Dispatched */}
@@ -471,7 +498,13 @@ export default function DispatchTab() {
                 placeholder="Enter number of bags"
                 value={bagsDispatched}
                 onChange={(e) => setBagsDispatched(e.target.value)}
+                max={currentBalance}
               />
+              {bagsDispatched && Number(bagsDispatched) > currentBalance && (
+                <p className="text-xs text-red-600">
+                  Exceeds available inventory from processing!
+                </p>
+              )}
             </div>
 
             {/* Notes */}
