@@ -57,8 +57,6 @@ export async function POST(request: Request) {
       coffee_type, 
       bag_type, 
       bags_dispatched, 
-      price_per_bag, 
-      buyer_name, 
       notes, 
       created_by 
     } = body
@@ -73,10 +71,10 @@ export async function POST(request: Request) {
     const result = await sql`
       INSERT INTO dispatch_records (
         dispatch_date, estate, coffee_type, bag_type, bags_dispatched, 
-        price_per_bag, buyer_name, notes, created_by
+        notes, created_by
       ) VALUES (
         ${dispatch_date}::date, ${estate}, ${coffee_type}, ${bag_type}, ${bags_dispatched},
-        ${price_per_bag || null}, ${buyer_name || null}, ${notes || null}, ${created_by || 'unknown'}
+        ${notes || null}, ${created_by || 'unknown'}
       )
       RETURNING *
     `
@@ -84,40 +82,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, record: result[0] })
   } catch (error) {
     console.error("Error creating dispatch record:", error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    )
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const sql = getDispatchDb()
-    const body = await request.json()
-    const { id, price_per_bag, buyer_name, notes } = body
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: "Record ID is required" },
-        { status: 400 }
-      )
-    }
-
-    const result = await sql`
-      UPDATE dispatch_records 
-      SET 
-        price_per_bag = ${price_per_bag || null},
-        buyer_name = ${buyer_name || null},
-        notes = ${notes || null},
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    return NextResponse.json({ success: true, record: result[0] })
-  } catch (error) {
-    console.error("Error updating dispatch record:", error)
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
