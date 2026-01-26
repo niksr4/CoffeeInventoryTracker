@@ -65,8 +65,6 @@ export default function SalesTab() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [isMigrating, setIsMigrating] = useState(false)
-  const [needsMigration, setNeedsMigration] = useState(false)
   const { toast } = useToast()
 
   // Calculate sold totals from sales records (using kgs_received as the actual sold amount)
@@ -155,74 +153,24 @@ export default function SalesTab() {
   }, [salesRecords])
 
   // Fetch sales records
-const fetchSalesRecords = useCallback(async () => {
-  setIsLoading(true)
-  try {
-  const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
-  const response = await fetch(`/api/sales?startDate=${startDate}&endDate=${endDate}`)
-  const data = await response.json()
-  
-  console.log("[v0] Sales API response:", data)
-  if (data.success) {
-    setSalesRecords(data.records || [])
-    // Check if migration is needed (records exist but new columns are missing/zero)
-    if (data.records && data.records.length > 0) {
-      const firstRecord = data.records[0]
-      console.log("[v0] First record:", firstRecord)
-      console.log("[v0] bags_sent:", firstRecord.bags_sent, "kgs_received:", firstRecord.kgs_received)
-      if (firstRecord.bags_sent === undefined || firstRecord.kgs_received === undefined) {
-        console.log("[v0] Setting needsMigration to true - columns missing")
-        setNeedsMigration(true)
-      } else {
-        setNeedsMigration(false)
-      }
-    }
-  } else {
-    // Check if error is about missing columns
-    console.log("[v0] Error from API:", data.error)
-    if (data.error && (data.error.includes('column') || data.error.includes('does not exist'))) {
-      console.log("[v0] Setting needsMigration to true - error about columns")
-      setNeedsMigration(true)
-    }
-    console.error("Error fetching sales records:", data.error)
-  }
-  } catch (error) {
-  console.error("Error fetching sales records:", error)
-  } finally {
-  setIsLoading(false)
-  }
-  }, [selectedFiscalYear])
-
-  const runMigration = async () => {
-    setIsMigrating(true)
+  const fetchSalesRecords = useCallback(async () => {
+    setIsLoading(true)
     try {
-      const response = await fetch('/api/migrate-sales', { method: 'POST' })
+      const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
+      const response = await fetch(`/api/sales?startDate=${startDate}&endDate=${endDate}`)
       const data = await response.json()
       
       if (data.success) {
-        toast({
-          title: "Migration Complete",
-          description: "Database updated successfully. Refreshing data...",
-        })
-        setNeedsMigration(false)
-        fetchSalesRecords()
+        setSalesRecords(data.records || [])
       } else {
-        toast({
-          title: "Migration Failed",
-          description: data.error || "Unknown error occurred",
-          variant: "destructive",
-        })
+        console.error("Error fetching sales records:", data.error)
       }
     } catch (error) {
-      toast({
-        title: "Migration Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      })
+      console.error("Error fetching sales records:", error)
     } finally {
-      setIsMigrating(false)
+      setIsLoading(false)
     }
-  }
+  }, [selectedFiscalYear])
 
   useEffect(() => {
     fetchDispatchedTotals()
@@ -400,32 +348,6 @@ const fetchSalesRecords = useCallback(async () => {
 
 return (
   <div className="space-y-6">
-  {/* Migration Banner */}
-  {needsMigration && (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between">
-      <div>
-        <h3 className="font-medium text-amber-800">Database Update Required</h3>
-        <p className="text-sm text-amber-700">
-          The sales table needs to be updated to support the new bags/kgs tracking fields.
-        </p>
-      </div>
-      <Button 
-        onClick={runMigration} 
-        disabled={isMigrating}
-        className="bg-amber-600 hover:bg-amber-700 text-white"
-      >
-        {isMigrating ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Updating...
-          </>
-        ) : (
-          "Run Update"
-        )}
-      </Button>
-    </div>
-  )}
-
   {/* Fiscal Year Selector */}
   <div className="flex items-center justify-between">
   <h2 className="text-xl font-semibold">Coffee Sales</h2>
