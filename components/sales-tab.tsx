@@ -9,168 +9,114 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Loader2, Save, Trash2, Download, Package, Truck } from "lucide-react"
+import { CalendarIcon, Loader2, Save, Trash2, Download, IndianRupee, TrendingUp } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getCurrentFiscalYear, getAvailableFiscalYears, getFiscalYearDateRange, type FiscalYear } from "@/lib/fiscal-year-utils"
 
-interface DispatchRecord {
+interface SalesRecord {
   id?: number
-  dispatch_date: string
-  estate: string
+  sale_date: string
   coffee_type: string
   bag_type: string
-  bags_dispatched: number
-  price_per_bag?: number
-  buyer_name?: string
+  weight_kgs: number
+  price_per_kg: number
+  total_revenue: number
+  buyer_name: string | null
   notes: string | null
-  created_by: string
 }
 
-interface BagTotals {
-  arabica_dry_p_bags: number
-  arabica_dry_cherry_bags: number
-  robusta_dry_p_bags: number
-  robusta_dry_cherry_bags: number
-}
-
-const ESTATES = ["HF A", "HF B", "HF C", "MV"]
 const COFFEE_TYPES = ["Arabica", "Robusta"]
 const BAG_TYPES = ["Dry P", "Dry Cherry"]
 
-export default function DispatchTab() {
+export default function SalesTab() {
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
   const availableFiscalYears = getAvailableFiscalYears()
   
   const [date, setDate] = useState<Date>(new Date())
-  const [estate, setEstate] = useState<string>("HF A")
   const [coffeeType, setCoffeeType] = useState<string>("Arabica")
   const [bagType, setBagType] = useState<string>("Dry P")
-  const [bagsDispatched, setBagsDispatched] = useState<string>("")
+  const [weightKgs, setWeightKgs] = useState<string>("")
+  const [pricePerKg, setPricePerKg] = useState<string>("")
+  const [buyerName, setBuyerName] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
-  const [bagTotals, setBagTotals] = useState<BagTotals>({
-    arabica_dry_p_bags: 0,
-    arabica_dry_cherry_bags: 0,
-    robusta_dry_p_bags: 0,
-    robusta_dry_cherry_bags: 0,
-  })
-  const [dispatchRecords, setDispatchRecords] = useState<DispatchRecord[]>([])
+  const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
 
-  // Calculate dispatched totals from records
-  const calculateDispatchedTotals = useCallback(() => {
+  // Calculate totals
+  const calculateTotals = useCallback(() => {
     const totals = {
-      arabica_dry_p: 0,
-      arabica_dry_cherry: 0,
-      robusta_dry_p: 0,
-      robusta_dry_cherry: 0,
+      totalWeight: 0,
+      totalRevenue: 0,
+      arabicaRevenue: 0,
+      robustaRevenue: 0,
     }
 
-    dispatchRecords.forEach((record) => {
-      const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
-      if (totals[key] !== undefined) {
-        totals[key] += Number(record.bags_dispatched)
+    salesRecords.forEach((record) => {
+      totals.totalWeight += Number(record.weight_kgs)
+      totals.totalRevenue += Number(record.total_revenue)
+      if (record.coffee_type === "Arabica") {
+        totals.arabicaRevenue += Number(record.total_revenue)
+      } else {
+        totals.robustaRevenue += Number(record.total_revenue)
       }
     })
 
     return totals
-  }, [dispatchRecords])
+  }, [salesRecords])
 
-  // Fetch bag totals from processing data - need to fetch each location separately
-  // Calculate cumulative totals by summing all "today" values (same as processing dashboard)
-  const fetchBagTotals = useCallback(async () => {
-    try {
-      const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
-      const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
-      
-      const locationTotals: Record<string, { dryPBags: number; dryCherryBags: number }> = {}
-
-      // Fetch data for each location
-      await Promise.all(
-        locations.map(async (location) => {
-          const response = await fetch(
-            `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`
-          )
-          const data = await response.json()
-
-          if (data.success && data.records && data.records.length > 0) {
-            // Calculate cumulative totals by summing all "today" bag values from all records
-            let cumulativeDryPBags = 0
-            let cumulativeDryCherryBags = 0
-            
-            for (const record of data.records) {
-              cumulativeDryPBags += Number(record.dry_p_bags) || 0
-              cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
-            }
-            
-            locationTotals[location] = {
-              dryPBags: Number(cumulativeDryPBags.toFixed(2)),
-              dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
-            }
-          }
-        })
-      )
-
-      // Calculate Arabica totals (only HF Arabica)
-      const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
-      const arabicaDryCherry = locationTotals["HF Arabica"]?.dryCherryBags || 0
-
-      // Calculate Robusta totals (HF Robusta + MV Robusta + PG Robusta)
-      const robustaDryP = 
-        (locationTotals["HF Robusta"]?.dryPBags || 0) +
-        (locationTotals["MV Robusta"]?.dryPBags || 0) +
-        (locationTotals["PG Robusta"]?.dryPBags || 0)
-      const robustaDryCherry = 
-        (locationTotals["HF Robusta"]?.dryCherryBags || 0) +
-        (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
-        (locationTotals["PG Robusta"]?.dryCherryBags || 0)
-
-      setBagTotals({
-        arabica_dry_p_bags: arabicaDryP,
-        arabica_dry_cherry_bags: arabicaDryCherry,
-        robusta_dry_p_bags: robustaDryP,
-        robusta_dry_cherry_bags: robustaDryCherry,
-      })
-    } catch (error) {
-      console.error("Error fetching bag totals:", error)
-    }
-  }, [selectedFiscalYear])
-
-  // Fetch dispatch records
-  const fetchDispatchRecords = useCallback(async () => {
+  // Fetch sales records
+  const fetchSalesRecords = useCallback(async () => {
     setIsLoading(true)
     try {
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
-      const response = await fetch(`/api/dispatch?startDate=${startDate}&endDate=${endDate}`)
+      const response = await fetch(`/api/sales?startDate=${startDate}&endDate=${endDate}`)
       const data = await response.json()
 
       if (data.success) {
-        setDispatchRecords(data.records || [])
+        setSalesRecords(data.records || [])
       } else {
-        console.error("Error fetching dispatch records:", data.error)
+        console.error("Error fetching sales records:", data.error)
       }
     } catch (error) {
-      console.error("Error fetching dispatch records:", error)
+      console.error("Error fetching sales records:", error)
     } finally {
       setIsLoading(false)
     }
   }, [selectedFiscalYear])
 
   useEffect(() => {
-    fetchBagTotals()
-    fetchDispatchRecords()
-  }, [fetchBagTotals, fetchDispatchRecords])
+    fetchSalesRecords()
+  }, [fetchSalesRecords])
 
   const handleSave = async () => {
-    if (!bagsDispatched || Number(bagsDispatched) <= 0) {
+    if (!weightKgs || Number(weightKgs) <= 0) {
       toast({
         title: "Error",
-        description: "Please enter a valid number of bags",
+        description: "Please enter a valid weight in KGs",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!pricePerKg || Number(pricePerKg) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid price per KG",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!buyerName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the buyer name",
         variant: "destructive",
       })
       return
@@ -178,17 +124,17 @@ export default function DispatchTab() {
 
     setIsSaving(true)
     try {
-      const response = await fetch("/api/dispatch", {
+      const response = await fetch("/api/sales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dispatch_date: format(date, "yyyy-MM-dd"),
-          estate,
+          sale_date: format(date, "yyyy-MM-dd"),
           coffee_type: coffeeType,
           bag_type: bagType,
-          bags_dispatched: Number(bagsDispatched),
+          weight_kgs: Number(weightKgs),
+          price_per_kg: Number(pricePerKg),
+          buyer_name: buyerName,
           notes: notes || null,
-          created_by: "dispatch",
         }),
       })
 
@@ -197,24 +143,26 @@ export default function DispatchTab() {
       if (data.success) {
         toast({
           title: "Success",
-          description: "Dispatch record saved successfully",
+          description: "Sales record saved successfully",
         })
         // Reset form
-        setBagsDispatched("")
+        setWeightKgs("")
+        setPricePerKg("")
+        setBuyerName("")
         setNotes("")
         // Refresh records
-        fetchDispatchRecords()
+        fetchSalesRecords()
       } else {
         toast({
           title: "Error",
-          description: data.error || "Failed to save dispatch record",
+          description: data.error || "Failed to save sales record",
           variant: "destructive",
         })
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save dispatch record",
+        description: "Failed to save sales record",
         variant: "destructive",
       })
     } finally {
@@ -226,7 +174,7 @@ export default function DispatchTab() {
     if (!confirm("Are you sure you want to delete this record?")) return
 
     try {
-      const response = await fetch(`/api/dispatch?id=${id}`, {
+      const response = await fetch(`/api/sales?id=${id}`, {
         method: "DELETE",
       })
 
@@ -237,7 +185,7 @@ export default function DispatchTab() {
           title: "Success",
           description: "Record deleted successfully",
         })
-        fetchDispatchRecords()
+        fetchSalesRecords()
       } else {
         toast({
           title: "Error",
@@ -255,13 +203,15 @@ export default function DispatchTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "Estate", "Coffee Type", "Bag Type", "Bags Dispatched", "Notes"]
-    const rows = dispatchRecords.map((record) => [
-      format(new Date(record.dispatch_date), "yyyy-MM-dd"),
-      record.estate,
+    const headers = ["Date", "Coffee Type", "Bag Type", "Weight (KGs)", "Price/KG", "Total Revenue", "Buyer", "Notes"]
+    const rows = salesRecords.map((record) => [
+      format(new Date(record.sale_date), "yyyy-MM-dd"),
       record.coffee_type,
       record.bag_type,
-      record.bags_dispatched.toString(),
+      record.weight_kgs.toString(),
+      record.price_per_kg.toString(),
+      record.total_revenue.toString(),
+      record.buyer_name || "",
       record.notes || "",
     ])
 
@@ -271,24 +221,19 @@ export default function DispatchTab() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `dispatch_records_${selectedFiscalYear.label.replace("/", "-")}.csv`
+    a.download = `sales_records_${selectedFiscalYear.label.replace("/", "-")}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  const dispatchedTotals = calculateDispatchedTotals()
-
-  // Calculate balance
-  const balanceArabicaDryP = bagTotals.arabica_dry_p_bags - dispatchedTotals.arabica_dry_p
-  const balanceArabicaDryCherry = bagTotals.arabica_dry_cherry_bags - dispatchedTotals.arabica_dry_cherry
-  const balanceRobustaDryP = bagTotals.robusta_dry_p_bags - dispatchedTotals.robusta_dry_p
-  const balanceRobustaDryCherry = bagTotals.robusta_dry_cherry_bags - dispatchedTotals.robusta_dry_cherry
+  const totals = calculateTotals()
+  const calculatedRevenue = weightKgs && pricePerKg ? (Number(weightKgs) * Number(pricePerKg)) : 0
 
   return (
     <div className="space-y-6">
       {/* Fiscal Year Selector */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Coffee Bag Dispatch</h2>
+        <h2 className="text-xl font-semibold">Coffee Sales</h2>
         <div className="flex items-center gap-2">
           <Label htmlFor="fiscal-year" className="text-sm text-muted-foreground">
             Fiscal Year:
@@ -316,85 +261,73 @@ export default function DispatchTab() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Arabica Dry P */}
+        {/* Total Revenue */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Arabica Dry P Bags</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.arabica_dry_p_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600">₹{totals.totalRevenue.toLocaleString()}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Dispatched: {dispatchedTotals.arabica_dry_p.toFixed(2)}
-            </div>
-            <div className={cn("text-sm font-medium mt-1", balanceArabicaDryP < 0 ? "text-red-600" : "text-green-600")}>
-              Balance: {balanceArabicaDryP.toFixed(2)}
+              {salesRecords.length} sales recorded
             </div>
           </CardContent>
         </Card>
 
-        {/* Arabica Dry Cherry */}
+        {/* Total Weight */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Arabica Dry Cherry Bags</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Weight Sold</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.arabica_dry_cherry_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{totals.totalWeight.toFixed(2)} KGs</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Dispatched: {dispatchedTotals.arabica_dry_cherry.toFixed(2)}
-            </div>
-            <div className={cn("text-sm font-medium mt-1", balanceArabicaDryCherry < 0 ? "text-red-600" : "text-green-600")}>
-              Balance: {balanceArabicaDryCherry.toFixed(2)}
+              Avg: ₹{totals.totalWeight > 0 ? (totals.totalRevenue / totals.totalWeight).toFixed(2) : "0"}/KG
             </div>
           </CardContent>
         </Card>
 
-        {/* Robusta Dry P */}
+        {/* Arabica Revenue */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Robusta Dry P Bags</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Arabica Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.robusta_dry_p_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-amber-600">₹{totals.arabicaRevenue.toLocaleString()}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Dispatched: {dispatchedTotals.robusta_dry_p.toFixed(2)}
-            </div>
-            <div className={cn("text-sm font-medium mt-1", balanceRobustaDryP < 0 ? "text-red-600" : "text-green-600")}>
-              Balance: {balanceRobustaDryP.toFixed(2)}
+              {totals.totalRevenue > 0 ? ((totals.arabicaRevenue / totals.totalRevenue) * 100).toFixed(1) : 0}% of total
             </div>
           </CardContent>
         </Card>
 
-        {/* Robusta Dry Cherry */}
+        {/* Robusta Revenue */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Robusta Dry Cherry Bags</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Robusta Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.robusta_dry_cherry_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600">₹{totals.robustaRevenue.toLocaleString()}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Dispatched: {dispatchedTotals.robusta_dry_cherry.toFixed(2)}
-            </div>
-            <div className={cn("text-sm font-medium mt-1", balanceRobustaDryCherry < 0 ? "text-red-600" : "text-green-600")}>
-              Balance: {balanceRobustaDryCherry.toFixed(2)}
+              {totals.totalRevenue > 0 ? ((totals.robustaRevenue / totals.totalRevenue) * 100).toFixed(1) : 0}% of total
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Add Dispatch Form */}
+      {/* Add Sale Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5" />
-            Record Dispatch
+            <IndianRupee className="h-5 w-5" />
+            Record Sale
           </CardTitle>
-          <CardDescription>Record coffee bags sent out from the estate</CardDescription>
+          <CardDescription>Record coffee sales with weight in KGs and price</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Date */}
             <div className="space-y-2">
-              <Label>Date</Label>
+              <Label>Sale Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -409,23 +342,6 @@ export default function DispatchTab() {
                   <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus />
                 </PopoverContent>
               </Popover>
-            </div>
-
-            {/* Estate */}
-            <div className="space-y-2">
-              <Label>Estate</Label>
-              <Select value={estate} onValueChange={setEstate}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ESTATES.map((e) => (
-                    <SelectItem key={e} value={e}>
-                      {e}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Coffee Type */}
@@ -462,26 +378,58 @@ export default function DispatchTab() {
               </Select>
             </div>
 
-            {/* Bags Dispatched */}
+            {/* Weight in KGs */}
             <div className="space-y-2">
-              <Label>Bags Dispatched</Label>
+              <Label>Weight (KGs)</Label>
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Enter number of bags"
-                value={bagsDispatched}
-                onChange={(e) => setBagsDispatched(e.target.value)}
+                placeholder="Enter weight in KGs"
+                value={weightKgs}
+                onChange={(e) => setWeightKgs(e.target.value)}
               />
             </div>
 
+            {/* Price per KG */}
+            <div className="space-y-2">
+              <Label>Price per KG (Rs)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Enter price per KG"
+                value={pricePerKg}
+                onChange={(e) => setPricePerKg(e.target.value)}
+              />
+            </div>
+
+            {/* Buyer Name */}
+            <div className="space-y-2">
+              <Label>Buyer Name</Label>
+              <Input
+                type="text"
+                placeholder="Enter buyer name"
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+              />
+            </div>
+
+            {/* Calculated Revenue */}
+            <div className="space-y-2">
+              <Label>Total Revenue (Calculated)</Label>
+              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+                <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+                <span className="font-medium text-green-600">₹{calculatedRevenue.toLocaleString()}</span>
+              </div>
+            </div>
+
             {/* Notes */}
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2">
               <Label>Notes (Optional)</Label>
               <Textarea
                 placeholder="Add any notes..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[60px]"
+                className="min-h-[40px]"
               />
             </div>
           </div>
@@ -496,7 +444,7 @@ export default function DispatchTab() {
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Save Dispatch
+                  Save Sale
                 </>
               )}
             </Button>
@@ -504,16 +452,16 @@ export default function DispatchTab() {
         </CardContent>
       </Card>
 
-      {/* Dispatch Records Table */}
+      {/* Sales Records Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Dispatch Records
+                <TrendingUp className="h-5 w-5" />
+                Sales Records
               </CardTitle>
-              <CardDescription>History of all dispatched bags</CardDescription>
+              <CardDescription>History of all coffee sales</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={exportToCSV} className="bg-transparent">
               <Download className="mr-2 h-4 w-4" />
@@ -526,30 +474,36 @@ export default function DispatchTab() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : dispatchRecords.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No dispatch records found</div>
+          ) : salesRecords.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No sales records found</div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Estate</TableHead>
                     <TableHead>Coffee Type</TableHead>
                     <TableHead>Bag Type</TableHead>
-                    <TableHead className="text-right">Bags</TableHead>
+                    <TableHead className="text-right">Weight (KGs)</TableHead>
+                    <TableHead className="text-right">Price/KG</TableHead>
+                    <TableHead className="text-right">Total Revenue</TableHead>
+                    <TableHead>Buyer</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dispatchRecords.map((record) => (
+                  {salesRecords.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell>{format(new Date(record.dispatch_date), "dd MMM yyyy")}</TableCell>
-                      <TableCell>{record.estate}</TableCell>
+                      <TableCell>{format(new Date(record.sale_date), "dd MMM yyyy")}</TableCell>
                       <TableCell>{record.coffee_type}</TableCell>
                       <TableCell>{record.bag_type}</TableCell>
-                      <TableCell className="text-right">{Number(record.bags_dispatched).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{Number(record.weight_kgs).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₹{Number(record.price_per_kg).toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-medium text-green-600">
+                        ₹{Number(record.total_revenue).toLocaleString()}
+                      </TableCell>
+                      <TableCell>{record.buyer_name || "-"}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
                       <TableCell className="text-right">
                         <Button

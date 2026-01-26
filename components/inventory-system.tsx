@@ -53,6 +53,7 @@ import { PepperTab } from "./pepper-tab"
 
 import RainfallTab from "@/components/rainfall-tab"
 import DispatchTab from "@/components/dispatch-tab"
+import SalesTab from "@/components/sales-tab"
 
 const parseCustomDateString = (dateString: string): Date | null => {
   if (!dateString || typeof dateString !== "string") return null
@@ -820,6 +821,10 @@ export default function InventorySystem() {
                   <Truck className="h-4 w-4 mr-2" />
                   Dispatch
                 </TabsTrigger>
+                <TabsTrigger value="sales">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Sales
+                </TabsTrigger>
                 <TabsTrigger value="rainfall">
                   <CloudRain className="h-4 w-4 mr-2" />
                   Rainfall
@@ -1240,7 +1245,10 @@ export default function InventorySystem() {
                 <ProcessingTab username={user?.username || "unknown"} />
               </TabsContent>
               <TabsContent value="dispatch">
-                <DispatchTab isAdmin={true} />
+                <DispatchTab />
+              </TabsContent>
+              <TabsContent value="sales">
+                <SalesTab />
               </TabsContent>
               <TabsContent value="rainfall">
                 <RainfallTab username={user?.username || "unknown"} />
@@ -1796,7 +1804,7 @@ export default function InventorySystem() {
                 <ProcessingTab username={user?.username || "unknown"} />
               </TabsContent>
               <TabsContent value="dispatch">
-                <DispatchTab isAdmin={false} />
+                <DispatchTab />
               </TabsContent>
               <TabsContent value="rainfall">
                 <RainfallTab username={user?.username || "unknown"} />
