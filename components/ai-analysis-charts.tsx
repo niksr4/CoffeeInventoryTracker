@@ -18,13 +18,32 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+import { getFiscalYearDateRange, getCurrentFiscalYear } from "@/lib/fiscal-year-utils"
 
 interface AiAnalysisChartsProps {
   inventory: InventoryItem[]
   transactions: Transaction[]
 }
 
+interface LaborRecord {
+  deployment_date: string
+  hf_laborers: number
+  hf_cost_per_laborer: number
+  outside_laborers: number
+  outside_cost_per_laborer: number
+  total_cost: number
+  code: string
+}
+
+interface ProcessingRecord {
+  process_date: string
+  crop_today: number
+  dry_p_bags: number
+  dry_cherry_bags: number
+}
+
 const COLORS = ["#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"] // Green palette
+const LABOR_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"] // Blue palette
 
 // Helper to parse DD/MM/YYYY HH:MM date strings
 const parseTransactionDate = (dateString: string): Date | null => {
@@ -40,10 +59,34 @@ const parseTransactionDate = (dateString: string): Date | null => {
 }
 
 export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysisChartsProps) {
+  const [laborData, setLaborData] = React.useState<LaborRecord[]>([])
+  const [processingData, setProcessingData] = React.useState<Record<string, ProcessingRecord[]>>({})
+
+  // Fetch labor and processing data from dedicated API
   React.useEffect(() => {
-    console.log("AiAnalysisCharts received transactions:", transactions)
-    console.log("AiAnalysisCharts received inventory:", inventory)
-  }, [transactions, inventory])
+    const fetchData = async () => {
+      const fiscalYear = getCurrentFiscalYear()
+      const { startDate, endDate } = getFiscalYearDateRange(fiscalYear)
+
+      try {
+        const response = await fetch(`/api/ai-charts-data?fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`)
+        const data = await response.json()
+        
+        if (data.success) {
+          if (data.laborData) {
+            setLaborData(data.laborData)
+          }
+          if (data.processingData) {
+            setProcessingData(data.processingData)
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching AI charts data:", error)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const consumptionData = React.useMemo(() => {
     const monthlyConsumption: { [key: string]: { date: Date; total: number } } = {}
@@ -155,10 +198,71 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
     return sortedData
   }, [transactions])
 
+  // Labor cost data by month
+  const laborCostData = React.useMemo(() => {
+    const monthlyLabor: Record<string, { month: string; hfCost: number; outsideCost: number }> = {}
+    
+    laborData.forEach((record) => {
+      const date = new Date(record.deployment_date)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      const monthLabel = date.toLocaleString("default", { month: "short", year: "2-digit" })
+      
+      if (!monthlyLabor[monthKey]) {
+        monthlyLabor[monthKey] = { month: monthLabel, hfCost: 0, outsideCost: 0 }
+      }
+      // Calculate cost: laborers * cost_per_laborer
+      const hfCost = (Number(record.hf_laborers) || 0) * (Number(record.hf_cost_per_laborer) || 0)
+      const outsideCost = (Number(record.outside_laborers) || 0) * (Number(record.outside_cost_per_laborer) || 0)
+      monthlyLabor[monthKey].hfCost += hfCost
+      monthlyLabor[monthKey].outsideCost += outsideCost
+    })
+
+    return Object.entries(monthlyLabor)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([, data]) => data)
+  }, [laborData])
+
+  // Processing output by location
+  const processingOutputData = React.useMemo(() => {
+    return Object.entries(processingData).map(([location, records]) => {
+      const totalDryPBags = records.reduce((sum, r) => sum + (Number(r.dry_p_bags) || 0), 0)
+      const totalDryCherryBags = records.reduce((sum, r) => sum + (Number(r.dry_cherry_bags) || 0), 0)
+      const shortName = location.replace(" Robusta", "").replace(" Arabica", "")
+      return {
+        name: shortName,
+        dryP: Number(totalDryPBags.toFixed(2)),
+        dryCherry: Number(totalDryCherryBags.toFixed(2)),
+      }
+    })
+  }, [processingData])
+
   const consumptionChartConfig: ChartConfig = {
     total: {
       label: "Units Consumed",
       color: COLORS[0],
+    },
+  }
+
+  const laborChartConfig: ChartConfig = {
+    hfCost: {
+      label: "HF Labor",
+      color: LABOR_COLORS[0],
+    },
+    outsideCost: {
+      label: "Outside Labor",
+      color: LABOR_COLORS[1],
+    },
+  }
+
+  const processingChartConfig: ChartConfig = {
+    dryP: {
+      label: "Dry P Bags",
+      color: COLORS[0],
+    },
+    dryCherry: {
+      label: "Dry Cherry Bags",
+      color: COLORS[2],
     },
   }
 
@@ -201,31 +305,63 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+      {/* Labor Cost Chart */}
       <Card className="xl:col-span-1">
         <CardHeader>
-          <CardTitle>Monthly Consumption</CardTitle>
-          <CardDescription>Total units depleted in the last 6 months.</CardDescription>
+          <CardTitle>Monthly Labor Costs</CardTitle>
+          <CardDescription>HF vs Outside labor costs over time.</CardDescription>
         </CardHeader>
         <CardContent>
-          {consumptionData.length > 0 ? (
-            <ChartContainer config={consumptionChartConfig} className="min-h-[250px] w-full">
+          {laborCostData.length > 0 ? (
+            <ChartContainer config={laborChartConfig} className="min-h-[250px] w-full">
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={consumptionData} accessibilityLayer>
+                <BarChart data={laborCostData} accessibilityLayer>
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-                  <YAxis />
+                  <YAxis tickFormatter={(value) => `₹${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="total" fill="var(--color-total)" radius={4} />
+                  <Bar dataKey="hfCost" fill="var(--color-hfCost)" radius={[4, 4, 0, 0]} stackId="labor" />
+                  <Bar dataKey="outsideCost" fill="var(--color-outsideCost)" radius={[4, 4, 0, 0]} stackId="labor" />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
           ) : (
             <div className="flex items-center justify-center min-h-[250px]">
-              <p className="text-sm text-muted-foreground">No consumption data available.</p>
+              <p className="text-sm text-muted-foreground">No labor data available.</p>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Processing Output Chart */}
+      <Card className="xl:col-span-1">
+        <CardHeader>
+          <CardTitle>Processing Output by Location</CardTitle>
+          <CardDescription>Dry P and Dry Cherry bags by location.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {processingOutputData.length > 0 ? (
+            <ChartContainer config={processingChartConfig} className="min-h-[250px] w-full">
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={processingOutputData} accessibilityLayer layout="vertical">
+                  <CartesianGrid horizontal={false} />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={50} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="dryP" fill="var(--color-dryP)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="dryCherry" fill="var(--color-dryCherry)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center min-h-[250px]">
+              <p className="text-sm text-muted-foreground">No processing data available.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Restocking Cost Pie Chart */}
       <Card className="xl:col-span-1">
         <CardHeader>
           <CardTitle>Restocking Cost Analysis</CardTitle>
@@ -290,7 +426,36 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
           )}
         </CardContent>
       </Card>
-      <Card className="lg:col-span-2 xl:col-span-1">
+
+      {/* Monthly Consumption Chart */}
+      <Card className="xl:col-span-1">
+        <CardHeader>
+          <CardTitle>Monthly Consumption</CardTitle>
+          <CardDescription>Total units depleted in the last 6 months.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {consumptionData.length > 0 ? (
+            <ChartContainer config={consumptionChartConfig} className="min-h-[250px] w-full">
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={consumptionData} accessibilityLayer>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="total" fill="var(--color-total)" radius={4} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center min-h-[250px]">
+              <p className="text-sm text-muted-foreground">No consumption data available.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Inventory Value Over Time Chart */}
+      <Card className="lg:col-span-2 xl:col-span-2">
         <CardHeader>
           <CardTitle>Inventory Value Over Time</CardTitle>
           <CardDescription>Total inventory value over the last 30 days.</CardDescription>
@@ -308,7 +473,7 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
                     tickMargin={8}
                     tickFormatter={
                       (value) =>
-                        new Date(value + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) // Ensure date is treated as local
+                        new Date(value + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                     }
                   />
                   <YAxis

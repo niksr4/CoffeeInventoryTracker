@@ -10,21 +10,21 @@ import {
   Edit,
   Trash2,
   Plus,
-  RefreshCw,
   Search,
   SortAsc,
   SortDesc,
   History,
   Brain,
   TrendingUp,
-  AlertTriangle,
   BarChart3,
   Users,
   Cloudy,
   Factory,
   Leaf,
-  Settings,
   CloudRain,
+  Truck,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,14 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
@@ -57,8 +50,10 @@ import ProcessingTab from "@/components/processing-tab"
 import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 import WeatherTab from "@/components/weather-tab"
 import { PepperTab } from "./pepper-tab"
-import Link from "next/link"
-import RainfallTab from "@/components/rainfall-tab" // Import RainfallTab
+
+import RainfallTab from "@/components/rainfall-tab"
+import DispatchTab from "@/components/dispatch-tab"
+import SalesTab from "@/components/sales-tab"
 
 const parseCustomDateString = (dateString: string): Date | null => {
   if (!dateString || typeof dateString !== "string") return null
@@ -229,11 +224,32 @@ export default function InventorySystem() {
   }
 
   const generateAIAnalysis = async () => {
-    setAnalysisError(
-      "AI Analysis is temporarily unavailable due to a technical issue. This feature will be restored in a future update.",
-    )
-    return
-    // </CHANGE>
+    setIsAnalyzing(true)
+    setAnalysisError(null)
+    setAiAnalysis(null)
+
+    try {
+      const response = await fetch("/api/ai-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inventory, transactions }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to generate analysis")
+      }
+
+      setAiAnalysis(data.analysis)
+    } catch (error) {
+      console.error("AI Analysis error:", error)
+      setAnalysisError(
+        error instanceof Error ? error.message : "Failed to generate AI analysis. Please try again.",
+      )
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -673,6 +689,26 @@ export default function InventorySystem() {
     document.body.removeChild(link)
   }
 
+  const handleSync = async () => {
+    setIsSyncing(true)
+    try {
+      await refreshData(true)
+      toast({
+        title: "Sync complete",
+        description: "Inventory data has been refreshed successfully.",
+        variant: "default",
+      })
+    } catch (error) {
+      toast({
+        title: "Sync failed",
+        description: "There was an error syncing the data. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const handleRecordTransaction = async () => {
     if (!newTransaction.itemType || !newTransaction.quantity || !newTransaction.transactionType) {
       toast({ title: "Missing fields", description: "Please select item, quantity, and type.", variant: "destructive" })
@@ -734,26 +770,6 @@ export default function InventorySystem() {
     })
   }
 
-  const handleSync = async () => {
-    setIsSyncing(true)
-    try {
-      await refreshData(true)
-      toast({
-        title: "Sync complete",
-        description: "Your inventory data has been synchronized successfully.",
-        variant: "default",
-      })
-    } catch (error) {
-      toast({
-        title: "Sync failed",
-        description: "There was an error synchronizing your inventory data. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSyncing(false)
-    }
-  }
-
   if (!user) return null
   if (loading && !inventory.length && !syncError) {
     return (
@@ -781,69 +797,12 @@ export default function InventorySystem() {
                 </Badge>
                 <span className="text-gray-700">{user.username}</span>
               </div>
-              {isAdmin && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Admin
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Admin Tools</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin/init-pepper-tables">
-                        <Leaf className="h-4 w-4 mr-2" />
-                        Initialize Pepper Tables
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin/init-processing-table">
-                        <Factory className="h-4 w-4 mr-2" />
-                        Initialize Processing Tables
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin/inspect-databases">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Inspect Databases
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" /> Logout
               </Button>
             </div>
           </header>
-
-          <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div className="text-sm text-gray-500">
-              {syncError ? (
-                <span className="text-red-500 flex items-center gap-1">
-                  <AlertTriangle className="h-4 w-4" /> {syncError}
-                </span>
-              ) : lastSync ? (
-                <span>Last synced: {lastSync.toLocaleTimeString()}</span>
-              ) : (
-                <span>Syncing data...</span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSync}
-                disabled={isSyncing}
-                className="flex items-center gap-1 bg-transparent"
-              >
-                <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "Syncing..." : "Sync Now"}
-              </Button>
-            </div>
-          </div>
 
           {isAdmin ? (
             <Tabs defaultValue="inventory" className="w-full">
@@ -858,7 +817,14 @@ export default function InventorySystem() {
                   <Factory className="h-4 w-4 mr-2" />
                   Processing
                 </TabsTrigger>
-                {/* CHANGE: Added Rainfall tab between Processing and Pepper */}
+                <TabsTrigger value="dispatch">
+                  <Truck className="h-4 w-4 mr-2" />
+                  Dispatch
+                </TabsTrigger>
+                <TabsTrigger value="sales">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Sales
+                </TabsTrigger>
                 <TabsTrigger value="rainfall">
                   <CloudRain className="h-4 w-4 mr-2" />
                   Rainfall
@@ -1278,7 +1244,12 @@ export default function InventorySystem() {
               <TabsContent value="processing">
                 <ProcessingTab username={user?.username || "unknown"} />
               </TabsContent>
-              {/* CHANGE: Added Rainfall tab content */}
+              <TabsContent value="dispatch">
+                <DispatchTab />
+              </TabsContent>
+              <TabsContent value="sales">
+                <SalesTab />
+              </TabsContent>
               <TabsContent value="rainfall">
                 <RainfallTab username={user?.username || "unknown"} />
               </TabsContent>
@@ -1415,7 +1386,10 @@ export default function InventorySystem() {
                   <Factory className="h-4 w-4 mr-2" />
                   Processing
                 </TabsTrigger>
-                {/* CHANGE: Added Rainfall tab for non-admin users */}
+                <TabsTrigger value="dispatch">
+                  <Truck className="h-4 w-4 mr-2" />
+                  Dispatch
+                </TabsTrigger>
                 <TabsTrigger value="rainfall">
                   <CloudRain className="h-4 w-4 mr-2" />
                   Rainfall
@@ -1829,7 +1803,9 @@ export default function InventorySystem() {
               <TabsContent value="processing">
                 <ProcessingTab username={user?.username || "unknown"} />
               </TabsContent>
-              {/* CHANGE: Added Rainfall tab content for non-admin */}
+              <TabsContent value="dispatch">
+                <DispatchTab />
+              </TabsContent>
               <TabsContent value="rainfall">
                 <RainfallTab username={user?.username || "unknown"} />
               </TabsContent>

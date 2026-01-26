@@ -56,3 +56,13 @@ export function isDateInFiscalYear(date: string | Date, fiscalYear: FiscalYear):
 
   return checkDate >= startDate && checkDate <= endDate
 }
+
+/**
+ * Get the start and end date for a fiscal year
+ */
+export function getFiscalYearDateRange(fiscalYear: FiscalYear): { startDate: string; endDate: string } {
+  return {
+    startDate: fiscalYear.startDate,
+    endDate: fiscalYear.endDate,
+  }
+}

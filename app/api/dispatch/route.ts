@@ -1,0 +1,115 @@
+import { neon } from "@neondatabase/serverless"
+import { NextResponse } from "next/server"
+
+// Connect to dispatch database (lowercase)
+function getDispatchDb() {
+  const baseUrl = process.env.DATABASE_URL || ""
+  // Replace database name with "dispatch"
+  const dispatchUrl = baseUrl.replace(/\/[^/?]+(\?|$)/, "/dispatch$1")
+  return neon(dispatchUrl)
+}
+
+export async function GET(request: Request) {
+  try {
+    const sql = getDispatchDb()
+    const { searchParams } = new URL(request.url)
+    const startDate = searchParams.get("startDate")
+    const endDate = searchParams.get("endDate")
+
+    let records
+    if (startDate && endDate) {
+      records = await sql`
+        SELECT * FROM dispatch_records 
+        WHERE dispatch_date >= ${startDate}::date 
+        AND dispatch_date <= ${endDate}::date
+        ORDER BY dispatch_date DESC, created_at DESC
+      `
+    } else {
+      records = await sql`
+        SELECT * FROM dispatch_records 
+        ORDER BY dispatch_date DESC, created_at DESC
+      `
+    }
+
+    return NextResponse.json({ success: true, records })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    // Check if database doesn't exist yet
+    if (errorMessage.includes("does not exist")) {
+      console.log("Dispatch database not set up yet")
+      return NextResponse.json({ success: true, records: [] })
+    }
+    console.error("Error fetching dispatch records:", error)
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const sql = getDispatchDb()
+    const body = await request.json()
+    const { 
+      dispatch_date, 
+      estate, 
+      coffee_type, 
+      bag_type, 
+      bags_dispatched, 
+      notes, 
+      created_by 
+    } = body
+
+    if (!dispatch_date || !estate || !coffee_type || !bag_type || bags_dispatched === undefined) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields" },
+        { status: 400 }
+      )
+    }
+
+    const result = await sql`
+      INSERT INTO dispatch_records (
+        dispatch_date, estate, coffee_type, bag_type, bags_dispatched, 
+        notes, created_by
+      ) VALUES (
+        ${dispatch_date}::date, ${estate}, ${coffee_type}, ${bag_type}, ${bags_dispatched},
+        ${notes || null}, ${created_by || 'unknown'}
+      )
+      RETURNING *
+    `
+
+    return NextResponse.json({ success: true, record: result[0] })
+  } catch (error) {
+    console.error("Error creating dispatch record:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const sql = getDispatchDb()
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Record ID is required" },
+        { status: 400 }
+      )
+    }
+
+    await sql`DELETE FROM dispatch_records WHERE id = ${id}`
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting dispatch record:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    )
+  }
+}
