@@ -19,6 +19,7 @@ import { getCurrentFiscalYear, getAvailableFiscalYears, getFiscalYearDateRange, 
 interface SalesRecord {
   id?: number
   sale_date: string
+  coffee_type: string
   batch_no: string
   estate: string
   bags_sent: number
@@ -30,6 +31,12 @@ interface SalesRecord {
   notes: string | null
 }
 
+interface DispatchTotals {
+  arabica: number // in KGs
+  robusta: number // in KGs
+}
+
+const COFFEE_TYPES = ["Arabica", "Robusta"]
 const ESTATES = ["HF A", "HF B", "HF C", "MV"]
 const BATCH_NOS = ["hfa", "hfb", "hfc", "mv"]
 
@@ -38,6 +45,7 @@ export default function SalesTab() {
   const availableFiscalYears = getAvailableFiscalYears()
   
   const [date, setDate] = useState<Date>(new Date())
+  const [coffeeType, setCoffeeType] = useState<string>("Arabica")
   const [batchNo, setBatchNo] = useState<string>("")
   const [estate, setEstate] = useState<string>("HF A")
   const [bagsSent, setBagsSent] = useState<string>("")
@@ -52,10 +60,36 @@ export default function SalesTab() {
   const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
   
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
+  const [dispatchTotals, setDispatchTotals] = useState<DispatchTotals>({ arabica: 0, robusta: 0 })
   const [editingRecord, setEditingRecord] = useState<SalesRecord | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
+
+  // Calculate sold amounts by coffee type
+  const calculateSoldTotals = useCallback(() => {
+    const sold = { arabica: 0, robusta: 0 }
+    
+    salesRecords.forEach((record) => {
+      const kgsSold = Number(record.bags_sold) * 50 // Convert bags to KGs
+      if (record.coffee_type === "Arabica") {
+        sold.arabica += kgsSold
+      } else if (record.coffee_type === "Robusta") {
+        sold.robusta += kgsSold
+      }
+    })
+    
+    return sold
+  }, [salesRecords])
+
+  // Calculate available inventory (dispatched - sold)
+  const calculateAvailable = useCallback(() => {
+    const sold = calculateSoldTotals()
+    return {
+      arabica: Math.max(0, dispatchTotals.arabica - sold.arabica),
+      robusta: Math.max(0, dispatchTotals.robusta - sold.robusta),
+    }
+  }, [dispatchTotals, calculateSoldTotals])
 
   // Calculate totals from sales records
   const calculateTotals = useCallback(() => {
@@ -75,6 +109,32 @@ export default function SalesTab() {
 
     return totals
   }, [salesRecords])
+
+  // Fetch dispatched totals from dispatch records
+  const fetchDispatchedTotals = useCallback(async () => {
+    try {
+      const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
+      const response = await fetch(`/api/dispatch?startDate=${startDate}&endDate=${endDate}`)
+      const data = await response.json()
+
+      if (data.success && data.records) {
+        const totals = { arabica: 0, robusta: 0 }
+
+        data.records.forEach((record: { coffee_type: string; bags_dispatched: number }) => {
+          const kgs = Number(record.bags_dispatched) * 50 // Convert bags to KGs
+          if (record.coffee_type === "Arabica") {
+            totals.arabica += kgs
+          } else if (record.coffee_type === "Robusta") {
+            totals.robusta += kgs
+          }
+        })
+
+        setDispatchTotals(totals)
+      }
+    } catch (error) {
+      console.error("Error fetching dispatched totals:", error)
+    }
+  }, [selectedFiscalYear])
 
   // Fetch sales records
   const fetchSalesRecords = useCallback(async () => {
@@ -97,8 +157,9 @@ export default function SalesTab() {
   }, [selectedFiscalYear])
 
   useEffect(() => {
+    fetchDispatchedTotals()
     fetchSalesRecords()
-  }, [fetchSalesRecords])
+  }, [fetchDispatchedTotals, fetchSalesRecords])
 
   const handleSave = async () => {
     if (!bagsSent || Number(bagsSent) <= 0) {
@@ -137,6 +198,7 @@ export default function SalesTab() {
         body: JSON.stringify({
           id: editingRecord?.id,
           sale_date: format(date, "yyyy-MM-dd"),
+          coffee_type: coffeeType,
           batch_no: batchNo || null,
           estate: estate,
           bags_sent: Number(bagsSent),
@@ -179,6 +241,7 @@ export default function SalesTab() {
   }
 
   const resetForm = () => {
+    setCoffeeType("Arabica")
     setBatchNo("")
     setEstate("HF A")
     setBagsSent("")
@@ -192,6 +255,7 @@ export default function SalesTab() {
   const handleEdit = (record: SalesRecord) => {
     setEditingRecord(record)
     setDate(new Date(record.sale_date))
+    setCoffeeType(record.coffee_type || "Arabica")
     setBatchNo(record.batch_no || "")
     setEstate(record.estate || "HF A")
     setBagsSent(record.bags_sent.toString())
@@ -234,9 +298,10 @@ export default function SalesTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "B&L Batch No", "Estate", "Bags Sent", "KGs", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
+    const headers = ["Date", "Coffee Type", "B&L Batch No", "Estate", "Bags Sent", "KGs", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
     const rows = salesRecords.map((record) => [
       format(new Date(record.sale_date), "yyyy-MM-dd"),
+      record.coffee_type || "",
       record.batch_no || "",
       record.estate || "",
       record.bags_sent.toString(),
@@ -260,42 +325,16 @@ export default function SalesTab() {
   }
 
   const totals = calculateTotals()
+  const soldTotals = calculateSoldTotals()
+  const available = calculateAvailable()
   const avgPricePerBag = totals.totalBagsSold > 0 ? totals.totalRevenue / totals.totalBagsSold : 0
 
-const runMigration = async () => {
-    try {
-      const response = await fetch('/api/migrate-sales', { method: 'POST' })
-      const data = await response.json()
-      if (data.success) {
-        toast({
-          title: "Migration Complete",
-          description: "Database updated successfully. Please refresh the page.",
-        })
-      } else {
-        toast({
-          title: "Migration Failed",
-          description: data.error || "Unknown error",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Migration Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      })
-    }
-  }
-
-  return (
+return (
     <div className="space-y-6">
       {/* Fiscal Year Selector */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Coffee Sales</h2>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={runMigration}>
-            Run DB Migration
-          </Button>
           <Label htmlFor="fiscal-year" className="text-sm text-muted-foreground">
             Fiscal Year:
           </Label>
@@ -319,6 +358,51 @@ const runMigration = async () => {
           </Select>
         </div>
       </div>
+
+      {/* Inventory Available for Sale */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Inventory Available for Sale</CardTitle>
+          <CardDescription>Dispatched coffee available to sell (in KGs)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Arabica */}
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="text-sm font-medium text-green-800">Arabica</div>
+              <div className="mt-2">
+                <div className="text-2xl font-bold text-green-600">
+                  {available.arabica.toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-green-700 mt-1">
+                  {(available.arabica / 50).toFixed(2)} Bags
+                </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-green-300 text-xs text-green-700">
+                <div>Dispatched: {dispatchTotals.arabica.toFixed(2)} KGs ({(dispatchTotals.arabica / 50).toFixed(2)} bags)</div>
+                <div>Sold: {soldTotals.arabica.toFixed(2)} KGs ({(soldTotals.arabica / 50).toFixed(2)} bags)</div>
+              </div>
+            </div>
+
+            {/* Robusta */}
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="text-sm font-medium text-amber-800">Robusta</div>
+              <div className="mt-2">
+                <div className="text-2xl font-bold text-amber-600">
+                  {available.robusta.toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-amber-700 mt-1">
+                  {(available.robusta / 50).toFixed(2)} Bags
+                </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-amber-300 text-xs text-amber-700">
+                <div>Dispatched: {dispatchTotals.robusta.toFixed(2)} KGs ({(dispatchTotals.robusta / 50).toFixed(2)} bags)</div>
+                <div>Sold: {soldTotals.robusta.toFixed(2)} KGs ({(soldTotals.robusta / 50).toFixed(2)} bags)</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -408,6 +492,23 @@ const runMigration = async () => {
                   <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            {/* Coffee Type */}
+            <div className="space-y-2">
+              <Label>Coffee Type</Label>
+              <Select value={coffeeType} onValueChange={setCoffeeType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COFFEE_TYPES.map((ct) => (
+                    <SelectItem key={ct} value={ct}>
+                      {ct}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* B&L Batch No */}
@@ -570,6 +671,7 @@ const runMigration = async () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>Coffee Type</TableHead>
                     <TableHead>B&L Batch No</TableHead>
                     <TableHead>Estate</TableHead>
                     <TableHead className="text-right">Bags Sent</TableHead>
@@ -586,6 +688,7 @@ const runMigration = async () => {
                   {salesRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(new Date(record.sale_date), "dd MMM yyyy")}</TableCell>
+                      <TableCell>{record.coffee_type || "-"}</TableCell>
                       <TableCell>{record.batch_no || "-"}</TableCell>
                       <TableCell>{record.estate || "-"}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>

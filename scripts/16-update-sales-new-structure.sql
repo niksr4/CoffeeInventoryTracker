@@ -1,8 +1,9 @@
 -- Update sales_records table to new structure
--- New columns: batch_no, estate, bags_sent, kgs (auto-calc), bags_sold, price_per_bag, revenue (auto-calc), bank_account, notes
+-- New columns: coffee_type, batch_no, estate, bags_sent, kgs (auto-calc), bags_sold, price_per_bag, revenue (auto-calc), bank_account, notes
 
 -- Add new columns (we'll keep old columns for now to preserve data)
 ALTER TABLE sales_records 
+ADD COLUMN IF NOT EXISTS coffee_type VARCHAR(50),
 ADD COLUMN IF NOT EXISTS batch_no VARCHAR(100),
 ADD COLUMN IF NOT EXISTS estate VARCHAR(100),
 ADD COLUMN IF NOT EXISTS kgs DECIMAL(10,2) DEFAULT 0,

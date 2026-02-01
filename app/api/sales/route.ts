@@ -50,7 +50,8 @@ export async function POST(request: Request) {
     const sql = getDispatchDb()
     const body = await request.json()
     const { 
-      sale_date, 
+      sale_date,
+      coffee_type,
       batch_no,
       estate,
       bags_sent,
@@ -71,9 +72,9 @@ export async function POST(request: Request) {
 
     const result = await sql`
       INSERT INTO sales_records (
-        sale_date, batch_no, estate, bags_sent, kgs, bags_sold, price_per_bag, revenue, bank_account, notes
+        sale_date, coffee_type, batch_no, estate, bags_sent, kgs, bags_sold, price_per_bag, revenue, bank_account, notes
       ) VALUES (
-        ${sale_date}::date, ${batch_no || null}, ${estate || null}, ${bags_sent}, ${kgs}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}
+        ${sale_date}::date, ${coffee_type || null}, ${batch_no || null}, ${estate || null}, ${bags_sent}, ${kgs}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}
       )
       RETURNING *
     `
@@ -94,7 +95,8 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { 
       id,
-      sale_date, 
+      sale_date,
+      coffee_type,
       batch_no,
       estate,
       bags_sent,
@@ -116,6 +118,7 @@ export async function PUT(request: Request) {
     const result = await sql`
       UPDATE sales_records SET
         sale_date = ${sale_date}::date,
+        coffee_type = ${coffee_type || null},
         batch_no = ${batch_no || null},
         estate = ${estate || null},
         bags_sent = ${bags_sent},

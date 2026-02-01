@@ -1,11 +1,12 @@
 -- Create sales_records table in dispatch database
 -- This table tracks coffee sales with:
--- Date, B&L Batch No, Estate, Bags Sent, KGs (auto-calc bags x 50), 
+-- Date, Coffee Type (Arabica/Robusta), B&L Batch No, Estate, Bags Sent, KGs (auto-calc bags x 50), 
 -- Bags Sold (kgs/50), Price per Bag, Revenue (auto-calc), Bank Account, Notes
 
 CREATE TABLE IF NOT EXISTS sales_records (
     id SERIAL PRIMARY KEY,
     sale_date DATE NOT NULL,
+    coffee_type VARCHAR(50),
     batch_no VARCHAR(100),
     estate VARCHAR(100),
     bags_sent INTEGER NOT NULL DEFAULT 0,
@@ -21,6 +22,9 @@ CREATE TABLE IF NOT EXISTS sales_records (
 
 -- Create index for date-based queries
 CREATE INDEX IF NOT EXISTS idx_sales_sale_date ON sales_records(sale_date);
+
+-- Create index for coffee type filtering
+CREATE INDEX IF NOT EXISTS idx_sales_coffee_type ON sales_records(coffee_type);
 
 -- Create index for estate filtering
 CREATE INDEX IF NOT EXISTS idx_sales_estate ON sales_records(estate);
