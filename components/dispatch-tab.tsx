@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Loader2, Save, Trash2, Download, Package, Truck } from "lucide-react"
+import { CalendarIcon, Loader2, Save, Trash2, Download, Package, Truck, Pencil } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -58,6 +58,7 @@ export default function DispatchTab() {
     robusta_dry_cherry_bags: 0,
   })
   const [dispatchRecords, setDispatchRecords] = useState<DispatchRecord[]>([])
+  const [editingRecord, setEditingRecord] = useState<DispatchRecord | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
@@ -189,10 +190,12 @@ export default function DispatchTab() {
 
     setIsSaving(true)
     try {
+      const method = editingRecord ? "PUT" : "POST"
       const response = await fetch("/api/dispatch", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: editingRecord?.id,
           dispatch_date: format(date, "yyyy-MM-dd"),
           estate,
           coffee_type: coffeeType,
@@ -208,11 +211,10 @@ export default function DispatchTab() {
       if (data.success) {
         toast({
           title: "Success",
-          description: "Dispatch record saved successfully",
+          description: editingRecord ? "Dispatch record updated successfully" : "Dispatch record saved successfully",
         })
         // Reset form
-        setBagsDispatched("")
-        setNotes("")
+        resetForm()
         // Refresh records
         fetchDispatchRecords()
       } else {
@@ -231,6 +233,22 @@ export default function DispatchTab() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const resetForm = () => {
+    setBagsDispatched("")
+    setNotes("")
+    setEditingRecord(null)
+  }
+
+  const handleEdit = (record: DispatchRecord) => {
+    setEditingRecord(record)
+    setDate(new Date(record.dispatch_date))
+    setEstate(record.estate)
+    setCoffeeType(record.coffee_type)
+    setBagType(record.bag_type)
+    setBagsDispatched(record.bags_dispatched.toString())
+    setNotes(record.notes || "")
   }
 
   const handleDelete = async (id: number) => {
@@ -407,9 +425,11 @@ export default function DispatchTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
-            Record Dispatch
+            {editingRecord ? "Edit Dispatch" : "Record Dispatch"}
           </CardTitle>
-          <CardDescription>Record coffee bags sent out from the estate</CardDescription>
+          <CardDescription>
+            {editingRecord ? "Update the dispatch record" : "Record coffee bags sent out from the estate"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -519,7 +539,12 @@ export default function DispatchTab() {
             </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
+            {editingRecord && (
+              <Button variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
+            )}
             <Button onClick={handleSave} disabled={isSaving} className="bg-green-700 hover:bg-green-800">
               {isSaving ? (
                 <>
@@ -529,7 +554,7 @@ export default function DispatchTab() {
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Save Dispatch
+                  {editingRecord ? "Update Dispatch" : "Save Dispatch"}
                 </>
               )}
             </Button>
@@ -585,14 +610,24 @@ export default function DispatchTab() {
                       <TableCell className="text-right">{Number(record.bags_dispatched).toFixed(2)}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(record.id!)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(record)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(record.id!)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

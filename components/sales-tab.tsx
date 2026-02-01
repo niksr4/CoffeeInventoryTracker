@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Loader2, Save, Trash2, Download, IndianRupee, TrendingUp } from "lucide-react"
+import { CalendarIcon, Loader2, Save, Trash2, Download, IndianRupee, TrendingUp, Pencil } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -19,134 +19,58 @@ import { getCurrentFiscalYear, getAvailableFiscalYears, getFiscalYearDateRange, 
 interface SalesRecord {
   id?: number
   sale_date: string
-  coffee_type: string
-  bag_type: string
+  batch_no: string
+  estate: string
   bags_sent: number
-  kgs_sent: number
-  kgs_received: number
-  price_per_kg: number
-  total_revenue: number
-  buyer_name: string | null
+  kgs: number
+  bags_sold: number
+  price_per_bag: number
+  revenue: number
+  bank_account: string | null
   notes: string | null
 }
 
-interface DispatchedTotals {
-  arabica_dry_p: number
-  arabica_dry_cherry: number
-  robusta_dry_p: number
-  robusta_dry_cherry: number
-}
-
-const COFFEE_TYPES = ["Arabica", "Robusta"]
-const BAG_TYPES = ["Dry P", "Dry Cherry"]
+const ESTATES = ["HF A", "HF B", "HF C", "MV"]
+const BATCH_NOS = ["hfa", "hfb", "hfc", "mv"]
 
 export default function SalesTab() {
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
   const availableFiscalYears = getAvailableFiscalYears()
   
   const [date, setDate] = useState<Date>(new Date())
-  const [coffeeType, setCoffeeType] = useState<string>("Arabica")
-  const [bagType, setBagType] = useState<string>("Dry P")
+  const [batchNo, setBatchNo] = useState<string>("")
+  const [estate, setEstate] = useState<string>("HF A")
   const [bagsSent, setBagsSent] = useState<string>("")
-  const [kgsReceived, setKgsReceived] = useState<string>("")
-  const [pricePerKg, setPricePerKg] = useState<string>("")
-  const [buyerName, setBuyerName] = useState<string>("")
+  const [bagsSold, setBagsSold] = useState<string>("")
+  const [pricePerBag, setPricePerBag] = useState<string>("")
+  const [bankAccount, setBankAccount] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
-  // Auto-calculate kgs sent as bags x 50
-  const kgsSent = bagsSent ? Number(bagsSent) * 50 : 0
+  // Auto-calculate kgs as bags sent x 50
+  const kgs = bagsSent ? Number(bagsSent) * 50 : 0
+  // Auto-calculate revenue as bags sold x price per bag
+  const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
   
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
-  const [dispatchedTotals, setDispatchedTotals] = useState<DispatchedTotals>({
-    arabica_dry_p: 0,
-    arabica_dry_cherry: 0,
-    robusta_dry_p: 0,
-    robusta_dry_cherry: 0,
-  })
+  const [editingRecord, setEditingRecord] = useState<SalesRecord | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
 
-  // Calculate sold totals from sales records (using kgs_received as the actual sold amount)
-  const calculateSoldTotals = useCallback(() => {
-    const totals = {
-      arabica_dry_p: 0,
-      arabica_dry_cherry: 0,
-      robusta_dry_p: 0,
-      robusta_dry_cherry: 0,
-    }
-
-    salesRecords.forEach((record) => {
-      const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
-      if (totals[key] !== undefined) {
-        totals[key] += Number(record.kgs_received)
-      }
-    })
-
-    return totals
-  }, [salesRecords])
-
-  // Calculate available to sell (dispatched - sold)
-  const getAvailableToSell = useCallback(() => {
-    const sold = calculateSoldTotals()
-    return {
-      arabica_dry_p: Math.max(0, dispatchedTotals.arabica_dry_p - sold.arabica_dry_p),
-      arabica_dry_cherry: Math.max(0, dispatchedTotals.arabica_dry_cherry - sold.arabica_dry_cherry),
-      robusta_dry_p: Math.max(0, dispatchedTotals.robusta_dry_p - sold.robusta_dry_p),
-      robusta_dry_cherry: Math.max(0, dispatchedTotals.robusta_dry_cherry - sold.robusta_dry_cherry),
-    }
-  }, [dispatchedTotals, calculateSoldTotals])
-
-  // Fetch dispatched totals from dispatch records
-  const fetchDispatchedTotals = useCallback(async () => {
-    try {
-      const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
-      const response = await fetch(`/api/dispatch?startDate=${startDate}&endDate=${endDate}`)
-      const data = await response.json()
-
-      if (data.success && data.records) {
-        const totals = {
-          arabica_dry_p: 0,
-          arabica_dry_cherry: 0,
-          robusta_dry_p: 0,
-          robusta_dry_cherry: 0,
-        }
-
-        data.records.forEach((record: { coffee_type: string; bag_type: string; bags_dispatched: number }) => {
-          const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
-          if (totals[key] !== undefined) {
-            totals[key] += Number(record.bags_dispatched)
-          }
-        })
-
-        setDispatchedTotals(totals)
-      }
-    } catch (error) {
-      console.error("Error fetching dispatched totals:", error)
-    }
-  }, [selectedFiscalYear])
-
-  // Calculate revenue totals
+  // Calculate totals from sales records
   const calculateTotals = useCallback(() => {
     const totals = {
       totalBagsSent: 0,
-      totalKgsSent: 0,
-      totalKgsReceived: 0,
+      totalKgs: 0,
+      totalBagsSold: 0,
       totalRevenue: 0,
-      arabicaRevenue: 0,
-      robustaRevenue: 0,
     }
 
     salesRecords.forEach((record) => {
       totals.totalBagsSent += Number(record.bags_sent)
-      totals.totalKgsSent += Number(record.kgs_sent)
-      totals.totalKgsReceived += Number(record.kgs_received)
-      totals.totalRevenue += Number(record.total_revenue)
-      if (record.coffee_type === "Arabica") {
-        totals.arabicaRevenue += Number(record.total_revenue)
-      } else {
-        totals.robustaRevenue += Number(record.total_revenue)
-      }
+      totals.totalKgs += Number(record.kgs)
+      totals.totalBagsSold += Number(record.bags_sold)
+      totals.totalRevenue += Number(record.revenue)
     })
 
     return totals
@@ -173,9 +97,8 @@ export default function SalesTab() {
   }, [selectedFiscalYear])
 
   useEffect(() => {
-    fetchDispatchedTotals()
     fetchSalesRecords()
-  }, [fetchDispatchedTotals, fetchSalesRecords])
+  }, [fetchSalesRecords])
 
   const handleSave = async () => {
     if (!bagsSent || Number(bagsSent) <= 0) {
@@ -187,42 +110,19 @@ export default function SalesTab() {
       return
     }
 
-    if (!kgsReceived || Number(kgsReceived) <= 0) {
+    if (!bagsSold || Number(bagsSold) <= 0) {
       toast({
         title: "Error",
-        description: "Please enter the kgs received",
+        description: "Please enter the number of bags sold",
         variant: "destructive",
       })
       return
     }
 
-    if (!pricePerKg || Number(pricePerKg) <= 0) {
+    if (!pricePerBag || Number(pricePerBag) <= 0) {
       toast({
         title: "Error",
-        description: "Please enter a valid price per KG",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!buyerName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter the buyer name",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check available inventory
-    const available = getAvailableToSell()
-    const key = `${coffeeType.toLowerCase()}_${bagType.toLowerCase().replace(" ", "_")}` as keyof typeof available
-    const availableAmount = available[key] || 0
-    
-    if (Number(kgsReceived) > availableAmount) {
-      toast({
-        title: "Insufficient Inventory",
-        description: `Only ${availableAmount.toFixed(2)} KGs of ${coffeeType} ${bagType} available for sale. You are trying to sell ${kgsReceived} KGs.`,
+        description: "Please enter a valid price per bag",
         variant: "destructive",
       })
       return
@@ -230,18 +130,21 @@ export default function SalesTab() {
 
     setIsSaving(true)
     try {
+      const method = editingRecord ? "PUT" : "POST"
       const response = await fetch("/api/sales", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: editingRecord?.id,
           sale_date: format(date, "yyyy-MM-dd"),
-          coffee_type: coffeeType,
-          bag_type: bagType,
+          batch_no: batchNo || null,
+          estate: estate,
           bags_sent: Number(bagsSent),
-          kgs_sent: kgsSent,
-          kgs_received: Number(kgsReceived),
-          price_per_kg: Number(pricePerKg),
-          buyer_name: buyerName,
+          kgs: kgs,
+          bags_sold: Number(bagsSold),
+          price_per_bag: Number(pricePerBag),
+          revenue: calculatedRevenue,
+          bank_account: bankAccount || null,
           notes: notes || null,
         }),
       })
@@ -251,14 +154,10 @@ export default function SalesTab() {
       if (data.success) {
         toast({
           title: "Success",
-          description: "Sales record saved successfully",
+          description: editingRecord ? "Sales record updated successfully" : "Sales record saved successfully",
         })
         // Reset form
-        setBagsSent("")
-        setKgsReceived("")
-        setPricePerKg("")
-        setBuyerName("")
-        setNotes("")
+        resetForm()
         // Refresh records
         fetchSalesRecords()
       } else {
@@ -277,6 +176,29 @@ export default function SalesTab() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const resetForm = () => {
+    setBatchNo("")
+    setEstate("HF A")
+    setBagsSent("")
+    setBagsSold("")
+    setPricePerBag("")
+    setBankAccount("")
+    setNotes("")
+    setEditingRecord(null)
+  }
+
+  const handleEdit = (record: SalesRecord) => {
+    setEditingRecord(record)
+    setDate(new Date(record.sale_date))
+    setBatchNo(record.batch_no || "")
+    setEstate(record.estate || "HF A")
+    setBagsSent(record.bags_sent.toString())
+    setBagsSold(record.bags_sold.toString())
+    setPricePerBag(record.price_per_bag.toString())
+    setBankAccount(record.bank_account || "")
+    setNotes(record.notes || "")
   }
 
   const handleDelete = async (id: number) => {
@@ -312,17 +234,17 @@ export default function SalesTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "Coffee Type", "Bag Type", "Bags Sent", "KGs Sent", "KGs Received", "Price/KG", "Total Revenue", "Buyer", "Notes"]
+    const headers = ["Date", "B&L Batch No", "Estate", "Bags Sent", "KGs", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
     const rows = salesRecords.map((record) => [
       format(new Date(record.sale_date), "yyyy-MM-dd"),
-      record.coffee_type,
-      record.bag_type,
+      record.batch_no || "",
+      record.estate || "",
       record.bags_sent.toString(),
-      record.kgs_sent.toString(),
-      record.kgs_received.toString(),
-      record.price_per_kg.toString(),
-      record.total_revenue.toString(),
-      record.buyer_name || "",
+      record.kgs.toString(),
+      record.bags_sold.toString(),
+      record.price_per_bag.toString(),
+      record.revenue.toString(),
+      record.bank_account || "",
       record.notes || "",
     ])
 
@@ -338,20 +260,42 @@ export default function SalesTab() {
   }
 
   const totals = calculateTotals()
-  const soldTotals = calculateSoldTotals()
-  const availableToSell = getAvailableToSell()
-  const calculatedRevenue = kgsReceived && pricePerKg ? (Number(kgsReceived) * Number(pricePerKg)) : 0
+  const avgPricePerBag = totals.totalBagsSold > 0 ? totals.totalRevenue / totals.totalBagsSold : 0
 
-  // Get current selected available amount
-  const currentSelectedKey = `${coffeeType.toLowerCase()}_${bagType.toLowerCase().replace(" ", "_")}` as keyof typeof availableToSell
-  const currentAvailable = availableToSell[currentSelectedKey] || 0
+const runMigration = async () => {
+    try {
+      const response = await fetch('/api/migrate-sales', { method: 'POST' })
+      const data = await response.json()
+      if (data.success) {
+        toast({
+          title: "Migration Complete",
+          description: "Database updated successfully. Please refresh the page.",
+        })
+      } else {
+        toast({
+          title: "Migration Failed",
+          description: data.error || "Unknown error",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Migration Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      })
+    }
+  }
 
-return (
-  <div className="space-y-6">
-  {/* Fiscal Year Selector */}
-  <div className="flex items-center justify-between">
-  <h2 className="text-xl font-semibold">Coffee Sales</h2>
+  return (
+    <div className="space-y-6">
+      {/* Fiscal Year Selector */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Coffee Sales</h2>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={runMigration}>
+            Run DB Migration
+          </Button>
           <Label htmlFor="fiscal-year" className="text-sm text-muted-foreground">
             Fiscal Year:
           </Label>
@@ -376,62 +320,10 @@ return (
         </div>
       </div>
 
-      {/* Inventory Summary - Dispatched vs Sold vs Available */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Inventory Available for Sale</CardTitle>
-          <CardDescription>Coffee dispatched from processing that is available to sell</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Arabica Dry P */}
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <div className="text-sm font-medium text-muted-foreground">Arabica Dry P</div>
-              <div className="mt-1">
-                <div className="text-lg font-bold text-green-600">{availableToSell.arabica_dry_p.toFixed(2)} KGs</div>
-                <div className="text-xs text-muted-foreground">
-                  Dispatched: {dispatchedTotals.arabica_dry_p.toFixed(2)} | Sold: {soldTotals.arabica_dry_p.toFixed(2)}
-                </div>
-              </div>
-            </div>
-            {/* Arabica Dry Cherry */}
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <div className="text-sm font-medium text-muted-foreground">Arabica Dry Cherry</div>
-              <div className="mt-1">
-                <div className="text-lg font-bold text-green-600">{availableToSell.arabica_dry_cherry.toFixed(2)} KGs</div>
-                <div className="text-xs text-muted-foreground">
-                  Dispatched: {dispatchedTotals.arabica_dry_cherry.toFixed(2)} | Sold: {soldTotals.arabica_dry_cherry.toFixed(2)}
-                </div>
-              </div>
-            </div>
-            {/* Robusta Dry P */}
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <div className="text-sm font-medium text-muted-foreground">Robusta Dry P</div>
-              <div className="mt-1">
-                <div className="text-lg font-bold text-amber-600">{availableToSell.robusta_dry_p.toFixed(2)} KGs</div>
-                <div className="text-xs text-muted-foreground">
-                  Dispatched: {dispatchedTotals.robusta_dry_p.toFixed(2)} | Sold: {soldTotals.robusta_dry_p.toFixed(2)}
-                </div>
-              </div>
-            </div>
-            {/* Robusta Dry Cherry */}
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <div className="text-sm font-medium text-muted-foreground">Robusta Dry Cherry</div>
-              <div className="mt-1">
-                <div className="text-lg font-bold text-amber-600">{availableToSell.robusta_dry_cherry.toFixed(2)} KGs</div>
-                <div className="text-xs text-muted-foreground">
-                  Dispatched: {dispatchedTotals.robusta_dry_cherry.toFixed(2)} | Sold: {soldTotals.robusta_dry_cherry.toFixed(2)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Revenue Summary Cards */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue */}
-        <Card>
+        <Card className="border-2 border-muted">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
           </CardHeader>
@@ -440,63 +332,68 @@ return (
             <div className="text-sm text-muted-foreground mt-1">
               {salesRecords.length} sales recorded
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Total KGs Received */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total KGs Received</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalKgsReceived.toFixed(2)} KGs</div>
-            <div className="text-sm text-muted-foreground mt-1">
-              Bags: {totals.totalBagsSent} | Sent: {totals.totalKgsSent.toFixed(2)} KGs
+            <div className="text-sm font-medium mt-1 text-blue-600">
+              Avg Price/Bag: ₹{avgPricePerBag.toFixed(2)}
             </div>
           </CardContent>
         </Card>
 
-        {/* Arabica Revenue */}
-        <Card>
+        {/* Total Bags Sent */}
+        <Card className="border-2 border-muted">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Arabica Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Bags Sent</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">₹{totals.arabicaRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totals.totalBagsSent}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              {totals.totalRevenue > 0 ? ((totals.arabicaRevenue / totals.totalRevenue) * 100).toFixed(1) : 0}% of total
+              KGs: {totals.totalKgs.toFixed(2)}
             </div>
           </CardContent>
         </Card>
 
-        {/* Robusta Revenue */}
-        <Card>
+        {/* Total Bags Sold */}
+        <Card className="border-2 border-muted">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Robusta Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Bags Sold</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">₹{totals.robustaRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totals.totalBagsSold.toFixed(2)}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              {totals.totalRevenue > 0 ? ((totals.robustaRevenue / totals.totalRevenue) * 100).toFixed(1) : 0}% of total
+              Received at buyer
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Avg Price per Bag */}
+        <Card className="border-2 border-muted">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Price per Bag</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">₹{avgPricePerBag.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground mt-1">
+              Revenue / Bags Sold
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Add Sale Form */}
+      {/* Add/Edit Sale Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <IndianRupee className="h-5 w-5" />
-            Record Sale
+            {editingRecord ? "Edit Sale" : "Record Sale"}
           </CardTitle>
-          <CardDescription>Record coffee sales with weight in KGs and price</CardDescription>
+          <CardDescription>
+            {editingRecord ? "Update the sales record" : "Record coffee sales with bags and price per bag"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Date */}
             <div className="space-y-2">
-              <Label>Sale Date</Label>
+              <Label>Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -513,131 +410,119 @@ return (
               </Popover>
             </div>
 
-            {/* Coffee Type */}
+            {/* B&L Batch No */}
             <div className="space-y-2">
-              <Label>Coffee Type</Label>
-              <Select value={coffeeType} onValueChange={setCoffeeType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {COFFEE_TYPES.map((ct) => (
-                    <SelectItem key={ct} value={ct}>
-                      {ct}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>B&L Batch No</Label>
+              <Input
+                type="text"
+                placeholder="e.g., hfa, hfb, hfc, mv"
+                value={batchNo}
+                onChange={(e) => setBatchNo(e.target.value)}
+              />
             </div>
 
-            {/* Bag Type */}
+            {/* Estate */}
             <div className="space-y-2">
-              <Label>Bag Type</Label>
-              <Select value={bagType} onValueChange={setBagType}>
+              <Label>Estate</Label>
+              <Select value={estate} onValueChange={setEstate}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BAG_TYPES.map((bt) => (
-                    <SelectItem key={bt} value={bt}>
-                      {bt}
+                  {ESTATES.map((e) => (
+                    <SelectItem key={e} value={e}>
+                      {e}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className={cn(
-                "text-xs",
-                currentAvailable > 0 ? "text-green-600" : "text-red-600"
-              )}>
-                Available: {currentAvailable.toFixed(2)} KGs
-              </p>
             </div>
 
             {/* Bags Sent */}
             <div className="space-y-2">
-              <Label>Number of Bags Sent</Label>
+              <Label>Bags Sent</Label>
               <Input
                 type="number"
                 step="1"
                 min="1"
-                placeholder="Enter number of bags"
+                placeholder="Number of bags"
                 value={bagsSent}
                 onChange={(e) => setBagsSent(e.target.value)}
               />
             </div>
 
-            {/* KGs Sent (Auto-calculated) */}
+            {/* KGs (Auto-calculated) */}
             <div className="space-y-2">
-              <Label>KGs Sent (Bags x 50)</Label>
+              <Label>KGs (Bags x 50)</Label>
               <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-                <span className="font-medium">{kgsSent.toFixed(2)} KGs</span>
+                <span className="font-medium">{kgs.toFixed(2)}</span>
               </div>
               <p className="text-xs text-muted-foreground">Auto-calculated</p>
             </div>
 
-            {/* KGs Received */}
+            {/* Bags Sold */}
             <div className="space-y-2">
-              <Label>KGs Received</Label>
+              <Label>Bags Sold</Label>
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Enter kgs received"
-                value={kgsReceived}
-                onChange={(e) => setKgsReceived(e.target.value)}
-                max={currentAvailable}
+                placeholder="kgs/50"
+                value={bagsSold}
+                onChange={(e) => setBagsSold(e.target.value)}
               />
-              {kgsReceived && Number(kgsReceived) > currentAvailable && (
-                <p className="text-xs text-red-600">
-                  Exceeds available inventory!
-                </p>
-              )}
             </div>
 
-            {/* Price per KG */}
+            {/* Price per Bag */}
             <div className="space-y-2">
-              <Label>Price per KG (Rs)</Label>
+              <Label>Price per Bag (Rs)</Label>
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Enter price per KG"
-                value={pricePerKg}
-                onChange={(e) => setPricePerKg(e.target.value)}
+                placeholder="Enter price per bag"
+                value={pricePerBag}
+                onChange={(e) => setPricePerBag(e.target.value)}
               />
             </div>
 
-            {/* Buyer Name */}
+            {/* Revenue (Auto-calculated) */}
             <div className="space-y-2">
-              <Label>Buyer Name</Label>
-              <Input
-                type="text"
-                placeholder="Enter buyer name"
-                value={buyerName}
-                onChange={(e) => setBuyerName(e.target.value)}
-              />
-            </div>
-
-            {/* Calculated Revenue */}
-            <div className="space-y-2">
-              <Label>Total Revenue (Calculated)</Label>
+              <Label>Revenue (Calculated)</Label>
               <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
                 <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
                 <span className="font-medium text-green-600">₹{calculatedRevenue.toLocaleString()}</span>
               </div>
+              <p className="text-xs text-muted-foreground">Bags Sold x Price/Bag</p>
+            </div>
+
+            {/* Bank Account */}
+            <div className="space-y-2">
+              <Label>Bank Account</Label>
+              <Input
+                type="text"
+                placeholder="e.g., H3xl3"
+                value={bankAccount}
+                onChange={(e) => setBankAccount(e.target.value)}
+              />
             </div>
 
             {/* Notes */}
             <div className="space-y-2">
               <Label>Notes (Optional)</Label>
-              <Textarea
-                placeholder="Add any notes..."
+              <Input
+                type="text"
+                placeholder="Any notes..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[40px]"
               />
             </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
+            {editingRecord && (
+              <Button variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
+            )}
             <Button onClick={handleSave} disabled={isSaving} className="bg-green-700 hover:bg-green-800">
               {isSaving ? (
                 <>
@@ -647,7 +532,7 @@ return (
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Save Sale
+                  {editingRecord ? "Update Sale" : "Save Sale"}
                 </>
               )}
             </Button>
@@ -685,14 +570,14 @@ return (
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Coffee Type</TableHead>
-                    <TableHead>Bag Type</TableHead>
+                    <TableHead>B&L Batch No</TableHead>
+                    <TableHead>Estate</TableHead>
                     <TableHead className="text-right">Bags Sent</TableHead>
-                    <TableHead className="text-right">KGs Sent</TableHead>
-                    <TableHead className="text-right">KGs Received</TableHead>
-                    <TableHead className="text-right">Price/KG</TableHead>
-                    <TableHead className="text-right">Total Revenue</TableHead>
-                    <TableHead>Buyer</TableHead>
+                    <TableHead className="text-right">KGs</TableHead>
+                    <TableHead className="text-right">Bags Sold</TableHead>
+                    <TableHead className="text-right">Price/Bag</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead>Bank Account</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -701,26 +586,36 @@ return (
                   {salesRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(new Date(record.sale_date), "dd MMM yyyy")}</TableCell>
-                      <TableCell>{record.coffee_type}</TableCell>
-                      <TableCell>{record.bag_type}</TableCell>
+                      <TableCell>{record.batch_no || "-"}</TableCell>
+                      <TableCell>{record.estate || "-"}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>
-                      <TableCell className="text-right">{Number(record.kgs_sent).toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{Number(record.kgs_received).toFixed(2)}</TableCell>
-                      <TableCell className="text-right">₹{Number(record.price_per_kg).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{Number(record.kgs).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{Number(record.bags_sold).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₹{Number(record.price_per_bag).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-medium text-green-600">
-                        ₹{Number(record.total_revenue).toLocaleString()}
+                        ₹{Number(record.revenue).toLocaleString()}
                       </TableCell>
-                      <TableCell>{record.buyer_name || "-"}</TableCell>
+                      <TableCell>{record.bank_account || "-"}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(record.id!)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(record)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(record.id!)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

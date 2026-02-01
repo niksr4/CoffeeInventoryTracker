@@ -51,30 +51,29 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { 
       sale_date, 
-      coffee_type, 
-      bag_type, 
+      batch_no,
+      estate,
       bags_sent,
-      kgs_sent,
-      kgs_received,
-      price_per_kg,
-      buyer_name, 
+      kgs,
+      bags_sold,
+      price_per_bag,
+      revenue,
+      bank_account, 
       notes 
     } = body
 
-    if (!sale_date || !coffee_type || !bag_type || bags_sent === undefined || kgs_received === undefined || price_per_kg === undefined) {
+    if (!sale_date || bags_sent === undefined || bags_sold === undefined || price_per_bag === undefined) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
       )
     }
 
-    const total_revenue = Number(kgs_received) * Number(price_per_kg)
-
     const result = await sql`
       INSERT INTO sales_records (
-        sale_date, coffee_type, bag_type, bags_sent, kgs_sent, kgs_received, price_per_kg, total_revenue, buyer_name, notes
+        sale_date, batch_no, estate, bags_sent, kgs, bags_sold, price_per_bag, revenue, bank_account, notes
       ) VALUES (
-        ${sale_date}::date, ${coffee_type}, ${bag_type}, ${bags_sent}, ${kgs_sent}, ${kgs_received}, ${price_per_kg}, ${total_revenue}, ${buyer_name || null}, ${notes || null}
+        ${sale_date}::date, ${batch_no || null}, ${estate || null}, ${bags_sent}, ${kgs}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}
       )
       RETURNING *
     `
@@ -82,6 +81,58 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, record: result[0] })
   } catch (error) {
     console.error("Error creating sales record:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const sql = getDispatchDb()
+    const body = await request.json()
+    const { 
+      id,
+      sale_date, 
+      batch_no,
+      estate,
+      bags_sent,
+      kgs,
+      bags_sold,
+      price_per_bag,
+      revenue,
+      bank_account, 
+      notes 
+    } = body
+
+    if (!id || !sale_date || bags_sent === undefined || bags_sold === undefined || price_per_bag === undefined) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields" },
+        { status: 400 }
+      )
+    }
+
+    const result = await sql`
+      UPDATE sales_records SET
+        sale_date = ${sale_date}::date,
+        batch_no = ${batch_no || null},
+        estate = ${estate || null},
+        bags_sent = ${bags_sent},
+        kgs = ${kgs},
+        bags_sold = ${bags_sold},
+        price_per_bag = ${price_per_bag},
+        revenue = ${revenue},
+        bank_account = ${bank_account || null},
+        notes = ${notes || null},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `
+
+    return NextResponse.json({ success: true, record: result[0] })
+  } catch (error) {
+    console.error("Error updating sales record:", error)
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
