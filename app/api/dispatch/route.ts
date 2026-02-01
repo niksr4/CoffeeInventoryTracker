@@ -89,6 +89,50 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const sql = getDispatchDb()
+    const body = await request.json()
+    const { 
+      id,
+      dispatch_date, 
+      estate, 
+      coffee_type, 
+      bag_type, 
+      bags_dispatched, 
+      notes
+    } = body
+
+    if (!id || !dispatch_date || !estate || !coffee_type || !bag_type || bags_dispatched === undefined) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields" },
+        { status: 400 }
+      )
+    }
+
+    const result = await sql`
+      UPDATE dispatch_records SET
+        dispatch_date = ${dispatch_date}::date,
+        estate = ${estate},
+        coffee_type = ${coffee_type},
+        bag_type = ${bag_type},
+        bags_dispatched = ${bags_dispatched},
+        notes = ${notes || null},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `
+
+    return NextResponse.json({ success: true, record: result[0] })
+  } catch (error) {
+    console.error("Error updating dispatch record:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const sql = getDispatchDb()
