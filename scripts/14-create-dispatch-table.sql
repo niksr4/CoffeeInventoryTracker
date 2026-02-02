@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS dispatch_records (
   dispatch_date DATE NOT NULL,
   estate TEXT NOT NULL, -- HF A, HF B, HF C, MV
   coffee_type TEXT NOT NULL, -- Arabica or Robusta
-  bag_type TEXT NOT NULL, -- Dry P or Dry Cherry
+  bag_type TEXT NOT NULL, -- Dry Parchment or Dry Cherry
   bags_dispatched DECIMAL(10,2) NOT NULL DEFAULT 0,
   price_per_bag DECIMAL(10,2), -- Only admin can set
   buyer_name TEXT, -- Only admin can set

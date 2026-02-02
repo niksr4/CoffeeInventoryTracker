@@ -22,7 +22,7 @@
 The Coffee Inventory Tracker is a comprehensive web application designed for coffee estate management. It provides end-to-end tracking of coffee production from harvest to sales, including inventory management, processing, labor deployment, financial tracking, and business analytics.
 
 ### Key Capabilities
-- **Inventory Management**: Track coffee beans by type (Arabica/Robusta), bag type (Dry P/Dry Cherry), and quantity
+- **Inventory Management**: Track coffee beans by type (Arabica/Robusta), bag type (Dry Parchment/Dry Cherry), and quantity
 - **Processing Records**: Monitor coffee processing activities and quantities
 - **Dispatch & Sales**: Manage coffee dispatch and sales with automatic inventory updates
 - **Labor Management**: Track labor deployment and costs across estates
@@ -63,7 +63,7 @@ The application uses **4 separate Neon PostgreSQL databases**:
 ## Architecture
 
 ### File Structure
-```
+\`\`\`
 ├── app/
 │   ├── api/                    # API routes
 │   │   ├── accounts-summary/   # Financial summaries
@@ -108,7 +108,7 @@ The application uses **4 separate Neon PostgreSQL databases**:
     ├── 14-create-dispatch-table.sql
     ├── 16-update-sales-new-structure.sql
     └── ...                     # Migration scripts
-```
+\`\`\`
 
 ### Design Patterns
 - **Component Composition**: Modular components with single responsibility
@@ -125,7 +125,7 @@ The application uses **4 separate Neon PostgreSQL databases**:
 **File**: `/components/login-page.tsx`, `/hooks/use-auth.tsx`
 
 ### Credentials
-```typescript
+\`\`\`typescript
 // Two user accounts
 1. Admin Account
    - Username: "admin"
@@ -136,7 +136,7 @@ The application uses **4 separate Neon PostgreSQL databases**:
    - Username: "KAB123"
    - Password: "user127"
    - Role: "user"
-```
+\`\`\`
 
 ### Authentication Flow
 1. User enters credentials on login page (`/`)
@@ -146,7 +146,7 @@ The application uses **4 separate Neon PostgreSQL databases**:
 5. `useAuth` hook provides authentication state throughout app
 
 ### Session Management
-```typescript
+\`\`\`typescript
 // Storage
 sessionStorage.setItem('user', JSON.stringify({ username, role }))
 
@@ -155,7 +155,7 @@ const user = JSON.parse(sessionStorage.getItem('user') || 'null')
 
 // Logout
 sessionStorage.removeItem('user')
-```
+\`\`\`
 
 ### Access Control
 
@@ -172,7 +172,7 @@ sessionStorage.removeItem('user')
 - **Cannot access**: Most admin-only tabs (checked via `isAdmin` boolean)
 
 ### Protected Routes
-```typescript
+\`\`\`typescript
 // In components
 const { user, isAdmin, logout } = useAuth()
 
@@ -185,7 +185,7 @@ const { user, isAdmin, logout } = useAuth()
 {(isAdmin || user?.username === "KAB123") && (
   <TransactionHistory />
 )}
-```
+\`\`\`
 
 ---
 
@@ -199,7 +199,7 @@ const { user, isAdmin, logout } = useAuth()
    - `id` SERIAL PRIMARY KEY
    - `transaction_date` DATE
    - `coffee_type` VARCHAR(50) - Arabica/Robusta
-   - `bag_type` VARCHAR(50) - Dry P/Dry Cherry
+   - `bag_type` VARCHAR(50) - Dry Parchment/Dry Cherry
    - `transaction_type` VARCHAR(20) - IN/OUT
    - `quantity_kgs` DECIMAL(10,2)
    - `created_by` VARCHAR(100)
@@ -274,7 +274,7 @@ const { user, isAdmin, logout } = useAuth()
    - `dispatch_date` DATE
    - `estate` VARCHAR(100)
    - `coffee_type` VARCHAR(50) - Arabica/Robusta
-   - `bag_type` VARCHAR(50) - Dry P/Dry Cherry
+   - `bag_type` VARCHAR(50) - Dry Parchment/Dry Cherry
    - `bags_dispatched` INTEGER
    - `notes` TEXT
    - `created_by` VARCHAR(100)
@@ -298,13 +298,13 @@ const { user, isAdmin, logout } = useAuth()
    - `updated_at` TIMESTAMP
 
 ### Indexes
-```sql
+\`\`\`sql
 -- Optimize date-based queries
 CREATE INDEX idx_inventory_date ON inventory_transactions(transaction_date);
 CREATE INDEX idx_sales_date ON sales_records(sale_date);
 CREATE INDEX idx_sales_coffee_type ON sales_records(coffee_type);
 CREATE INDEX idx_dispatch_date ON dispatch_records(dispatch_date);
-```
+\`\`\`
 
 ---
 
@@ -330,13 +330,13 @@ CREATE INDEX idx_dispatch_date ON dispatch_records(dispatch_date);
 5. Display updated inventory by coffee type and bag type
 
 #### Calculations:
-```typescript
+\`\`\`typescript
 // Current inventory balance
 const balance = ΣIN_transactions - ΣOUT_transactions
 
 // By type
-Arabica Dry P = (Arabica Dry P IN) - (Arabica Dry P OUT)
-```
+Arabica Dry Parchment = (Arabica Dry Parchment IN) - (Arabica Dry Parchment OUT)
+\`\`\`
 
 ---
 
@@ -355,17 +355,17 @@ Arabica Dry P = (Arabica Dry P IN) - (Arabica Dry P OUT)
 - **Date**: Dispatch date
 - **Estate**: HF A, HF B, HF C, MV
 - **Coffee Type**: Arabica/Robusta
-- **Bag Type**: Dry P/Dry Cherry
+- **Bag Type**: Dry Parchment/Dry Cherry
 - **Bags Dispatched**: Number of bags (integer)
 - **Notes**: Optional notes
 
 #### API Endpoints:
-```typescript
+\`\`\`typescript
 POST   /api/dispatch      // Create dispatch record
 PUT    /api/dispatch      // Update dispatch record
 DELETE /api/dispatch      // Delete dispatch record
 GET    /api/dispatch      // Get all dispatch records (fiscal year filtered)
-```
+\`\`\`
 
 ---
 
@@ -397,7 +397,7 @@ GET    /api/dispatch      // Get all dispatch records (fiscal year filtered)
 - **Notes**: Additional notes (optional)
 
 #### Inventory Tracking:
-```typescript
+\`\`\`typescript
 // Available inventory calculation
 Available Arabica = (Dispatched Arabica KGs) - (Sold Arabica KGs)
 Available Robusta = (Dispatched Robusta KGs) - (Sold Robusta KGs)
@@ -405,7 +405,7 @@ Available Robusta = (Dispatched Robusta KGs) - (Sold Robusta KGs)
 // Conversions
 KGs = Bags × 50
 Bags = KGs / 50
-```
+\`\`\`
 
 #### Summary Cards:
 1. **Total Revenue**: Sum of all revenue (with avg price per bag)
@@ -521,56 +521,56 @@ Shows for Arabica and Robusta:
 ## API Endpoints
 
 ### Inventory APIs
-```
+\`\`\`
 GET    /api/inventory              # Get inventory transactions
 POST   /api/inventory              # Create transaction
 GET    /api/inventory-neon         # Get from Neon DB
 POST   /api/inventory-neon         # Create in Neon DB
 GET    /api/inventory-summary      # Get inventory summary
 POST   /api/inventory/batch        # Batch insert
-```
+\`\`\`
 
 ### Sales APIs
-```
+\`\`\`
 GET    /api/sales                  # Get sales records (fiscal year filtered)
 POST   /api/sales                  # Create sales record
 PUT    /api/sales                  # Update sales record
 DELETE /api/sales?id={id}          # Delete sales record
-```
+\`\`\`
 
 ### Dispatch APIs
-```
+\`\`\`
 GET    /api/dispatch               # Get dispatch records
 POST   /api/dispatch               # Create dispatch record
 PUT    /api/dispatch               # Update dispatch record
 DELETE /api/dispatch?id={id}       # Delete dispatch record
-```
+\`\`\`
 
 ### Labor APIs
-```
+\`\`\`
 GET    /api/labor-neon             # Get labor deployments
 POST   /api/labor-neon             # Create labor deployment
 DELETE /api/labor-neon?id={id}     # Delete labor deployment
-```
+\`\`\`
 
 ### Processing APIs
-```
+\`\`\`
 GET    /api/processing-records     # Get processing records
 POST   /api/processing-records     # Create processing record
-```
+\`\`\`
 
 ### Accounts APIs
-```
+\`\`\`
 GET    /api/accounts-summary       # Get financial summary
 GET    /api/transactions-neon      # Get transactions
 POST   /api/transactions-neon      # Create transaction
 PUT    /api/transactions-neon/update # Update transaction
 DELETE /api/transactions-neon?id={id} # Delete transaction
 POST   /api/transactions-neon/batch  # Batch insert
-```
+\`\`\`
 
 ### Other APIs
-```
+\`\`\`
 GET    /api/weather                # Get weather data
 GET    /api/rainfall               # Get rainfall records
 POST   /api/rainfall               # Create rainfall record
@@ -579,7 +579,7 @@ POST   /api/pepper-records         # Create pepper record
 GET    /api/ai-analysis            # Get AI insights
 GET    /api/market-news            # Get market news
 POST   /api/migrate-sales          # Run sales DB migration
-```
+\`\`\`
 
 ---
 
@@ -635,7 +635,7 @@ Dispatch management with edit/delete capabilities.
 ### Utility Hooks
 
 #### useAuth (`/hooks/use-auth.tsx`)
-```typescript
+\`\`\`typescript
 const { user, isAdmin, login, logout } = useAuth()
 
 // Returns:
@@ -645,19 +645,19 @@ const { user, isAdmin, login, logout } = useAuth()
   login: (username: string, role: string) => void
   logout: () => void
 }
-```
+\`\`\`
 
 #### useInventoryData (`/hooks/use-inventory-data-neon.ts`)
-```typescript
+\`\`\`typescript
 const { data, isLoading, error, refetch } = useInventoryData(fiscalYear)
-```
+\`\`\`
 
 ---
 
 ## Data Flow
 
 ### 1. Sales Recording Flow
-```
+\`\`\`
 User Input (Sales Form)
   ↓
 Fill fields: date, coffee_type, bags_sent, bags_sold, price_per_bag
@@ -674,10 +674,10 @@ Refresh sales list
 Recalculate available inventory
   ↓
 Update UI displays
-```
+\`\`\`
 
 ### 2. Inventory Availability Calculation
-```
+\`\`\`
 Load Dispatch Records (fiscal year)
   ↓
 Calculate Dispatched Totals by Coffee Type
@@ -695,10 +695,10 @@ Calculate Available
   robusta_available = robusta_total - robusta_sold
   ↓
 Display in Inventory Available Card
-```
+\`\`\`
 
 ### 3. Authentication Flow
-```
+\`\`\`
 User visits /
   ↓
 Login Page renders
@@ -715,7 +715,7 @@ Dashboard checks auth via useAuth hook
   ↓
 If not authenticated: redirect to /
 If authenticated: show dashboard with role-based access
-```
+\`\`\`
 
 ---
 
@@ -730,7 +730,7 @@ If authenticated: show dashboard with role-based access
 
 ### Environment Variables
 Create `.env.local`:
-```env
+\`\`\`env
 # Neon Database Connections
 DATABASE_URL=postgresql://...           # Main DB
 ACCOUNTS_DATABASE_URL=postgresql://...  # Accounts DB
@@ -746,10 +746,10 @@ OPENWEATHER_API_KEY=your_weather_key
 # Optional: Caching
 UPSTASH_REDIS_REST_URL=https://...
 UPSTASH_REDIS_REST_TOKEN=...
-```
+\`\`\`
 
 ### Installation
-```bash
+\`\`\`bash
 # Clone repository
 git clone <repository-url>
 cd CoffeeInventoryTracker
@@ -773,10 +773,10 @@ npm run build
 
 # Start production server
 npm start
-```
+\`\`\`
 
 ### Deployment (Vercel)
-```bash
+\`\`\`bash
 # Install Vercel CLI
 npm i -g vercel
 
@@ -785,7 +785,7 @@ vercel
 
 # Set environment variables in Vercel dashboard
 # Connect Neon databases via Vercel integrations
-```
+\`\`\`
 
 ---
 
@@ -839,7 +839,7 @@ The dashboard has multiple tabs:
    - **Date**: Dispatch date
    - **Estate**: Select estate
    - **Coffee Type**: Arabica/Robusta
-   - **Bag Type**: Dry P/Dry Cherry
+   - **Bag Type**: Dry Parchment/Dry Cherry
    - **Bags Dispatched**: Number of bags
    - **Notes**: (Optional)
 4. Click "Save Dispatch"
@@ -888,7 +888,7 @@ The dashboard has multiple tabs:
 - **API Routes**: One route handler per endpoint
 
 ### Naming Conventions
-```typescript
+\`\`\`typescript
 // Components: PascalCase
 SalesTab.tsx, InventorySystem.tsx
 
@@ -903,10 +903,10 @@ const COFFEE_TYPES = ["Arabica", "Robusta"]
 
 // Database tables: snake_case
 sales_records, dispatch_records
-```
+\`\`\`
 
 ### State Management
-```typescript
+\`\`\`typescript
 // Local state for component-specific data
 const [isLoading, setIsLoading] = useState(false)
 
@@ -915,10 +915,10 @@ const { data, refetch } = useInventoryData(fiscalYear)
 
 // Session storage for auth
 sessionStorage.setItem('user', JSON.stringify(user))
-```
+\`\`\`
 
 ### API Route Pattern
-```typescript
+\`\`\`typescript
 export async function GET(request: Request) {
   try {
     const sql = getDatabaseConnection()
@@ -936,7 +936,7 @@ export async function GET(request: Request) {
     )
   }
 }
-```
+\`\`\`
 
 ### Database Best Practices
 1. **Always use parameterized queries** (template literals with `sql`)
@@ -947,7 +947,7 @@ export async function GET(request: Request) {
 6. **Validate input** before database operations
 
 ### TypeScript Guidelines
-```typescript
+\`\`\`typescript
 // Define interfaces for data structures
 interface SalesRecord {
   id?: number
@@ -962,10 +962,10 @@ function calculateTotals(records: SalesRecord[]): number {
 }
 
 // Avoid 'any', prefer 'unknown' if type is truly unknown
-```
+\`\`\`
 
 ### Fiscal Year Logic
-```typescript
+\`\`\`typescript
 // Fiscal year: April 1 to March 31
 function getFiscalYearDateRange(fiscalYear: FiscalYear) {
   return {
@@ -977,10 +977,10 @@ function getFiscalYearDateRange(fiscalYear: FiscalYear) {
 // Always filter by fiscal year in queries
 WHERE transaction_date >= ${startDate} 
   AND transaction_date <= ${endDate}
-```
+\`\`\`
 
 ### Auto-Calculation Fields
-```typescript
+\`\`\`typescript
 // In forms, auto-calculate and display as read-only
 const kgs = bagsSent ? Number(bagsSent) * 50 : 0
 const revenue = bagsSold && pricePerBag 
@@ -991,7 +991,7 @@ const revenue = bagsSold && pricePerBag
 <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
   <span className="font-medium">{kgs.toFixed(2)} KGs</span>
 </div>
-```
+\`\`\`
 
 ---
 
@@ -1000,9 +1000,9 @@ const revenue = bagsSold && pricePerBag
 ### Common Issues
 
 #### 1. Database Connection Errors
-```
+\`\`\`
 Error: database "neondb" does not exist
-```
+\`\`\`
 **Solution**: 
 - Check environment variables are set correctly
 - Verify DATABASE_URL matches your Neon database
