@@ -25,6 +25,7 @@ interface SalesRecord {
   estate: string
   bags_sent: number
   kgs: number
+  kgs_received: number
   bags_sold: number
   price_per_bag: number
   revenue: number
@@ -56,13 +57,15 @@ export default function SalesTab() {
   const [batchNo, setBatchNo] = useState<string>("")
   const [estate, setEstate] = useState<string>("HF A")
   const [bagsSent, setBagsSent] = useState<string>("")
-  const [bagsSold, setBagsSold] = useState<string>("")
+  const [kgsReceived, setKgsReceived] = useState<string>("")
   const [pricePerBag, setPricePerBag] = useState<string>("")
   const [bankAccount, setBankAccount] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
   // Auto-calculate kgs as bags sent x 50
   const kgs = bagsSent ? Number(bagsSent) * 50 : 0
+  // Auto-calculate bags sold as kgs received / 50
+  const bagsSold = kgsReceived ? Number(kgsReceived) / 50 : 0
   // Auto-calculate revenue as bags sold x price per bag
   const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
   
@@ -258,7 +261,8 @@ export default function SalesTab() {
           estate: estate,
           bags_sent: Number(bagsSent),
           kgs: kgs,
-          bags_sold: Number(bagsSold),
+          kgs_received: Number(kgsReceived),
+          bags_sold: bagsSold,
           price_per_bag: Number(pricePerBag),
           revenue: calculatedRevenue,
           bank_account: bankAccount || null,
@@ -301,7 +305,7 @@ export default function SalesTab() {
     setBatchNo("")
     setEstate("HF A")
     setBagsSent("")
-    setBagsSold("")
+    setKgsReceived("")
     setPricePerBag("")
     setBankAccount("")
     setNotes("")
@@ -316,7 +320,7 @@ export default function SalesTab() {
     setBatchNo(record.batch_no || "")
     setEstate(record.estate || "HF A")
     setBagsSent(record.bags_sent.toString())
-    setBagsSold(record.bags_sold.toString())
+    setKgsReceived(record.kgs_received?.toString() || "")
     setPricePerBag(record.price_per_bag.toString())
     setBankAccount(record.bank_account || "")
     setNotes(record.notes || "")
@@ -355,7 +359,7 @@ export default function SalesTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "Coffee Type", "Bag Type", "B&L Batch No", "Estate", "Bags Sent", "KGs", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
+    const headers = ["Date", "Coffee Type", "Bag Type", "B&L Batch No", "Estate", "Bags Sent", "KGs", "KGs Received", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
     const rows = salesRecords.map((record) => [
       format(new Date(record.sale_date), "yyyy-MM-dd"),
       record.coffee_type || "",
@@ -364,6 +368,7 @@ export default function SalesTab() {
       record.estate || "",
       record.bags_sent.toString(),
       record.kgs.toString(),
+      record.kgs_received?.toString() || "0",
       record.bags_sold.toString(),
       record.price_per_bag.toString(),
       record.revenue.toString(),
@@ -716,16 +721,25 @@ return (
               <p className="text-xs text-muted-foreground">Auto-calculated</p>
             </div>
 
-            {/* Bags Sold */}
+            {/* KGs Received */}
             <div className="space-y-2">
-              <Label>Bags Sold</Label>
+              <Label>KGs Received</Label>
               <Input
                 type="number"
                 step="0.01"
-                placeholder="kgs/50"
-                value={bagsSold}
-                onChange={(e) => setBagsSold(e.target.value)}
+                placeholder="Enter KGs received"
+                value={kgsReceived}
+                onChange={(e) => setKgsReceived(e.target.value)}
               />
+            </div>
+
+            {/* Bags Sold (Auto-calculated) */}
+            <div className="space-y-2">
+              <Label>Bags Sold (KGs / 50)</Label>
+              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+                <span className="font-medium">{bagsSold.toFixed(2)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Auto-calculated</p>
             </div>
 
             {/* Price per Bag */}
@@ -832,6 +846,7 @@ return (
                     <TableHead>Estate</TableHead>
                     <TableHead className="text-right">Bags Sent</TableHead>
                     <TableHead className="text-right">KGs</TableHead>
+                    <TableHead className="text-right">KGs Received</TableHead>
                     <TableHead className="text-right">Bags Sold</TableHead>
                     <TableHead className="text-right">Price/Bag</TableHead>
                     <TableHead className="text-right">Revenue</TableHead>
@@ -850,6 +865,7 @@ return (
                       <TableCell>{record.estate || "-"}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>
                       <TableCell className="text-right">{Number(record.kgs).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{Number(record.kgs_received || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_sold).toFixed(2)}</TableCell>
                       <TableCell className="text-right">₹{Number(record.price_per_bag).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-medium text-green-600">

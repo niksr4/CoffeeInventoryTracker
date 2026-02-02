@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS sales_records (
     estate VARCHAR(100),
     bags_sent INTEGER NOT NULL DEFAULT 0,
     kgs DECIMAL(10,2) NOT NULL DEFAULT 0,
+    kgs_received DECIMAL(10,2) NOT NULL DEFAULT 0,
     bags_sold DECIMAL(10,2) NOT NULL DEFAULT 0,
     price_per_bag DECIMAL(10,2) NOT NULL DEFAULT 0,
     revenue DECIMAL(12,2) NOT NULL DEFAULT 0,
