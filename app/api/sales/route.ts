@@ -52,10 +52,12 @@ export async function POST(request: Request) {
     const { 
       sale_date,
       coffee_type,
+      bag_type,
       batch_no,
       estate,
       bags_sent,
       kgs,
+      kgs_received,
       bags_sold,
       price_per_bag,
       revenue,
@@ -72,9 +74,9 @@ export async function POST(request: Request) {
 
     const result = await sql`
       INSERT INTO sales_records (
-        sale_date, coffee_type, batch_no, estate, bags_sent, kgs, bags_sold, price_per_bag, revenue, bank_account, notes
+        sale_date, coffee_type, bag_type, batch_no, estate, bags_sent, kgs, kgs_received, bags_sold, price_per_bag, revenue, bank_account, notes
       ) VALUES (
-        ${sale_date}::date, ${coffee_type || null}, ${batch_no || null}, ${estate || null}, ${bags_sent}, ${kgs}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}
+        ${sale_date}::date, ${coffee_type || null}, ${bag_type || null}, ${batch_no || null}, ${estate || null}, ${bags_sent}, ${kgs}, ${kgs_received || 0}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}
       )
       RETURNING *
     `
@@ -97,10 +99,12 @@ export async function PUT(request: Request) {
       id,
       sale_date,
       coffee_type,
+      bag_type,
       batch_no,
       estate,
       bags_sent,
       kgs,
+      kgs_received,
       bags_sold,
       price_per_bag,
       revenue,
@@ -119,10 +123,12 @@ export async function PUT(request: Request) {
       UPDATE sales_records SET
         sale_date = ${sale_date}::date,
         coffee_type = ${coffee_type || null},
+        bag_type = ${bag_type || null},
         batch_no = ${batch_no || null},
         estate = ${estate || null},
         bags_sent = ${bags_sent},
         kgs = ${kgs},
+        kgs_received = ${kgs_received || 0},
         bags_sold = ${bags_sold},
         price_per_bag = ${price_per_bag},
         revenue = ${revenue},
