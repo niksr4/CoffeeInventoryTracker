@@ -20,6 +20,7 @@ interface SalesRecord {
   id?: number
   sale_date: string
   coffee_type: string
+  bag_type: string
   batch_no: string
   estate: string
   bags_sent: number
@@ -32,11 +33,16 @@ interface SalesRecord {
 }
 
 interface DispatchTotals {
-  arabica: number // in KGs
-  robusta: number // in KGs
+  arabica_cherry: number
+  arabica_parchment: number
+  arabica_total: number
+  robusta_cherry: number
+  robusta_parchment: number
+  robusta_total: number
 }
 
 const COFFEE_TYPES = ["Arabica", "Robusta"]
+const BAG_TYPES = ["Dry Cherry", "Dry Parchment"]
 const ESTATES = ["HF A", "HF B", "HF C", "MV"]
 const BATCH_NOS = ["hfa", "hfb", "hfc", "mv"]
 
@@ -46,6 +52,7 @@ export default function SalesTab() {
   
   const [date, setDate] = useState<Date>(new Date())
   const [coffeeType, setCoffeeType] = useState<string>("Arabica")
+  const [bagType, setBagType] = useState<string>("Dry Parchment")
   const [batchNo, setBatchNo] = useState<string>("")
   const [estate, setEstate] = useState<string>("HF A")
   const [bagsSent, setBagsSent] = useState<string>("")
@@ -60,22 +67,47 @@ export default function SalesTab() {
   const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
   
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
-  const [dispatchTotals, setDispatchTotals] = useState<DispatchTotals>({ arabica: 0, robusta: 0 })
+  const [dispatchTotals, setDispatchTotals] = useState<DispatchTotals>({ 
+    arabica_cherry: 0, 
+    arabica_parchment: 0, 
+    arabica_total: 0,
+    robusta_cherry: 0, 
+    robusta_parchment: 0,
+    robusta_total: 0
+  })
   const [editingRecord, setEditingRecord] = useState<SalesRecord | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
 
-  // Calculate sold amounts by coffee type
+  // Calculate sold amounts by coffee type and bag type
   const calculateSoldTotals = useCallback(() => {
-    const sold = { arabica: 0, robusta: 0 }
+    const sold = { 
+      arabica_cherry: 0, 
+      arabica_parchment: 0, 
+      arabica_total: 0,
+      robusta_cherry: 0, 
+      robusta_parchment: 0,
+      robusta_total: 0
+    }
     
     salesRecords.forEach((record) => {
       const kgsSold = Number(record.bags_sold) * 50 // Convert bags to KGs
+      
       if (record.coffee_type === "Arabica") {
-        sold.arabica += kgsSold
+        sold.arabica_total += kgsSold
+        if (record.bag_type === "Dry Cherry") {
+          sold.arabica_cherry += kgsSold
+        } else if (record.bag_type === "Dry Parchment" || record.bag_type === "Dry P") {
+          sold.arabica_parchment += kgsSold
+        }
       } else if (record.coffee_type === "Robusta") {
-        sold.robusta += kgsSold
+        sold.robusta_total += kgsSold
+        if (record.bag_type === "Dry Cherry") {
+          sold.robusta_cherry += kgsSold
+        } else if (record.bag_type === "Dry Parchment" || record.bag_type === "Dry P") {
+          sold.robusta_parchment += kgsSold
+        }
       }
     })
     
@@ -86,8 +118,12 @@ export default function SalesTab() {
   const calculateAvailable = useCallback(() => {
     const sold = calculateSoldTotals()
     return {
-      arabica: Math.max(0, dispatchTotals.arabica - sold.arabica),
-      robusta: Math.max(0, dispatchTotals.robusta - sold.robusta),
+      arabica_cherry: Math.max(0, dispatchTotals.arabica_cherry - sold.arabica_cherry),
+      arabica_parchment: Math.max(0, dispatchTotals.arabica_parchment - sold.arabica_parchment),
+      arabica_total: Math.max(0, dispatchTotals.arabica_total - sold.arabica_total),
+      robusta_cherry: Math.max(0, dispatchTotals.robusta_cherry - sold.robusta_cherry),
+      robusta_parchment: Math.max(0, dispatchTotals.robusta_parchment - sold.robusta_parchment),
+      robusta_total: Math.max(0, dispatchTotals.robusta_total - sold.robusta_total),
     }
   }, [dispatchTotals, calculateSoldTotals])
 
@@ -118,14 +154,32 @@ export default function SalesTab() {
       const data = await response.json()
 
       if (data.success && data.records) {
-        const totals = { arabica: 0, robusta: 0 }
+        const totals = { 
+          arabica_cherry: 0, 
+          arabica_parchment: 0, 
+          arabica_total: 0,
+          robusta_cherry: 0, 
+          robusta_parchment: 0,
+          robusta_total: 0
+        }
 
-        data.records.forEach((record: { coffee_type: string; bags_dispatched: number }) => {
+        data.records.forEach((record: { coffee_type: string; bag_type: string; bags_dispatched: number }) => {
           const kgs = Number(record.bags_dispatched) * 50 // Convert bags to KGs
+          
           if (record.coffee_type === "Arabica") {
-            totals.arabica += kgs
+            totals.arabica_total += kgs
+            if (record.bag_type === "Dry Cherry") {
+              totals.arabica_cherry += kgs
+            } else if (record.bag_type === "Dry Parchment" || record.bag_type === "Dry P") {
+              totals.arabica_parchment += kgs
+            }
           } else if (record.coffee_type === "Robusta") {
-            totals.robusta += kgs
+            totals.robusta_total += kgs
+            if (record.bag_type === "Dry Cherry") {
+              totals.robusta_cherry += kgs
+            } else if (record.bag_type === "Dry Parchment" || record.bag_type === "Dry P") {
+              totals.robusta_parchment += kgs
+            }
           }
         })
 
@@ -199,6 +253,7 @@ export default function SalesTab() {
           id: editingRecord?.id,
           sale_date: format(date, "yyyy-MM-dd"),
           coffee_type: coffeeType,
+          bag_type: bagType,
           batch_no: batchNo || null,
           estate: estate,
           bags_sent: Number(bagsSent),
@@ -242,6 +297,7 @@ export default function SalesTab() {
 
   const resetForm = () => {
     setCoffeeType("Arabica")
+    setBagType("Dry Parchment")
     setBatchNo("")
     setEstate("HF A")
     setBagsSent("")
@@ -256,6 +312,7 @@ export default function SalesTab() {
     setEditingRecord(record)
     setDate(new Date(record.sale_date))
     setCoffeeType(record.coffee_type || "Arabica")
+    setBagType(record.bag_type || "Dry Parchment")
     setBatchNo(record.batch_no || "")
     setEstate(record.estate || "HF A")
     setBagsSent(record.bags_sent.toString())
@@ -298,10 +355,11 @@ export default function SalesTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "Coffee Type", "B&L Batch No", "Estate", "Bags Sent", "KGs", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
+    const headers = ["Date", "Coffee Type", "Bag Type", "B&L Batch No", "Estate", "Bags Sent", "KGs", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
     const rows = salesRecords.map((record) => [
       format(new Date(record.sale_date), "yyyy-MM-dd"),
       record.coffee_type || "",
+      record.bag_type || "",
       record.batch_no || "",
       record.estate || "",
       record.bags_sent.toString(),
@@ -366,38 +424,118 @@ return (
           <CardDescription>Dispatched coffee available to sell (in KGs)</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Arabica */}
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="text-sm font-medium text-green-800">Arabica</div>
-              <div className="mt-2">
-                <div className="text-2xl font-bold text-green-600">
-                  {available.arabica.toFixed(2)} KGs
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Arabica Section */}
+            <div className="space-y-3">
+              <div className="text-base font-semibold text-green-800 mb-2">Arabica</div>
+              
+              {/* Arabica Cherry */}
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                <div className="text-xs font-medium text-green-700">Cherry</div>
+                <div className="text-lg font-bold text-green-600 mt-1">
+                  {available.arabica_cherry.toFixed(2)} KGs
                 </div>
-                <div className="text-xs text-green-700 mt-1">
-                  {(available.arabica / 50).toFixed(2)} Bags
+                <div className="text-xs text-green-600">
+                  {(available.arabica_cherry / 50).toFixed(2)} Bags
                 </div>
               </div>
-              <div className="mt-2 pt-2 border-t border-green-300 text-xs text-green-700">
-                <div>Dispatched: {dispatchTotals.arabica.toFixed(2)} KGs ({(dispatchTotals.arabica / 50).toFixed(2)} bags)</div>
-                <div>Sold: {soldTotals.arabica.toFixed(2)} KGs ({(soldTotals.arabica / 50).toFixed(2)} bags)</div>
+
+              {/* Arabica Parchment */}
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                <div className="text-xs font-medium text-green-700">Parchment</div>
+                <div className="text-lg font-bold text-green-600 mt-1">
+                  {available.arabica_parchment.toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-green-600">
+                  {(available.arabica_parchment / 50).toFixed(2)} Bags
+                </div>
+              </div>
+
+              {/* Arabica Total */}
+              <div className="p-3 bg-green-100 border-2 border-green-400 rounded-md">
+                <div className="text-xs font-bold text-green-800">Total Arabica</div>
+                <div className="text-xl font-bold text-green-700 mt-1">
+                  {available.arabica_total.toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-green-700">
+                  {(available.arabica_total / 50).toFixed(2)} Bags
+                </div>
               </div>
             </div>
 
-            {/* Robusta */}
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="text-sm font-medium text-amber-800">Robusta</div>
-              <div className="mt-2">
-                <div className="text-2xl font-bold text-amber-600">
-                  {available.robusta.toFixed(2)} KGs
+            {/* Robusta Section */}
+            <div className="space-y-3">
+              <div className="text-base font-semibold text-amber-800 mb-2">Robusta</div>
+              
+              {/* Robusta Cherry */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                <div className="text-xs font-medium text-amber-700">Cherry</div>
+                <div className="text-lg font-bold text-amber-600 mt-1">
+                  {available.robusta_cherry.toFixed(2)} KGs
                 </div>
-                <div className="text-xs text-amber-700 mt-1">
-                  {(available.robusta / 50).toFixed(2)} Bags
+                <div className="text-xs text-amber-600">
+                  {(available.robusta_cherry / 50).toFixed(2)} Bags
                 </div>
               </div>
-              <div className="mt-2 pt-2 border-t border-amber-300 text-xs text-amber-700">
-                <div>Dispatched: {dispatchTotals.robusta.toFixed(2)} KGs ({(dispatchTotals.robusta / 50).toFixed(2)} bags)</div>
-                <div>Sold: {soldTotals.robusta.toFixed(2)} KGs ({(soldTotals.robusta / 50).toFixed(2)} bags)</div>
+
+              {/* Robusta Parchment */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                <div className="text-xs font-medium text-amber-700">Parchment</div>
+                <div className="text-lg font-bold text-amber-600 mt-1">
+                  {available.robusta_parchment.toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-amber-600">
+                  {(available.robusta_parchment / 50).toFixed(2)} Bags
+                </div>
+              </div>
+
+              {/* Robusta Total */}
+              <div className="p-3 bg-amber-100 border-2 border-amber-400 rounded-md">
+                <div className="text-xs font-bold text-amber-800">Total Robusta</div>
+                <div className="text-xl font-bold text-amber-700 mt-1">
+                  {available.robusta_total.toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-amber-700">
+                  {(available.robusta_total / 50).toFixed(2)} Bags
+                </div>
+              </div>
+            </div>
+
+            {/* Summary Section */}
+            <div className="space-y-3">
+              <div className="text-base font-semibold text-slate-800 mb-2">Summary</div>
+              
+              {/* Dispatched Total */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="text-xs font-medium text-blue-700">Total Dispatched</div>
+                <div className="text-lg font-bold text-blue-600 mt-1">
+                  {(dispatchTotals.arabica_total + dispatchTotals.robusta_total).toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-blue-600">
+                  {((dispatchTotals.arabica_total + dispatchTotals.robusta_total) / 50).toFixed(2)} Bags
+                </div>
+              </div>
+
+              {/* Sold Total */}
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+                <div className="text-xs font-medium text-purple-700">Total Sold</div>
+                <div className="text-lg font-bold text-purple-600 mt-1">
+                  {(soldTotals.arabica_total + soldTotals.robusta_total).toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-purple-600">
+                  {((soldTotals.arabica_total + soldTotals.robusta_total) / 50).toFixed(2)} Bags
+                </div>
+              </div>
+
+              {/* Available Total */}
+              <div className="p-3 bg-slate-100 border-2 border-slate-400 rounded-md">
+                <div className="text-xs font-bold text-slate-800">Total Available</div>
+                <div className="text-xl font-bold text-slate-700 mt-1">
+                  {(available.arabica_total + available.robusta_total).toFixed(2)} KGs
+                </div>
+                <div className="text-xs text-slate-700">
+                  {((available.arabica_total + available.robusta_total) / 50).toFixed(2)} Bags
+                </div>
               </div>
             </div>
           </div>
@@ -505,6 +643,23 @@ return (
                   {COFFEE_TYPES.map((ct) => (
                     <SelectItem key={ct} value={ct}>
                       {ct}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Bag Type */}
+            <div className="space-y-2">
+              <Label>Bag Type</Label>
+              <Select value={bagType} onValueChange={setBagType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BAG_TYPES.map((bt) => (
+                    <SelectItem key={bt} value={bt}>
+                      {bt}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -672,6 +827,7 @@ return (
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Coffee Type</TableHead>
+                    <TableHead>Bag Type</TableHead>
                     <TableHead>B&L Batch No</TableHead>
                     <TableHead>Estate</TableHead>
                     <TableHead className="text-right">Bags Sent</TableHead>
@@ -689,6 +845,7 @@ return (
                     <TableRow key={record.id}>
                       <TableCell>{format(new Date(record.sale_date), "dd MMM yyyy")}</TableCell>
                       <TableCell>{record.coffee_type || "-"}</TableCell>
+                      <TableCell>{record.bag_type || "-"}</TableCell>
                       <TableCell>{record.batch_no || "-"}</TableCell>
                       <TableCell>{record.estate || "-"}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>
