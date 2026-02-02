@@ -257,7 +257,7 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
 
   const processingChartConfig: ChartConfig = {
     dryP: {
-      label: "Dry P Bags",
+      label: "Dry Parchment Bags",
       color: COLORS[0],
     },
     dryCherry: {
@@ -337,7 +337,7 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       <Card className="xl:col-span-1">
         <CardHeader>
           <CardTitle>Processing Output by Location</CardTitle>
-          <CardDescription>Dry P and Dry Cherry bags by location.</CardDescription>
+                <CardDescription>Dry Parchment and Dry Cherry bags by location.</CardDescription>
         </CardHeader>
         <CardContent>
           {processingOutputData.length > 0 ? (

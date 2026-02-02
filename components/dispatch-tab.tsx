@@ -38,7 +38,7 @@ interface BagTotals {
 
 const ESTATES = ["HF A", "HF B", "HF C", "MV"]
 const COFFEE_TYPES = ["Arabica", "Robusta"]
-const BAG_TYPES = ["Dry P", "Dry Cherry"]
+const BAG_TYPES = ["Dry Parchment", "Dry Cherry"]
 
 export default function DispatchTab() {
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
@@ -47,7 +47,7 @@ export default function DispatchTab() {
   const [date, setDate] = useState<Date>(new Date())
   const [estate, setEstate] = useState<string>("HF A")
   const [coffeeType, setCoffeeType] = useState<string>("Arabica")
-  const [bagType, setBagType] = useState<string>("Dry P")
+  const [bagType, setBagType] = useState<string>("Dry Parchment")
   const [bagsDispatched, setBagsDispatched] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
@@ -315,9 +315,9 @@ export default function DispatchTab() {
 
   // Get current selected balance
   const getBalanceForSelection = () => {
-    if (coffeeType === "Arabica" && bagType === "Dry P") return balanceArabicaDryP
+    if (coffeeType === "Arabica" && bagType === "Dry Parchment") return balanceArabicaDryP
     if (coffeeType === "Arabica" && bagType === "Dry Cherry") return balanceArabicaDryCherry
-    if (coffeeType === "Robusta" && bagType === "Dry P") return balanceRobustaDryP
+    if (coffeeType === "Robusta" && bagType === "Dry Parchment") return balanceRobustaDryP
     if (coffeeType === "Robusta" && bagType === "Dry Cherry") return balanceRobustaDryCherry
     return 0
   }
@@ -358,7 +358,7 @@ export default function DispatchTab() {
         {/* Arabica Dry P */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Arabica Dry P Bags</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Arabica Dry Parchment Bags</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{bagTotals.arabica_dry_p_bags.toFixed(2)}</div>
@@ -390,7 +390,7 @@ export default function DispatchTab() {
         {/* Robusta Dry P */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Robusta Dry P Bags</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Robusta Dry Parchment Bags</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{bagTotals.robusta_dry_p_bags.toFixed(2)}</div>

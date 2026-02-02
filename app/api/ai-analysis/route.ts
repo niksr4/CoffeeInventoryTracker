@@ -348,13 +348,13 @@ function buildDataSummary(data: DataSummaryInput): string {
         sections.push(`\n### ${location}`)
         sections.push(`- Processing days: ${records.length}`)
         sections.push(`- Total crop: ${totalCrop.toFixed(2)} kg, Ripe: ${totalRipe.toFixed(2)} kg`)
-        sections.push(`- Dry P Bags: ${totalDryPBags.toFixed(2)}, Dry Cherry Bags: ${totalDryCherryBags.toFixed(2)}`)
+        sections.push(`- Dry Parchment Bags: ${totalDryPBags.toFixed(2)}, Dry Cherry Bags: ${totalDryCherryBags.toFixed(2)}`)
       }
     }
     
     sections.push(`\n### Overall Processing Totals`)
     sections.push(`- Total crop processed: ${totalAllCrop.toFixed(2)} kg`)
-    sections.push(`- Total Dry P Bags: ${totalAllDryP.toFixed(2)}, Total Dry Cherry Bags: ${totalAllDryCherry.toFixed(2)}`)
+    sections.push(`- Total Dry Parchment Bags: ${totalAllDryP.toFixed(2)}, Total Dry Cherry Bags: ${totalAllDryCherry.toFixed(2)}`)
   }
   
   // Rainfall summary
