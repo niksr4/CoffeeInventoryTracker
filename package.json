@@ -12,6 +12,7 @@
     "@ai-sdk/groq": "latest",
     "@ai-sdk/openai": "2.0.42",
     "@hookform/resolvers": "^3.9.1",
+    "@neon/serverless": "latest",
     "@neondatabase/serverless": "latest",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
