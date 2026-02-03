@@ -219,20 +219,7 @@ export default function SalesTab() {
   }, [fetchDispatchedTotals, fetchSalesRecords])
 
   const handleSave = async () => {
-    console.log("[v0] handleSave called with:", {
-      bagsSent,
-      kgsReceived,
-      pricePerBag,
-      kgs,
-      bagsSold,
-      calculatedRevenue,
-      coffeeType,
-      bagType,
-      estate
-    })
-
     if (!bagsSent || Number(bagsSent) <= 0) {
-      console.log("[v0] Validation failed: bagsSent", bagsSent)
       toast({
         title: "Error",
         description: "Please enter the number of bags sent",
@@ -242,7 +229,6 @@ export default function SalesTab() {
     }
 
     if (!kgsReceived || Number(kgsReceived) <= 0) {
-      console.log("[v0] Validation failed: kgsReceived", kgsReceived)
       toast({
         title: "Error",
         description: "Please enter the KGs received",
@@ -252,7 +238,6 @@ export default function SalesTab() {
     }
 
     if (!pricePerBag || Number(pricePerBag) <= 0) {
-      console.log("[v0] Validation failed: pricePerBag", pricePerBag)
       toast({
         title: "Error",
         description: "Please enter a valid price per bag",
@@ -261,7 +246,6 @@ export default function SalesTab() {
       return
     }
 
-    console.log("[v0] All validations passed, proceeding to save")
     setIsSaving(true)
     try {
       const method = editingRecord ? "PUT" : "POST"
