@@ -14,58 +14,38 @@ export async function GET() {
     }
 
     // Search for coffee-related news focusing on India, global trends, demand, supply, and forecasts
-    const searchQuery = "(coffee india) OR (coffee arabica india) OR (coffee robusta india) OR (coffee demand) OR (coffee supply) OR (coffee production) OR (coffee trends) OR (coffee forecast) OR (coffee outlook) OR (coffee market analysis) OR (coffee consumption)"
+    // Broader search to ensure we get results
+    const searchQuery = "coffee AND (india OR demand OR supply OR production OR market OR arabica OR robusta OR forecast OR outlook)"
     
-    // Fetch articles from 2026 (3 articles)
-    const url2026 = new URL("https://api.thenewsapi.com/v1/news/all")
-    url2026.searchParams.append("api_token", apiKey)
-    url2026.searchParams.append("search", searchQuery)
-    url2026.searchParams.append("language", "en")
-    url2026.searchParams.append("published_after", "2026-01-01")
-    url2026.searchParams.append("limit", "5")
-    url2026.searchParams.append("sort", "published_at")
-    url2026.searchParams.append("categories", "business,finance")
+    // Fetch all articles from 2023 to 2026
+    const url = new URL("https://api.thenewsapi.com/v1/news/all")
+    url.searchParams.append("api_token", apiKey)
+    url.searchParams.append("search", searchQuery)
+    url.searchParams.append("language", "en")
+    url.searchParams.append("published_after", "2023-01-01")
+    url.searchParams.append("limit", "50")
+    url.searchParams.append("sort", "published_at")
 
-    const response2026 = await fetch(url2026.toString(), {
+    const response = await fetch(url.toString(), {
       headers: {
         "Accept": "application/json",
       },
     })
 
-    // Fetch articles from 2025 (7 articles)
-    const url2025 = new URL("https://api.thenewsapi.com/v1/news/all")
-    url2025.searchParams.append("api_token", apiKey)
-    url2025.searchParams.append("search", searchQuery)
-    url2025.searchParams.append("language", "en")
-    url2025.searchParams.append("published_after", "2025-01-01")
-    url2025.searchParams.append("published_before", "2025-12-31")
-    url2025.searchParams.append("limit", "10")
-    url2025.searchParams.append("sort", "published_at")
-    url2025.searchParams.append("categories", "business,finance")
-
-    const response2025 = await fetch(url2025.toString(), {
-      headers: {
-        "Accept": "application/json",
-      },
-    })
-
-    if (!response2026.ok || !response2025.ok) {
-      throw new Error(`News API responded with error`)
+    if (!response.ok) {
+      throw new Error(`News API responded with status ${response.status}`)
     }
 
-    const data2026 = await response2026.json()
-    const data2025 = await response2025.json()
+    const data = await response.json()
+    const allArticles = data.data || []
     
-    // Combine articles: 3 from 2026, 7 from 2025
-    const articles2026 = (data2026.data || []).slice(0, 3)
-    const articles2025 = (data2025.data || []).slice(0, 7)
-    const allArticles = [...articles2026, ...articles2025]
+    // Take the 10 most recent articles
+    const selectedArticles = allArticles.slice(0, 10)
     
     return NextResponse.json({
-      articles: allArticles,
-      total: allArticles.length,
-      from2026: articles2026.length,
-      from2025: articles2025.length,
+      articles: selectedArticles,
+      total: selectedArticles.length,
+      totalFound: allArticles.length,
     })
   } catch (error) {
     console.error("Error fetching coffee news:", error)

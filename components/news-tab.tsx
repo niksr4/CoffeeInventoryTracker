@@ -23,8 +23,7 @@ interface NewsArticle {
 interface NewsResponse {
   articles: NewsArticle[]
   total: number
-  from2026?: number
-  from2025?: number
+  totalFound?: number
 }
 
 export default function NewsTab() {
@@ -112,8 +111,8 @@ export default function NewsTab() {
             Coffee Market News
           </CardTitle>
           <CardDescription>
-            Latest news on coffee in India, global demand, supply, production trends, and market forecasts
-            {newsData && ` (${newsData.total} articles: ${newsData.from2026 || 0} from 2026, ${newsData.from2025 || 0} from 2025)`}
+            Latest news on coffee in India, global demand, supply, production trends, and market forecasts (2023-2026)
+            {newsData && ` - Showing ${newsData.total} of ${newsData.totalFound || newsData.total} articles`}
           </CardDescription>
         </CardHeader>
       </Card>
