@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     const sql = getDispatchDb()
     const body = await request.json()
     const { 
+      dispatch_id,
       sale_date,
       coffee_type,
       bag_type,
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       notes 
     } = body
 
-    if (!sale_date || bags_sent === undefined || bags_sold === undefined || price_per_bag === undefined) {
+    if (!dispatch_id || !sale_date || bags_sent === undefined || bags_sold === undefined || price_per_bag === undefined) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
@@ -77,9 +78,9 @@ export async function POST(request: Request) {
 
     const result = await sql`
       INSERT INTO sales_records (
-        sale_date, coffee_type, bag_type, batch_no, estate, bags_sent, kgs, kgs_received, bags_sold, price_per_bag, revenue, bank_account, notes, weight_kgs, price_per_kg, total_revenue
+        dispatch_id, sale_date, coffee_type, bag_type, batch_no, estate, bags_sent, kgs, kgs_received, bags_sold, price_per_bag, revenue, bank_account, notes, weight_kgs, price_per_kg, total_revenue
       ) VALUES (
-        ${sale_date}::date, ${coffee_type || null}, ${bag_type || null}, ${batch_no || null}, ${estate || null}, ${bags_sent}, ${kgs}, ${kgs_received || 0}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}, ${kgs_received || 0}, ${price_per_kg}, ${revenue}
+        ${dispatch_id}, ${sale_date}::date, ${coffee_type || null}, ${bag_type || null}, ${batch_no || null}, ${estate || null}, ${bags_sent}, ${kgs}, ${kgs_received || 0}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}, ${kgs_received || 0}, ${price_per_kg}, ${revenue}
       )
       RETURNING *
     `

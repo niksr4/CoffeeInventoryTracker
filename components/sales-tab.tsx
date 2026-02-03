@@ -51,21 +51,24 @@ export default function SalesTab() {
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
   const availableFiscalYears = getAvailableFiscalYears()
   
-  const [date, setDate] = useState<Date>(new Date())
-  const [coffeeType, setCoffeeType] = useState<string>("Arabica")
-  const [bagType, setBagType] = useState<string>("Dry Parchment")
-  const [batchNo, setBatchNo] = useState<string>("")
-  const [estate, setEstate] = useState<string>("HF A")
-  const [bagsSent, setBagsSent] = useState<string>("")
-  const [kgsReceived, setKgsReceived] = useState<string>("")
+  const [availableDispatches, setAvailableDispatches] = useState<any[]>([])
+  const [selectedDispatch, setSelectedDispatch] = useState<any | null>(null)
+  const [bagsSold, setBagsSold] = useState<string>("")
   const [pricePerBag, setPricePerBag] = useState<string>("")
   const [bankAccount, setBankAccount] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
+  // Auto-filled from selected dispatch
+  const date = selectedDispatch ? new Date(selectedDispatch.dispatch_date) : new Date()
+  const coffeeType = selectedDispatch?.coffee_type || ""
+  const bagType = selectedDispatch?.bag_type || ""
+  const estate = selectedDispatch?.estate || ""
+  const bagsSent = selectedDispatch?.bags_dispatched || 0
+  const kgsReceived = selectedDispatch?.kgs_received || 0
+  const availableBags = selectedDispatch?.available_bags || 0
+  
   // Auto-calculate kgs as bags sent x 50
-  const kgs = bagsSent ? Number(bagsSent) * 50 : 0
-  // Auto-calculate bags sold as kgs received / 50
-  const bagsSold = kgsReceived ? Number(kgsReceived) / 50 : 0
+  const kgs = bagsSent * 50
   // Auto-calculate revenue as bags sold x price per bag
   const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
   
@@ -194,6 +197,19 @@ export default function SalesTab() {
   }, [selectedFiscalYear])
 
   // Fetch sales records
+  const fetchAvailableDispatches = useCallback(async () => {
+    try {
+      const response = await fetch("/api/available-dispatches")
+      const data = await response.json()
+      
+      if (data.success) {
+        setAvailableDispatches(data.dispatches)
+      }
+    } catch (error) {
+      console.error("Error fetching available dispatches:", error)
+    }
+  }, [])
+
   const fetchSalesRecords = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -214,24 +230,34 @@ export default function SalesTab() {
   }, [selectedFiscalYear])
 
   useEffect(() => {
+    fetchAvailableDispatches()
     fetchDispatchedTotals()
     fetchSalesRecords()
-  }, [fetchDispatchedTotals, fetchSalesRecords])
+  }, [fetchAvailableDispatches, fetchDispatchedTotals, fetchSalesRecords])
 
   const handleSave = async () => {
-    if (!bagsSent || Number(bagsSent) <= 0) {
+    if (!selectedDispatch) {
       toast({
         title: "Error",
-        description: "Please enter the number of bags sent",
+        description: "Please select a dispatch record",
         variant: "destructive",
       })
       return
     }
 
-    if (!kgsReceived || Number(kgsReceived) <= 0) {
+    if (!bagsSold || Number(bagsSold) <= 0) {
       toast({
         title: "Error",
-        description: "Please enter the KGs received",
+        description: "Please enter the number of bags sold",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (Number(bagsSold) > availableBags) {
+      toast({
+        title: "Error",
+        description: `Only ${availableBags.toFixed(2)} bags available from this dispatch`,
         variant: "destructive",
       })
       return
@@ -254,15 +280,16 @@ export default function SalesTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: editingRecord?.id,
+          dispatch_id: selectedDispatch.id,
           sale_date: format(date, "yyyy-MM-dd"),
           coffee_type: coffeeType,
           bag_type: bagType,
-          batch_no: batchNo || null,
+          batch_no: selectedDispatch.id.toString(),
           estate: estate,
           bags_sent: Number(bagsSent),
           kgs: kgs,
           kgs_received: Number(kgsReceived),
-          bags_sold: bagsSold,
+          bags_sold: Number(bagsSold),
           price_per_bag: Number(pricePerBag),
           revenue: calculatedRevenue,
           bank_account: bankAccount || null,
@@ -675,127 +702,88 @@ return (
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Date */}
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal bg-transparent", !date && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Coffee Type */}
-            <div className="space-y-2">
-              <Label>Coffee Type</Label>
-              <Select value={coffeeType} onValueChange={setCoffeeType}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Select Dispatch Record */}
+            <div className="space-y-2 md:col-span-2">
+              <Label>Select Dispatch Record</Label>
+              <Select 
+                value={selectedDispatch?.id?.toString() || ""} 
+                onValueChange={(value) => {
+                  const dispatch = availableDispatches.find(d => d.id.toString() === value)
+                  setSelectedDispatch(dispatch || null)
+                }}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select a dispatch record to sell from" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COFFEE_TYPES.map((ct) => (
-                    <SelectItem key={ct} value={ct}>
-                      {ct}
+                  {availableDispatches.map((dispatch) => (
+                    <SelectItem key={dispatch.id} value={dispatch.id.toString()}>
+                      {format(new Date(dispatch.dispatch_date), "dd MMM yyyy")} - {dispatch.estate} - {dispatch.coffee_type} {dispatch.bag_type} - {Number(dispatch.available_bags).toFixed(2)} bags available
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Bag Type */}
-            <div className="space-y-2">
-              <Label>Bag Type</Label>
-              <Select value={bagType} onValueChange={setBagType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {BAG_TYPES.map((bt) => (
-                    <SelectItem key={bt} value={bt}>
-                      {bt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {selectedDispatch && (
+              <>
+                {/* Dispatch Info (Read-only) */}
+                <div className="space-y-2 md:col-span-2 p-4 bg-muted rounded-lg">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Date:</span>
+                      <p className="font-medium">{format(new Date(selectedDispatch.dispatch_date), "dd MMM yyyy")}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Estate:</span>
+                      <p className="font-medium">{selectedDispatch.estate}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Type:</span>
+                      <p className="font-medium">{selectedDispatch.coffee_type} - {selectedDispatch.bag_type}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Bags Sent:</span>
+                      <p className="font-medium">{Number(selectedDispatch.bags_dispatched).toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">KGs Received:</span>
+                      <p className="font-medium">{Number(selectedDispatch.kgs_received).toFixed(2)} KGs</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Bags Available:</span>
+                      <p className="font-medium text-green-600">{Number(selectedDispatch.available_bags).toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
 
-            {/* B&L Batch No */}
-            <div className="space-y-2">
-              <Label>B&L Batch No</Label>
-              <Input
-                type="text"
-                placeholder="e.g., hfa, hfb, hfc, mv"
-                value={batchNo}
-                onChange={(e) => setBatchNo(e.target.value)}
-              />
-            </div>
-
-            {/* Estate */}
-            <div className="space-y-2">
-              <Label>Estate</Label>
-              <Select value={estate} onValueChange={setEstate}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ESTATES.map((e) => (
-                    <SelectItem key={e} value={e}>
-                      {e}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Bags Sent */}
-            <div className="space-y-2">
-              <Label>Bags Sent</Label>
-              <Input
-                type="number"
-                step="1"
-                min="1"
-                placeholder="Number of bags"
-                value={bagsSent}
-                onChange={(e) => setBagsSent(e.target.value)}
-              />
-            </div>
+                {/* Bags Sold - Only user input needed */}
+                <div className="space-y-2">
+                  <Label>Bags Sold</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={selectedDispatch.available_bags}
+                    placeholder="Number of bags to sell"
+                    value={bagsSold}
+                    onChange={(e) => setBagsSold(e.target.value)}
+                  />
+                  {bagsSold && Number(bagsSold) > selectedDispatch.available_bags && (
+                    <p className="text-xs text-red-600">
+                      Exceeds available bags ({selectedDispatch.available_bags.toFixed(2)})
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* KGs (Auto-calculated) */}
             <div className="space-y-2">
               <Label>KGs (Bags x 50)</Label>
               <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
                 <span className="font-medium">{kgs.toFixed(2)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-calculated</p>
-            </div>
-
-            {/* KGs Received */}
-            <div className="space-y-2">
-              <Label>KGs Received</Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="Enter KGs received"
-                value={kgsReceived}
-                onChange={(e) => setKgsReceived(e.target.value)}
-              />
-            </div>
-
-            {/* Bags Sold (Auto-calculated) */}
-            <div className="space-y-2">
-              <Label>Bags Sold (KGs / 50)</Label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-                <span className="font-medium">{bagsSold.toFixed(2)}</span>
               </div>
               <p className="text-xs text-muted-foreground">Auto-calculated</p>
             </div>
