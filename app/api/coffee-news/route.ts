@@ -13,8 +13,8 @@ export async function GET() {
       )
     }
 
-    // Search for coffee-related news with multiple keywords
-    const searchQuery = "coffee OR arabica OR robusta OR coffee price OR coffee market OR coffee demand OR coffee supply"
+    // Search for coffee-related news focusing on India, global trends, demand, supply, and forecasts
+    const searchQuery = "(coffee india) OR (coffee arabica india) OR (coffee robusta india) OR (coffee demand) OR (coffee supply) OR (coffee production) OR (coffee trends) OR (coffee forecast) OR (coffee outlook) OR (coffee market analysis) OR (coffee consumption)"
     
     // Fetch articles from 2026 (3 articles)
     const url2026 = new URL("https://api.thenewsapi.com/v1/news/all")

@@ -112,7 +112,7 @@ export default function NewsTab() {
             Coffee Market News
           </CardTitle>
           <CardDescription>
-            Latest news on coffee markets, pricing, arabica, robusta, and industry trends
+            Latest news on coffee in India, global demand, supply, production trends, and market forecasts
             {newsData && ` (${newsData.total} articles: ${newsData.from2026 || 0} from 2026, ${newsData.from2025 || 0} from 2025)`}
           </CardDescription>
         </CardHeader>
