@@ -25,6 +25,7 @@ import {
   Truck,
   RefreshCw,
   AlertTriangle,
+  Newspaper,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,6 +50,7 @@ import AccountsPage from "@/components/accounts-page"
 import ProcessingTab from "@/components/processing-tab"
 import { useInventoryValuation } from "@/hooks/use-inventory-valuation"
 import WeatherTab from "@/components/weather-tab"
+import NewsTab from "@/components/news-tab"
 import { PepperTab } from "./pepper-tab"
 
 import RainfallTab from "@/components/rainfall-tab"
@@ -841,6 +843,10 @@ export default function InventorySystem() {
                   <Cloudy className="h-4 w-4 mr-2" />
                   Weather
                 </TabsTrigger>
+                <TabsTrigger value="news">
+                  <Newspaper className="h-4 w-4 mr-2" />
+                  News
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="inventory" className="space-y-8">
                 <InventoryValueSummary inventory={inventory} transactions={transactions} summary={summary} />
@@ -1372,6 +1378,9 @@ export default function InventorySystem() {
               <TabsContent value="weather" className="space-y-6">
                 <WeatherTab />
               </TabsContent>
+              <TabsContent value="news" className="space-y-6">
+                <NewsTab />
+              </TabsContent>
             </Tabs>
           ) : (
             <Tabs defaultValue="inventory" className="w-full">
@@ -1401,6 +1410,10 @@ export default function InventorySystem() {
                 <TabsTrigger value="weather">
                   <Cloudy className="h-4 w-4 mr-2" />
                   Weather
+                </TabsTrigger>
+                <TabsTrigger value="news">
+                  <Newspaper className="h-4 w-4 mr-2" />
+                  News
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="inventory" className="space-y-8">
@@ -1814,6 +1827,9 @@ export default function InventorySystem() {
               </TabsContent>
               <TabsContent value="weather" className="space-y-6 pt-6">
                 <WeatherTab />
+              </TabsContent>
+              <TabsContent value="news" className="space-y-6 pt-6">
+                <NewsTab />
               </TabsContent>
             </Tabs>
           )}
