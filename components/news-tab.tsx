@@ -23,6 +23,8 @@ interface NewsArticle {
 interface NewsResponse {
   articles: NewsArticle[]
   total: number
+  from2026?: number
+  from2025?: number
 }
 
 export default function NewsTab() {
@@ -111,7 +113,7 @@ export default function NewsTab() {
           </CardTitle>
           <CardDescription>
             Latest news on coffee markets, pricing, arabica, robusta, and industry trends
-            {newsData && ` (${newsData.total} articles)`}
+            {newsData && ` (${newsData.total} articles: ${newsData.from2026 || 0} from 2026, ${newsData.from2025 || 0} from 2025)`}
           </CardDescription>
         </CardHeader>
       </Card>
