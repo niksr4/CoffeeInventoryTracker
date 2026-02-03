@@ -228,10 +228,10 @@ export default function SalesTab() {
       return
     }
 
-    if (!bagsSold || Number(bagsSold) <= 0) {
+    if (!kgsReceived || Number(kgsReceived) <= 0) {
       toast({
         title: "Error",
-        description: "Please enter the number of bags sold",
+        description: "Please enter the KGs received",
         variant: "destructive",
       })
       return
@@ -360,7 +360,8 @@ export default function SalesTab() {
 
   const exportToCSV = () => {
     const headers = ["Date", "Coffee Type", "Bag Type", "B&L Batch No", "Estate", "Bags Sent", "KGs", "KGs Received", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
-    const rows = salesRecords.map((record) => [
+    
+    const formatRow = (record: SalesRecord) => [
       format(new Date(record.sale_date), "yyyy-MM-dd"),
       record.coffee_type || "",
       record.bag_type || "",
@@ -374,9 +375,66 @@ export default function SalesTab() {
       record.revenue.toString(),
       record.bank_account || "",
       record.notes || "",
-    ])
+    ]
 
-    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
+    // Helper to create a category code (e.g., "AP" = Arabica + Dry Parchment)
+    const getCategoryCode = (record: SalesRecord) => {
+      const typeCode = record.coffee_type === "Arabica" ? "A" : "R"
+      const bagCode = record.bag_type === "Dry Parchment" ? "P" : "C"
+      return typeCode + bagCode
+    }
+
+    let csvContent = ""
+
+    // Section 1: Sorted by Date
+    csvContent += "SORTED BY DATE\n"
+    csvContent += headers.join(",") + "\n"
+    const sortedByDate = [...salesRecords].sort((a, b) => 
+      new Date(a.sale_date).getTime() - new Date(b.sale_date).getTime()
+    )
+    sortedByDate.forEach((record) => {
+      csvContent += formatRow(record).map((cell) => `"${cell}"`).join(",") + "\n"
+    })
+
+    csvContent += "\n\n"
+
+    // Section 2: Categorized by Type (AP, AC, RP, RC)
+    csvContent += "CATEGORIZED BY TYPE\n"
+    const categories = ["AP", "AC", "RP", "RC"]
+    const categoryNames: Record<string, string> = {
+      "AP": "Arabica Dry Parchment",
+      "AC": "Arabica Dry Cherry",
+      "RP": "Robusta Dry Parchment",
+      "RC": "Robusta Dry Cherry"
+    }
+
+    categories.forEach((category) => {
+      const filtered = salesRecords.filter(r => getCategoryCode(r) === category)
+      if (filtered.length > 0) {
+        csvContent += `\n${categoryNames[category]}\n`
+        csvContent += headers.join(",") + "\n"
+        filtered.forEach((record) => {
+          csvContent += formatRow(record).map((cell) => `"${cell}"`).join(",") + "\n"
+        })
+      }
+    })
+
+    csvContent += "\n\n"
+
+    // Section 3: Categorized by Estate
+    csvContent += "CATEGORIZED BY ESTATE\n"
+    const estates = Array.from(new Set(salesRecords.map(r => r.estate))).sort()
+    
+    estates.forEach((estateName) => {
+      const filtered = salesRecords.filter(r => r.estate === estateName)
+      if (filtered.length > 0) {
+        csvContent += `\n${estateName}\n`
+        csvContent += headers.join(",") + "\n"
+        filtered.forEach((record) => {
+          csvContent += formatRow(record).map((cell) => `"${cell}"`).join(",") + "\n"
+        })
+      }
+    })
 
     const blob = new Blob([csvContent], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
