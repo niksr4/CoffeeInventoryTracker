@@ -843,6 +843,10 @@ export default function InventorySystem() {
                   <Cloudy className="h-4 w-4 mr-2" />
                   Weather
                 </TabsTrigger>
+                <TabsTrigger value="news">
+                  <Newspaper className="h-4 w-4 mr-2" />
+                  News
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="inventory" className="space-y-8">
                 <InventoryValueSummary inventory={inventory} transactions={transactions} summary={summary} />
@@ -1373,6 +1377,9 @@ export default function InventorySystem() {
               </TabsContent>
               <TabsContent value="weather" className="space-y-6">
                 <WeatherTab />
+              </TabsContent>
+              <TabsContent value="news" className="space-y-6">
+                <NewsTab />
               </TabsContent>
             </Tabs>
           ) : (
