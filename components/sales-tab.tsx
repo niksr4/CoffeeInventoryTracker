@@ -161,8 +161,8 @@ export default function SalesTab() {
           robusta_total: 0
         }
 
-        data.records.forEach((record: { coffee_type: string; bag_type: string; bags_dispatched: number }) => {
-          const kgs = Number(record.bags_dispatched) * 50 // Convert bags to KGs
+        data.records.forEach((record: { coffee_type: string; bag_type: string; kgs_received: number | null }) => {
+          const kgs = Number(record.kgs_received || 0) // Use KGs received from dispatch
           
           if (record.coffee_type === "Arabica") {
             totals.arabica_total += kgs
