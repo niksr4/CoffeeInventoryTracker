@@ -56,16 +56,11 @@ export default function SalesTab() {
   const [bagType, setBagType] = useState<string>("Dry Parchment")
   const [batchNo, setBatchNo] = useState<string>("")
   const [estate, setEstate] = useState<string>("HF A")
-  const [bagsSent, setBagsSent] = useState<string>("")
-  const [kgsReceived, setKgsReceived] = useState<string>("")
+  const [bagsSold, setBagsSold] = useState<string>("")
   const [pricePerBag, setPricePerBag] = useState<string>("")
   const [bankAccount, setBankAccount] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
-  // Auto-calculate kgs as bags sent x 50
-  const kgs = bagsSent ? Number(bagsSent) * 50 : 0
-  // Auto-calculate bags sold as kgs received / 50
-  const bagsSold = kgsReceived ? Number(kgsReceived) / 50 : 0
   // Auto-calculate revenue as bags sold x price per bag
   const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
   
@@ -166,8 +161,8 @@ export default function SalesTab() {
           robusta_total: 0
         }
 
-        data.records.forEach((record: { coffee_type: string; bag_type: string; bags_dispatched: number }) => {
-          const kgs = Number(record.bags_dispatched) * 50 // Convert bags to KGs
+        data.records.forEach((record: { coffee_type: string; bag_type: string; kgs_received: number | null }) => {
+          const kgs = Number(record.kgs_received || 0) // Use KGs received from dispatch
           
           if (record.coffee_type === "Arabica") {
             totals.arabica_total += kgs
@@ -219,19 +214,10 @@ export default function SalesTab() {
   }, [fetchDispatchedTotals, fetchSalesRecords])
 
   const handleSave = async () => {
-    if (!bagsSent || Number(bagsSent) <= 0) {
+    if (!bagsSold || Number(bagsSold) <= 0) {
       toast({
         title: "Error",
-        description: "Please enter the number of bags sent",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!kgsReceived || Number(kgsReceived) <= 0) {
-      toast({
-        title: "Error",
-        description: "Please enter the KGs received",
+        description: "Please enter the number of bags sold",
         variant: "destructive",
       })
       return
@@ -259,10 +245,7 @@ export default function SalesTab() {
           bag_type: bagType,
           batch_no: batchNo || null,
           estate: estate,
-          bags_sent: Number(bagsSent),
-          kgs: kgs,
-          kgs_received: Number(kgsReceived),
-          bags_sold: bagsSold,
+          bags_sold: Number(bagsSold),
           price_per_bag: Number(pricePerBag),
           revenue: calculatedRevenue,
           bank_account: bankAccount || null,
@@ -300,12 +283,12 @@ export default function SalesTab() {
   }
 
   const resetForm = () => {
+    setDate(new Date())
     setCoffeeType("Arabica")
     setBagType("Dry Parchment")
     setBatchNo("")
     setEstate("HF A")
-    setBagsSent("")
-    setKgsReceived("")
+    setBagsSold("")
     setPricePerBag("")
     setBankAccount("")
     setNotes("")
@@ -734,7 +717,7 @@ return (
               <Label>B&L Batch No</Label>
               <Input
                 type="text"
-                placeholder="e.g., hfa, hfb, hfc, mv"
+                placeholder="e.g., 71, 17, 14"
                 value={batchNo}
                 onChange={(e) => setBatchNo(e.target.value)}
               />
@@ -757,47 +740,17 @@ return (
               </Select>
             </div>
 
-            {/* Bags Sent */}
+            {/* Bags Sold */}
             <div className="space-y-2">
-              <Label>Bags Sent</Label>
-              <Input
-                type="number"
-                step="1"
-                min="1"
-                placeholder="Number of bags"
-                value={bagsSent}
-                onChange={(e) => setBagsSent(e.target.value)}
-              />
-            </div>
-
-            {/* KGs (Auto-calculated) */}
-            <div className="space-y-2">
-              <Label>KGs (Bags x 50)</Label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-                <span className="font-medium">{kgs.toFixed(2)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-calculated</p>
-            </div>
-
-            {/* KGs Received */}
-            <div className="space-y-2">
-              <Label>KGs Received</Label>
+              <Label>Bags Sold</Label>
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Enter KGs received"
-                value={kgsReceived}
-                onChange={(e) => setKgsReceived(e.target.value)}
+                min="0.01"
+                placeholder="Number of bags"
+                value={bagsSold}
+                onChange={(e) => setBagsSold(e.target.value)}
               />
-            </div>
-
-            {/* Bags Sold (Auto-calculated) */}
-            <div className="space-y-2">
-              <Label>Bags Sold (KGs / 50)</Label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-                <span className="font-medium">{bagsSold.toFixed(2)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-calculated</p>
             </div>
 
             {/* Price per Bag */}

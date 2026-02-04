@@ -49,6 +49,7 @@ export default function DispatchTab() {
   const [coffeeType, setCoffeeType] = useState<string>("Arabica")
   const [bagType, setBagType] = useState<string>("Dry Parchment")
   const [bagsDispatched, setBagsDispatched] = useState<string>("")
+  const [kgsReceived, setKgsReceived] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
   const [bagTotals, setBagTotals] = useState<BagTotals>({
@@ -177,15 +178,17 @@ export default function DispatchTab() {
       return
     }
 
-    // Check if we have enough bags available from processing
-    const balance = getBalanceForSelection()
-    if (Number(bagsDispatched) > balance) {
-      toast({
-        title: "Insufficient Inventory",
-        description: `Only ${balance.toFixed(2)} ${coffeeType} ${bagType} bags available from processing. You are trying to dispatch ${bagsDispatched} bags.`,
-        variant: "destructive",
-      })
-      return
+    // Check if we have enough bags available from processing (only for new records)
+    if (!editingRecord) {
+      const balance = getBalanceForSelection()
+      if (Number(bagsDispatched) > balance) {
+        toast({
+          title: "Insufficient Inventory",
+          description: `Only ${balance.toFixed(2)} ${coffeeType} ${bagType} bags available from processing. You are trying to dispatch ${bagsDispatched} bags.`,
+          variant: "destructive",
+        })
+        return
+      }
     }
 
     setIsSaving(true)
@@ -201,6 +204,8 @@ export default function DispatchTab() {
           coffee_type: coffeeType,
           bag_type: bagType,
           bags_dispatched: Number(bagsDispatched),
+          kgs_received: kgsReceived ? Number(kgsReceived) : null,
+          bags_received: kgsReceived ? Number(kgsReceived) / 50 : null,
           notes: notes || null,
           created_by: "dispatch",
         }),
@@ -237,6 +242,7 @@ export default function DispatchTab() {
 
   const resetForm = () => {
     setBagsDispatched("")
+    setKgsReceived("")
     setNotes("")
     setEditingRecord(null)
   }
@@ -248,6 +254,7 @@ export default function DispatchTab() {
     setCoffeeType(record.coffee_type)
     setBagType(record.bag_type)
     setBagsDispatched(record.bags_dispatched.toString())
+    setKgsReceived(record.kgs_received?.toString() || "")
     setNotes(record.notes || "")
   }
 
@@ -284,13 +291,14 @@ export default function DispatchTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "Estate", "Coffee Type", "Bag Type", "Bags Dispatched", "Notes"]
+    const headers = ["Date", "Estate", "Coffee Type", "Bag Type", "Bags Dispatched", "KGs Received", "Notes"]
     const rows = dispatchRecords.map((record) => [
       format(new Date(record.dispatch_date), "yyyy-MM-dd"),
       record.estate,
       record.coffee_type,
       record.bag_type,
       record.bags_dispatched.toString(),
+      record.kgs_received?.toString() || "",
       record.notes || "",
     ])
 
@@ -527,6 +535,23 @@ export default function DispatchTab() {
               )}
             </div>
 
+            {/* KGs Received */}
+            <div className="space-y-2">
+              <Label>KGs Received (Optional)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Enter KGs received (can update later)"
+                value={kgsReceived}
+                onChange={(e) => setKgsReceived(e.target.value)}
+              />
+              {kgsReceived && (
+                <p className="text-xs text-muted-foreground">
+                  ≈ {(Number(kgsReceived) / 50).toFixed(2)} bags
+                </p>
+              )}
+            </div>
+
             {/* Notes */}
             <div className="space-y-2 md:col-span-2">
               <Label>Notes (Optional)</Label>
@@ -595,7 +620,8 @@ export default function DispatchTab() {
                     <TableHead>Estate</TableHead>
                     <TableHead>Coffee Type</TableHead>
                     <TableHead>Bag Type</TableHead>
-                    <TableHead className="text-right">Bags</TableHead>
+                    <TableHead className="text-right">Bags Sent</TableHead>
+                    <TableHead className="text-right">KGs Received</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -608,6 +634,9 @@ export default function DispatchTab() {
                       <TableCell>{record.coffee_type}</TableCell>
                       <TableCell>{record.bag_type}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_dispatched).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        {record.kgs_received ? Number(record.kgs_received).toFixed(2) : "-"}
+                      </TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

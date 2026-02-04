@@ -56,7 +56,9 @@ export async function POST(request: Request) {
       estate, 
       coffee_type, 
       bag_type, 
-      bags_dispatched, 
+      bags_dispatched,
+      kgs_received,
+      bags_received,
       notes, 
       created_by 
     } = body
@@ -71,10 +73,10 @@ export async function POST(request: Request) {
     const result = await sql`
       INSERT INTO dispatch_records (
         dispatch_date, estate, coffee_type, bag_type, bags_dispatched, 
-        notes, created_by
+        kgs_received, bags_received, notes, created_by
       ) VALUES (
         ${dispatch_date}::date, ${estate}, ${coffee_type}, ${bag_type}, ${bags_dispatched},
-        ${notes || null}, ${created_by || 'unknown'}
+        ${kgs_received || null}, ${bags_received || null}, ${notes || null}, ${created_by || 'unknown'}
       )
       RETURNING *
     `
@@ -99,7 +101,9 @@ export async function PUT(request: Request) {
       estate, 
       coffee_type, 
       bag_type, 
-      bags_dispatched, 
+      bags_dispatched,
+      kgs_received,
+      bags_received,
       notes
     } = body
 
@@ -117,6 +121,8 @@ export async function PUT(request: Request) {
         coffee_type = ${coffee_type},
         bag_type = ${bag_type},
         bags_dispatched = ${bags_dispatched},
+        kgs_received = ${kgs_received || null},
+        bags_received = ${bags_received || null},
         notes = ${notes || null},
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
