@@ -178,15 +178,17 @@ export default function DispatchTab() {
       return
     }
 
-    // Check if we have enough bags available from processing
-    const balance = getBalanceForSelection()
-    if (Number(bagsDispatched) > balance) {
-      toast({
-        title: "Insufficient Inventory",
-        description: `Only ${balance.toFixed(2)} ${coffeeType} ${bagType} bags available from processing. You are trying to dispatch ${bagsDispatched} bags.`,
-        variant: "destructive",
-      })
-      return
+    // Check if we have enough bags available from processing (only for new records)
+    if (!editingRecord) {
+      const balance = getBalanceForSelection()
+      if (Number(bagsDispatched) > balance) {
+        toast({
+          title: "Insufficient Inventory",
+          description: `Only ${balance.toFixed(2)} ${coffeeType} ${bagType} bags available from processing. You are trying to dispatch ${bagsDispatched} bags.`,
+          variant: "destructive",
+        })
+        return
+      }
     }
 
     setIsSaving(true)
