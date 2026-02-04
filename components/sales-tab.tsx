@@ -128,15 +128,11 @@ export default function SalesTab() {
   // Calculate totals from sales records
   const calculateTotals = useCallback(() => {
     const totals = {
-      totalBagsSent: 0,
-      totalKgs: 0,
       totalBagsSold: 0,
       totalRevenue: 0,
     }
 
     salesRecords.forEach((record) => {
-      totals.totalBagsSent += Number(record.bags_sent)
-      totals.totalKgs += Number(record.kgs)
       totals.totalBagsSold += Number(record.bags_sold)
       totals.totalRevenue += Number(record.revenue)
     })
@@ -302,8 +298,7 @@ export default function SalesTab() {
     setBagType(record.bag_type || "Dry Parchment")
     setBatchNo(record.batch_no || "")
     setEstate(record.estate || "HF A")
-    setBagsSent(record.bags_sent.toString())
-    setKgsReceived(record.kgs_received?.toString() || "")
+    setBagsSold((record.bags_sold || 0).toString())
     setPricePerBag(record.price_per_bag.toString())
     setBankAccount(record.bank_account || "")
     setNotes(record.notes || "")
@@ -606,19 +601,6 @@ return (
           </CardContent>
         </Card>
 
-        {/* Total Bags Sent */}
-        <Card className="border-2 border-muted">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Bags Sent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalBagsSent}</div>
-            <div className="text-sm text-muted-foreground mt-1">
-              KGs: {totals.totalKgs.toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Total Bags Sold */}
         <Card className="border-2 border-muted">
           <CardHeader className="pb-2">
@@ -855,9 +837,6 @@ return (
                     <TableHead>Bag Type</TableHead>
                     <TableHead>B&L Batch No</TableHead>
                     <TableHead>Estate</TableHead>
-                    <TableHead className="text-right">Bags Sent</TableHead>
-                    <TableHead className="text-right">KGs</TableHead>
-                    <TableHead className="text-right">KGs Received</TableHead>
                     <TableHead className="text-right">Bags Sold</TableHead>
                     <TableHead className="text-right">Price/Bag</TableHead>
                     <TableHead className="text-right">Revenue</TableHead>
@@ -874,9 +853,6 @@ return (
                       <TableCell>{record.bag_type || "-"}</TableCell>
                       <TableCell>{record.batch_no || "-"}</TableCell>
                       <TableCell>{record.estate || "-"}</TableCell>
-                      <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>
-                      <TableCell className="text-right">{Number(record.kgs).toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{Number(record.kgs_received || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_sold).toFixed(2)}</TableCell>
                       <TableCell className="text-right">₹{Number(record.price_per_bag).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-medium text-green-600">
