@@ -55,9 +55,6 @@ export async function POST(request: Request) {
       bag_type,
       batch_no,
       estate,
-      bags_sent,
-      kgs,
-      kgs_received,
       bags_sold,
       price_per_bag,
       revenue,
@@ -74,13 +71,13 @@ export async function POST(request: Request) {
 
     // Calculate price per kg (price_per_bag / 50)
     const price_per_kg = price_per_bag / 50
-    const weight_kgs = kgs_received || (bags_sold * 50)
+    const weight_kgs = bags_sold * 50
 
     const result = await sql`
       INSERT INTO sales_records (
-        sale_date, coffee_type, bag_type, batch_no, estate, bags_sent, kgs, kgs_received, bags_sold, price_per_bag, revenue, bank_account, notes, weight_kgs, price_per_kg, total_revenue
+        sale_date, coffee_type, bag_type, batch_no, estate, bags_sold, price_per_bag, revenue, bank_account, notes, weight_kgs, price_per_kg, total_revenue
       ) VALUES (
-        ${sale_date}::date, ${coffee_type || null}, ${bag_type || null}, ${batch_no || null}, ${estate || null}, ${bags_sent || 0}, ${kgs || 0}, ${kgs_received || 0}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}, ${weight_kgs}, ${price_per_kg}, ${revenue}
+        ${sale_date}::date, ${coffee_type || null}, ${bag_type || null}, ${batch_no || null}, ${estate || null}, ${bags_sold}, ${price_per_bag}, ${revenue}, ${bank_account || null}, ${notes || null}, ${weight_kgs}, ${price_per_kg}, ${revenue}
       )
       RETURNING *
     `
@@ -106,9 +103,6 @@ export async function PUT(request: Request) {
       bag_type,
       batch_no,
       estate,
-      bags_sent,
-      kgs,
-      kgs_received,
       bags_sold,
       price_per_bag,
       revenue,
@@ -125,7 +119,7 @@ export async function PUT(request: Request) {
 
     // Calculate price per kg (price_per_bag / 50)
     const price_per_kg = price_per_bag / 50
-    const weight_kgs = kgs_received || (bags_sold * 50)
+    const weight_kgs = bags_sold * 50
 
     const result = await sql`
       UPDATE sales_records SET
@@ -134,9 +128,6 @@ export async function PUT(request: Request) {
         bag_type = ${bag_type || null},
         batch_no = ${batch_no || null},
         estate = ${estate || null},
-        bags_sent = ${bags_sent || 0},
-        kgs = ${kgs || 0},
-        kgs_received = ${kgs_received || 0},
         bags_sold = ${bags_sold},
         price_per_bag = ${price_per_bag},
         revenue = ${revenue},

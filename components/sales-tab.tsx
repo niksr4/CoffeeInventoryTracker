@@ -61,11 +61,6 @@ export default function SalesTab() {
   const [bankAccount, setBankAccount] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
   
-  // Auto-filled from matching dispatch records
-  const [bagsSent, setBagsSent] = useState<number>(0)
-  const [kgsReceived, setKgsReceived] = useState<number>(0)
-  const [dispatchRecords, setDispatchRecords] = useState<any[]>([])
-  
   // Auto-calculate revenue as bags sold x price per bag
   const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
   
@@ -133,15 +128,11 @@ export default function SalesTab() {
   // Calculate totals from sales records
   const calculateTotals = useCallback(() => {
     const totals = {
-      totalBagsSent: 0,
-      totalKgs: 0,
       totalBagsSold: 0,
       totalRevenue: 0,
     }
 
     salesRecords.forEach((record) => {
-      totals.totalBagsSent += Number(record.bags_sent)
-      totals.totalKgs += Number(record.kgs)
       totals.totalBagsSold += Number(record.bags_sold)
       totals.totalRevenue += Number(record.revenue)
     })
@@ -157,9 +148,6 @@ export default function SalesTab() {
       const data = await response.json()
 
       if (data.success && data.records) {
-        // Store all dispatch records for matching
-        setDispatchRecords(data.records)
-        
         const totals = { 
           arabica_cherry: 0, 
           arabica_parchment: 0, 
@@ -221,32 +209,6 @@ export default function SalesTab() {
     fetchSalesRecords()
   }, [fetchDispatchedTotals, fetchSalesRecords])
 
-  // Auto-fill bags sent and KGs received when estate, coffee type, and bag type match dispatch records
-  useEffect(() => {
-    const matchingRecords = dispatchRecords.filter((record: any) => 
-      record.estate === estate && 
-      record.coffee_type === coffeeType && 
-      record.bag_type === bagType &&
-      record.kgs_received !== null
-    )
-    
-    if (matchingRecords.length > 0) {
-      // Sum up all matching dispatch records
-      const totalBagsSent = matchingRecords.reduce((sum: number, record: any) => 
-        sum + Number(record.bags_dispatched || 0), 0
-      )
-      const totalKgsReceived = matchingRecords.reduce((sum: number, record: any) => 
-        sum + Number(record.kgs_received || 0), 0
-      )
-      
-      setBagsSent(totalBagsSent)
-      setKgsReceived(totalKgsReceived)
-    } else {
-      setBagsSent(0)
-      setKgsReceived(0)
-    }
-  }, [estate, coffeeType, bagType, dispatchRecords])
-
   const handleSave = async () => {
     if (!bagsSold || Number(bagsSold) <= 0) {
       toast({
@@ -279,9 +241,6 @@ export default function SalesTab() {
           bag_type: bagType,
           batch_no: batchNo || null,
           estate: estate,
-          bags_sent: bagsSent,
-          kgs: bagsSent * 50,
-          kgs_received: kgsReceived,
           bags_sold: Number(bagsSold),
           price_per_bag: Number(pricePerBag),
           revenue: calculatedRevenue,
@@ -339,8 +298,6 @@ export default function SalesTab() {
     setBagType(record.bag_type || "Dry Parchment")
     setBatchNo(record.batch_no || "")
     setEstate(record.estate || "HF A")
-    setBagsSent(Number(record.bags_sent || 0))
-    setKgsReceived(Number(record.kgs_received || 0))
     setBagsSold((record.bags_sold || 0).toString())
     setPricePerBag(record.price_per_bag.toString())
     setBankAccount(record.bank_account || "")
@@ -644,19 +601,6 @@ return (
           </CardContent>
         </Card>
 
-        {/* Total Bags Sent */}
-        <Card className="border-2 border-muted">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Bags Sent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalBagsSent}</div>
-            <div className="text-sm text-muted-foreground mt-1">
-              KGs: {totals.totalKgs.toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Total Bags Sold */}
         <Card className="border-2 border-muted">
           <CardHeader className="pb-2">
@@ -778,24 +722,6 @@ return (
               </Select>
             </div>
 
-            {/* Bags Sent (Auto-filled from Dispatch) */}
-            <div className="space-y-2">
-              <Label>Bags Sent (from Dispatch)</Label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-                <span className="font-medium">{bagsSent.toFixed(2)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-filled from matching dispatch</p>
-            </div>
-
-            {/* KGs Received (Auto-filled from Dispatch) */}
-            <div className="space-y-2">
-              <Label>KGs Received (from Dispatch)</Label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-                <span className="font-medium">{kgsReceived.toFixed(2)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-filled from matching dispatch</p>
-            </div>
-
             {/* Bags Sold */}
             <div className="space-y-2">
               <Label>Bags Sold</Label>
@@ -911,9 +837,6 @@ return (
                     <TableHead>Bag Type</TableHead>
                     <TableHead>B&L Batch No</TableHead>
                     <TableHead>Estate</TableHead>
-                    <TableHead className="text-right">Bags Sent</TableHead>
-                    <TableHead className="text-right">KGs</TableHead>
-                    <TableHead className="text-right">KGs Received</TableHead>
                     <TableHead className="text-right">Bags Sold</TableHead>
                     <TableHead className="text-right">Price/Bag</TableHead>
                     <TableHead className="text-right">Revenue</TableHead>
@@ -930,9 +853,6 @@ return (
                       <TableCell>{record.bag_type || "-"}</TableCell>
                       <TableCell>{record.batch_no || "-"}</TableCell>
                       <TableCell>{record.estate || "-"}</TableCell>
-                      <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>
-                      <TableCell className="text-right">{Number(record.kgs).toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{Number(record.kgs_received || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-right">{Number(record.bags_sold).toFixed(2)}</TableCell>
                       <TableCell className="text-right">₹{Number(record.price_per_bag).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-medium text-green-600">
