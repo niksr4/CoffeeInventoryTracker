@@ -651,6 +651,7 @@ export default function DispatchTab() {
                     <TableHead>Bag Type</TableHead>
                     <TableHead className="text-right">Bags Sent</TableHead>
                     <TableHead className="text-right">KGs Received</TableHead>
+                    <TableHead className="text-right">Bags Received</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -665,6 +666,9 @@ export default function DispatchTab() {
                       <TableCell className="text-right">{Number(record.bags_dispatched).toFixed(2)}</TableCell>
                       <TableCell className="text-right">
                         {record.kgs_received ? Number(record.kgs_received).toFixed(2) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {record.kgs_received ? (Number(record.kgs_received) / 50).toFixed(2) : "-"}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
                       <TableCell className="text-right">
