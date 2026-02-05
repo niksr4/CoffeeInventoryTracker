@@ -101,7 +101,6 @@ export default function DispatchTab() {
   // Calculate cumulative totals by summing all "today" values (same as processing dashboard)
   const fetchBagTotals = useCallback(async () => {
     try {
-      console.log("[v0] Fetching bag totals for fiscal year:", selectedFiscalYear)
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
       const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
       
@@ -132,7 +131,6 @@ export default function DispatchTab() {
               }
             }
           } catch (err) {
-            console.log("[v0] Error fetching processing records for location:", location, err)
             // Continue with other locations even if one fails
           }
         })
@@ -152,13 +150,6 @@ export default function DispatchTab() {
         (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
         (locationTotals["PG Robusta"]?.dryCherryBags || 0)
 
-      console.log("[v0] Calculated bag totals:", {
-        arabicaDryParchment,
-        arabicaDryCherry,
-        robustaDryParchment,
-        robustaDryCherry
-      })
-
       setBagTotals({
         arabica_dry_parchment_bags: arabicaDryParchment,
         arabica_dry_cherry_bags: arabicaDryCherry,
@@ -166,7 +157,6 @@ export default function DispatchTab() {
         robusta_dry_cherry_bags: robustaDryCherry,
       })
     } catch (error) {
-      console.error("[v0] Error fetching bag totals:", error)
       // Set defaults on error so the component doesn't crash
       setBagTotals({
         arabica_dry_parchment_bags: 0,
