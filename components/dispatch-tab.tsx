@@ -347,9 +347,9 @@ export default function DispatchTab() {
 
   // Get current selected balance
   const getBalanceForSelection = () => {
-    if (coffeeType === "Arabica" && bagType === "Dry Parchment") return balanceArabicaDryP
+    if (coffeeType === "Arabica" && bagType === "Dry Parchment") return balanceArabicaDryParchment
     if (coffeeType === "Arabica" && bagType === "Dry Cherry") return balanceArabicaDryCherry
-    if (coffeeType === "Robusta" && bagType === "Dry Parchment") return balanceRobustaDryP
+    if (coffeeType === "Robusta" && bagType === "Dry Parchment") return balanceRobustaDryParchment
     if (coffeeType === "Robusta" && bagType === "Dry Cherry") return balanceRobustaDryCherry
     return 0
   }
