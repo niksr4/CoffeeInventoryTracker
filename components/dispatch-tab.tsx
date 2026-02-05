@@ -104,7 +104,7 @@ export default function DispatchTab() {
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
       const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
       
-      const locationTotals: Record<string, { dryPBags: number; dryCherryBags: number }> = {}
+      const locationTotals: Record<string, { dryParchmentBags: number; dryCherryBags: number }> = {}
 
       // Fetch data for each location
       await Promise.all(
@@ -116,16 +116,16 @@ export default function DispatchTab() {
 
           if (data.success && data.records && data.records.length > 0) {
             // Calculate cumulative totals by summing all "today" bag values from all records
-            let cumulativeDryPBags = 0
+            let cumulativeDryParchmentBags = 0
             let cumulativeDryCherryBags = 0
             
             for (const record of data.records) {
-              cumulativeDryPBags += Number(record.dry_p_bags) || 0
+              cumulativeDryParchmentBags += Number(record.dry_parchment_bags) || 0
               cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
             }
             
             locationTotals[location] = {
-              dryPBags: Number(cumulativeDryPBags.toFixed(2)),
+              dryParchmentBags: Number(cumulativeDryParchmentBags.toFixed(2)),
               dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
             }
           }
@@ -133,23 +133,23 @@ export default function DispatchTab() {
       )
 
       // Calculate Arabica totals (only HF Arabica)
-      const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
+      const arabicaDryParchment = locationTotals["HF Arabica"]?.dryParchmentBags || 0
       const arabicaDryCherry = locationTotals["HF Arabica"]?.dryCherryBags || 0
 
       // Calculate Robusta totals (HF Robusta + MV Robusta + PG Robusta)
-      const robustaDryP = 
-        (locationTotals["HF Robusta"]?.dryPBags || 0) +
-        (locationTotals["MV Robusta"]?.dryPBags || 0) +
-        (locationTotals["PG Robusta"]?.dryPBags || 0)
+      const robustaDryParchment = 
+        (locationTotals["HF Robusta"]?.dryParchmentBags || 0) +
+        (locationTotals["MV Robusta"]?.dryParchmentBags || 0) +
+        (locationTotals["PG Robusta"]?.dryParchmentBags || 0)
       const robustaDryCherry = 
         (locationTotals["HF Robusta"]?.dryCherryBags || 0) +
         (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
         (locationTotals["PG Robusta"]?.dryCherryBags || 0)
 
       setBagTotals({
-        arabica_dry_p_bags: arabicaDryP,
+        arabica_dry_p_bags: arabicaDryParchment,
         arabica_dry_cherry_bags: arabicaDryCherry,
-        robusta_dry_p_bags: robustaDryP,
+        robusta_dry_p_bags: robustaDryParchment,
         robusta_dry_cherry_bags: robustaDryCherry,
       })
     } catch (error) {
