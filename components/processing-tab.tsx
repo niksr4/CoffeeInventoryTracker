@@ -33,13 +33,13 @@ interface ProcessingRecord {
   wet_parchment: number | null
   fr_wp_percent: number
   dry_parch: number | null
-  dry_p_todate: number
+  dry_parchment_todate: number
   wp_dp_percent: number
   dry_cherry: number | null
   dry_cherry_todate: number
   dry_cherry_percent: number
-  dry_p_bags: number
-  dry_p_bags_todate: number
+  dry_parchment_bags: number
+  dry_parchment_bags_todate: number
   dry_cherry_bags: number
   dry_cherry_bags_todate: number
   notes: string
@@ -80,9 +80,9 @@ interface DashboardData {
   greenToDate: number
   floatToDate: number
   wetParchmentToDate: number
-  dryPToDate: number
+  dryParchmentToDate: number
   dryCherryToDate: number
-  dryPBagsToDate: number
+  dryParchmentBagsToDate: number
   dryCherryBagsToDate: number
 }
 
@@ -596,13 +596,13 @@ export default function ProcessingTab() {
         "Wet Parchment To-Date (kg)",
         "FR-WP %",
         "Dry Parch (kg)",
-        "Dry P To Date (kg)",
+        "Dry Parchment To Date (kg)",
         "WP-DP %",
         "Dry Cherry (kg)",
         "Dry Cherry To Date (kg)",
         "Dry Cherry %",
-        "Dry P Bags",
-        "Dry P Bags To Date",
+        "Dry Parchment Bags",
+        "Dry Parchment Bags To Date",
         "Dry Cherry Bags",
         "Dry Cherry Bags To Date",
         "Notes",
@@ -725,9 +725,9 @@ export default function ProcessingTab() {
                     <TableHead className="text-right">Green To Date (kg)</TableHead>
                     <TableHead className="text-right">Float To Date (kg)</TableHead>
                     <TableHead className="text-right">WP To Date (kg)</TableHead>
-                    <TableHead className="text-right">Dry P To Date (kg)</TableHead>
+                    <TableHead className="text-right">Dry Parchment To Date (kg)</TableHead>
                     <TableHead className="text-right">Dry Cherry To Date (kg)</TableHead>
-                    <TableHead className="text-right">Dry P Bags To Date</TableHead>
+                    <TableHead className="text-right">Dry Parchment Bags To Date</TableHead>
                     <TableHead className="text-right">Dry Cherry Bags To Date</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1027,11 +1027,11 @@ export default function ProcessingTab() {
                     />
                   </div>
                   <div>
-                    <Label>Dry P To Date (kg)</Label>
+                    <Label>Dry Parchment To Date (kg)</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.dry_p_todate}
+                      value={record.dry_parchment_todate}
                       disabled
                       className="bg-gray-100 cursor-not-allowed"
                     />
@@ -1099,22 +1099,22 @@ export default function ProcessingTab() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Dry P Bags</Label>
+                    <Label>Dry Parchment Bags</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.dry_p_bags}
+                      value={record.dry_parchment_bags}
                       disabled
                       className="bg-gray-100 cursor-not-allowed"
                     />
                     <p className="text-xs text-muted-foreground mt-1">Auto-calculated (kg/50)</p>
                   </div>
                   <div>
-                    <Label>Dry P Bags To Date</Label>
+                    <Label>Dry Parchment Bags To Date</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={record.dry_p_bags_todate}
+                      value={record.dry_parchment_bags_todate}
                       disabled
                       className="bg-gray-100 cursor-not-allowed"
                     />

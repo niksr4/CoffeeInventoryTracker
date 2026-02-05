@@ -30,9 +30,9 @@ interface DispatchRecord {
 }
 
 interface BagTotals {
-  arabica_dry_p_bags: number
+  arabica_dry_parchment_bags: number
   arabica_dry_cherry_bags: number
-  robusta_dry_p_bags: number
+  robusta_dry_parchment_bags: number
   robusta_dry_cherry_bags: number
 }
 
@@ -53,9 +53,9 @@ export default function DispatchTab() {
   const [notes, setNotes] = useState<string>("")
   
   const [bagTotals, setBagTotals] = useState<BagTotals>({
-    arabica_dry_p_bags: 0,
+    arabica_dry_parchment_bags: 0,
     arabica_dry_cherry_bags: 0,
-    robusta_dry_p_bags: 0,
+    robusta_dry_parchment_bags: 0,
     robusta_dry_cherry_bags: 0,
   })
   const [dispatchRecords, setDispatchRecords] = useState<DispatchRecord[]>([])
@@ -67,15 +67,29 @@ export default function DispatchTab() {
   // Calculate dispatched totals from records
   const calculateDispatchedTotals = useCallback(() => {
     const totals = {
-      arabica_dry_p: 0,
+      arabica_dry_parchment: 0,
       arabica_dry_cherry: 0,
-      robusta_dry_p: 0,
+      robusta_dry_parchment: 0,
       robusta_dry_cherry: 0,
     }
 
     dispatchRecords.forEach((record) => {
-      const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
-      if (totals[key] !== undefined) {
+      const coffeeType = record.coffee_type.toLowerCase()
+      const bagType = record.bag_type.toLowerCase()
+      
+      // Map bag types to the correct key format
+      let key: keyof typeof totals | undefined
+      if (coffeeType === "arabica" && bagType === "dry parchment") {
+        key = "arabica_dry_parchment"
+      } else if (coffeeType === "arabica" && bagType === "dry cherry") {
+        key = "arabica_dry_cherry"
+      } else if (coffeeType === "robusta" && bagType === "dry parchment") {
+        key = "robusta_dry_parchment"
+      } else if (coffeeType === "robusta" && bagType === "dry cherry") {
+        key = "robusta_dry_cherry"
+      }
+      
+      if (key) {
         totals[key] += Number(record.bags_dispatched)
       }
     })
@@ -87,59 +101,79 @@ export default function DispatchTab() {
   // Calculate cumulative totals by summing all "today" values (same as processing dashboard)
   const fetchBagTotals = useCallback(async () => {
     try {
+      console.log("[v0] Fetching bag totals for fiscal year:", selectedFiscalYear)
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
       const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
       
-      const locationTotals: Record<string, { dryPBags: number; dryCherryBags: number }> = {}
+      const locationTotals: Record<string, { dryParchmentBags: number; dryCherryBags: number }> = {}
 
       // Fetch data for each location
       await Promise.all(
         locations.map(async (location) => {
-          const response = await fetch(
-            `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`
-          )
-          const data = await response.json()
+          try {
+            const response = await fetch(
+              `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`
+            )
+            const data = await response.json()
 
-          if (data.success && data.records && data.records.length > 0) {
-            // Calculate cumulative totals by summing all "today" bag values from all records
-            let cumulativeDryPBags = 0
-            let cumulativeDryCherryBags = 0
-            
-            for (const record of data.records) {
-              cumulativeDryPBags += Number(record.dry_p_bags) || 0
-              cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
+            if (data.success && data.records && data.records.length > 0) {
+              // Calculate cumulative totals by summing all "today" bag values from all records
+              let cumulativeDryParchmentBags = 0
+              let cumulativeDryCherryBags = 0
+              
+              for (const record of data.records) {
+                cumulativeDryParchmentBags += Number(record.dry_parchment_bags) || 0
+                cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
+              }
+              
+              locationTotals[location] = {
+                dryParchmentBags: Number(cumulativeDryParchmentBags.toFixed(2)),
+                dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
+              }
             }
-            
-            locationTotals[location] = {
-              dryPBags: Number(cumulativeDryPBags.toFixed(2)),
-              dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
-            }
+          } catch (err) {
+            console.log("[v0] Error fetching processing records for location:", location, err)
+            // Continue with other locations even if one fails
           }
         })
       )
 
       // Calculate Arabica totals (only HF Arabica)
-      const arabicaDryP = locationTotals["HF Arabica"]?.dryPBags || 0
+      const arabicaDryParchment = locationTotals["HF Arabica"]?.dryParchmentBags || 0
       const arabicaDryCherry = locationTotals["HF Arabica"]?.dryCherryBags || 0
 
       // Calculate Robusta totals (HF Robusta + MV Robusta + PG Robusta)
-      const robustaDryP = 
-        (locationTotals["HF Robusta"]?.dryPBags || 0) +
-        (locationTotals["MV Robusta"]?.dryPBags || 0) +
-        (locationTotals["PG Robusta"]?.dryPBags || 0)
+      const robustaDryParchment = 
+        (locationTotals["HF Robusta"]?.dryParchmentBags || 0) +
+        (locationTotals["MV Robusta"]?.dryParchmentBags || 0) +
+        (locationTotals["PG Robusta"]?.dryParchmentBags || 0)
       const robustaDryCherry = 
         (locationTotals["HF Robusta"]?.dryCherryBags || 0) +
         (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
         (locationTotals["PG Robusta"]?.dryCherryBags || 0)
 
+      console.log("[v0] Calculated bag totals:", {
+        arabicaDryParchment,
+        arabicaDryCherry,
+        robustaDryParchment,
+        robustaDryCherry
+      })
+
       setBagTotals({
-        arabica_dry_p_bags: arabicaDryP,
+        arabica_dry_parchment_bags: arabicaDryParchment,
         arabica_dry_cherry_bags: arabicaDryCherry,
-        robusta_dry_p_bags: robustaDryP,
+        robusta_dry_parchment_bags: robustaDryParchment,
         robusta_dry_cherry_bags: robustaDryCherry,
       })
     } catch (error) {
-      console.error("Error fetching bag totals:", error)
+      console.error("[v0] Error fetching bag totals:", error)
+      // Set defaults on error so the component doesn't crash
+      setBagTotals({
+        arabica_dry_parchment_bags: 0,
+        arabica_dry_cherry_bags: 0,
+        robusta_dry_parchment_bags: 0,
+        robusta_dry_cherry_bags: 0,
+      })
     }
   }, [selectedFiscalYear])
 
@@ -316,10 +350,10 @@ export default function DispatchTab() {
   const dispatchedTotals = calculateDispatchedTotals()
 
   // Calculate balance
-  const balanceArabicaDryP = bagTotals.arabica_dry_p_bags - dispatchedTotals.arabica_dry_p
-  const balanceArabicaDryCherry = bagTotals.arabica_dry_cherry_bags - dispatchedTotals.arabica_dry_cherry
-  const balanceRobustaDryP = bagTotals.robusta_dry_p_bags - dispatchedTotals.robusta_dry_p
-  const balanceRobustaDryCherry = bagTotals.robusta_dry_cherry_bags - dispatchedTotals.robusta_dry_cherry
+    const balanceArabicaDryParchment = bagTotals.arabica_dry_parchment_bags - dispatchedTotals.arabica_dry_parchment
+    const balanceArabicaDryCherry = bagTotals.arabica_dry_cherry_bags - dispatchedTotals.arabica_dry_cherry
+    const balanceRobustaDryParchment = bagTotals.robusta_dry_parchment_bags - dispatchedTotals.robusta_dry_parchment
+    const balanceRobustaDryCherry = bagTotals.robusta_dry_cherry_bags - dispatchedTotals.robusta_dry_cherry
 
   // Get current selected balance
   const getBalanceForSelection = () => {
@@ -363,18 +397,20 @@ export default function DispatchTab() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Arabica Dry P */}
-        <Card>
+        {/* Arabica Dry Parchment */}
+        <Card className="border-2 border-blue-200">
           <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Arabica Dry Parchment Bags</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Arabica Dry Parchment
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.arabica_dry_p_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{bagTotals.arabica_dry_parchment_bags.toFixed(2)}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Dispatched: {dispatchedTotals.arabica_dry_p.toFixed(2)}
+              Dispatched: {dispatchedTotals.arabica_dry_parchment.toFixed(2)}
             </div>
-            <div className={cn("text-sm font-medium mt-1", balanceArabicaDryP < 0 ? "text-red-600" : "text-green-600")}>
-              Balance: {balanceArabicaDryP.toFixed(2)}
+            <div className={`text-sm font-medium mt-1 ${balanceArabicaDryParchment < 0 ? 'text-red-500' : 'text-green-600'}`}>
+              Balance: {balanceArabicaDryParchment.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -395,18 +431,20 @@ export default function DispatchTab() {
           </CardContent>
         </Card>
 
-        {/* Robusta Dry P */}
-        <Card>
+        {/* Robusta Dry Parchment */}
+        <Card className="border-2 border-orange-200">
           <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Robusta Dry Parchment Bags</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Robusta Dry Parchment
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.robusta_dry_p_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{bagTotals.robusta_dry_parchment_bags.toFixed(2)}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Dispatched: {dispatchedTotals.robusta_dry_p.toFixed(2)}
+              Dispatched: {dispatchedTotals.robusta_dry_parchment.toFixed(2)}
             </div>
-            <div className={cn("text-sm font-medium mt-1", balanceRobustaDryP < 0 ? "text-red-600" : "text-green-600")}>
-              Balance: {balanceRobustaDryP.toFixed(2)}
+            <div className={`text-sm font-medium mt-1 ${balanceRobustaDryParchment < 0 ? 'text-red-500' : 'text-green-600'}`}>
+              Balance: {balanceRobustaDryParchment.toFixed(2)}
             </div>
           </CardContent>
         </Card>

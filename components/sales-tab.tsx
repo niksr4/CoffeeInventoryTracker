@@ -164,14 +164,14 @@ export default function SalesTab() {
             totals.arabica_total += kgs
             if (record.bag_type === "Dry Cherry") {
               totals.arabica_cherry += kgs
-            } else if (record.bag_type === "Dry Parchment" || record.bag_type === "Dry P") {
+            } else if (record.bag_type === "Dry Parchment") {
               totals.arabica_parchment += kgs
             }
           } else if (record.coffee_type === "Robusta") {
             totals.robusta_total += kgs
             if (record.bag_type === "Dry Cherry") {
               totals.robusta_cherry += kgs
-            } else if (record.bag_type === "Dry Parchment" || record.bag_type === "Dry P") {
+            } else if (record.bag_type === "Dry Parchment") {
               totals.robusta_parchment += kgs
             }
           }
