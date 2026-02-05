@@ -116,18 +116,19 @@ export default function DispatchTab() {
             const data = await response.json()
 
             if (data.success && data.records && data.records.length > 0) {
-              // Calculate cumulative totals by summing all "today" bag values (same as processing dashboard)
-              let cumulativeDryParchmentBags = 0
-              let cumulativeDryCherryBags = 0
+              // Calculate cumulative kg totals by summing all "today" values
+              let cumulativeDryParchmentKg = 0
+              let cumulativeDryCherryKg = 0
               
               data.records.forEach((rec: any) => {
-                cumulativeDryParchmentBags += Number(rec.dry_parchment_bags) || 0
-                cumulativeDryCherryBags += Number(rec.dry_cherry_bags) || 0
+                cumulativeDryParchmentKg += Number(rec.dry_parch) || 0
+                cumulativeDryCherryKg += Number(rec.dry_cherry) || 0
               })
               
+              // Calculate bags from kg: bags = kg / 50
               locationTotals[location] = {
-                dryParchmentBags: Number(cumulativeDryParchmentBags.toFixed(2)),
-                dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
+                dryParchmentBags: Number((cumulativeDryParchmentKg / 50).toFixed(2)),
+                dryCherryBags: Number((cumulativeDryCherryKg / 50).toFixed(2)),
               }
             }
           } catch (err) {

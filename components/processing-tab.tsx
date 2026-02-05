@@ -376,9 +376,11 @@ export default function ProcessingTab() {
             cumulativeWetParchment += Number(rec.wet_parchment) || 0
             cumulativeDryP += Number(rec.dry_parch) || 0
             cumulativeDryCherry += Number(rec.dry_cherry) || 0
-            cumulativeDryPBags += Number(rec.dry_parchment_bags) || 0
-            cumulativeDryCherryBags += Number(rec.dry_cherry_bags) || 0
           })
+
+          // Calculate bags from cumulative kg weight: bags = kg / 50
+          const dryPBagsToDate = Number((cumulativeDryP / 50).toFixed(2))
+          const dryCherryBagsToDate = Number((cumulativeDryCherry / 50).toFixed(2))
 
           return {
             location: loc,
@@ -389,8 +391,8 @@ export default function ProcessingTab() {
             wetParchmentToDate: Number(cumulativeWetParchment.toFixed(2)),
             dryPToDate: Number(cumulativeDryP.toFixed(2)),
             dryCherryToDate: Number(cumulativeDryCherry.toFixed(2)),
-            dryPBagsToDate: Number(cumulativeDryPBags.toFixed(2)),
-            dryCherryBagsToDate: Number(cumulativeDryCherryBags.toFixed(2)),
+            dryPBagsToDate,
+            dryCherryBagsToDate,
           }
         } else {
           return {
