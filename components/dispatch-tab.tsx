@@ -30,9 +30,9 @@ interface DispatchRecord {
 }
 
 interface BagTotals {
-  arabica_dry_p_bags: number
+  arabica_dry_parchment_bags: number
   arabica_dry_cherry_bags: number
-  robusta_dry_p_bags: number
+  robusta_dry_parchment_bags: number
   robusta_dry_cherry_bags: number
 }
 
@@ -53,9 +53,9 @@ export default function DispatchTab() {
   const [notes, setNotes] = useState<string>("")
   
   const [bagTotals, setBagTotals] = useState<BagTotals>({
-    arabica_dry_p_bags: 0,
+    arabica_dry_parchment_bags: 0,
     arabica_dry_cherry_bags: 0,
-    robusta_dry_p_bags: 0,
+    robusta_dry_parchment_bags: 0,
     robusta_dry_cherry_bags: 0,
   })
   const [dispatchRecords, setDispatchRecords] = useState<DispatchRecord[]>([])
@@ -147,9 +147,9 @@ export default function DispatchTab() {
         (locationTotals["PG Robusta"]?.dryCherryBags || 0)
 
       setBagTotals({
-        arabica_dry_p_bags: arabicaDryParchment,
+        arabica_dry_parchment_bags: arabicaDryParchment,
         arabica_dry_cherry_bags: arabicaDryCherry,
-        robusta_dry_p_bags: robustaDryParchment,
+        robusta_dry_parchment_bags: robustaDryParchment,
         robusta_dry_cherry_bags: robustaDryCherry,
       })
     } catch (error) {
@@ -330,9 +330,9 @@ export default function DispatchTab() {
   const dispatchedTotals = calculateDispatchedTotals()
 
   // Calculate balance
-    const balanceArabicaDryParchment = bagTotals.arabica_dry_p_bags - dispatchedTotals.arabica_dry_parchment
+    const balanceArabicaDryParchment = bagTotals.arabica_dry_parchment_bags - dispatchedTotals.arabica_dry_parchment
     const balanceArabicaDryCherry = bagTotals.arabica_dry_cherry_bags - dispatchedTotals.arabica_dry_cherry
-    const balanceRobustaDryParchment = bagTotals.robusta_dry_p_bags - dispatchedTotals.robusta_dry_parchment
+    const balanceRobustaDryParchment = bagTotals.robusta_dry_parchment_bags - dispatchedTotals.robusta_dry_parchment
     const balanceRobustaDryCherry = bagTotals.robusta_dry_cherry_bags - dispatchedTotals.robusta_dry_cherry
 
   // Get current selected balance
@@ -385,7 +385,7 @@ export default function DispatchTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.arabica_dry_p_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{bagTotals.arabica_dry_parchment_bags.toFixed(2)}</div>
             <div className="text-sm text-muted-foreground mt-1">
               Dispatched: {dispatchedTotals.arabica_dry_parchment.toFixed(2)}
             </div>
@@ -419,7 +419,7 @@ export default function DispatchTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bagTotals.robusta_dry_p_bags.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{bagTotals.robusta_dry_parchment_bags.toFixed(2)}</div>
             <div className="text-sm text-muted-foreground mt-1">
               Dispatched: {dispatchedTotals.robusta_dry_parchment.toFixed(2)}
             </div>
