@@ -116,18 +116,12 @@ export default function DispatchTab() {
             const data = await response.json()
 
             if (data.success && data.records && data.records.length > 0) {
-              // Calculate cumulative totals by summing all "today" bag values from all records
-              let cumulativeDryParchmentBags = 0
-              let cumulativeDryCherryBags = 0
-              
-              for (const record of data.records) {
-                cumulativeDryParchmentBags += Number(record.dry_parchment_bags) || 0
-                cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
-              }
+              // Get the latest record's "todate" values which contain cumulative totals
+              const latestRecord = data.records[data.records.length - 1]
               
               locationTotals[location] = {
-                dryParchmentBags: Number(cumulativeDryParchmentBags.toFixed(2)),
-                dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
+                dryParchmentBags: Number(latestRecord.dry_parchment_bags_todate) || 0,
+                dryCherryBags: Number(latestRecord.dry_cherry_bags_todate) || 0,
               }
             }
           } catch (err) {
