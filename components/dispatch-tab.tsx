@@ -101,6 +101,7 @@ export default function DispatchTab() {
   // Calculate cumulative totals by summing all "today" values (same as processing dashboard)
   const fetchBagTotals = useCallback(async () => {
     try {
+      console.log("[v0] Fetching bag totals for fiscal year:", selectedFiscalYear)
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
       const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
       
@@ -109,25 +110,30 @@ export default function DispatchTab() {
       // Fetch data for each location
       await Promise.all(
         locations.map(async (location) => {
-          const response = await fetch(
-            `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`
-          )
-          const data = await response.json()
+          try {
+            const response = await fetch(
+              `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`
+            )
+            const data = await response.json()
 
-          if (data.success && data.records && data.records.length > 0) {
-            // Calculate cumulative totals by summing all "today" bag values from all records
-            let cumulativeDryParchmentBags = 0
-            let cumulativeDryCherryBags = 0
-            
-            for (const record of data.records) {
-              cumulativeDryParchmentBags += Number(record.dry_parchment_bags) || 0
-              cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
+            if (data.success && data.records && data.records.length > 0) {
+              // Calculate cumulative totals by summing all "today" bag values from all records
+              let cumulativeDryParchmentBags = 0
+              let cumulativeDryCherryBags = 0
+              
+              for (const record of data.records) {
+                cumulativeDryParchmentBags += Number(record.dry_parchment_bags) || 0
+                cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
+              }
+              
+              locationTotals[location] = {
+                dryParchmentBags: Number(cumulativeDryParchmentBags.toFixed(2)),
+                dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
+              }
             }
-            
-            locationTotals[location] = {
-              dryParchmentBags: Number(cumulativeDryParchmentBags.toFixed(2)),
-              dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
-            }
+          } catch (err) {
+            console.log("[v0] Error fetching processing records for location:", location, err)
+            // Continue with other locations even if one fails
           }
         })
       )
@@ -146,6 +152,13 @@ export default function DispatchTab() {
         (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
         (locationTotals["PG Robusta"]?.dryCherryBags || 0)
 
+      console.log("[v0] Calculated bag totals:", {
+        arabicaDryParchment,
+        arabicaDryCherry,
+        robustaDryParchment,
+        robustaDryCherry
+      })
+
       setBagTotals({
         arabica_dry_parchment_bags: arabicaDryParchment,
         arabica_dry_cherry_bags: arabicaDryCherry,
@@ -153,7 +166,14 @@ export default function DispatchTab() {
         robusta_dry_cherry_bags: robustaDryCherry,
       })
     } catch (error) {
-      console.error("Error fetching bag totals:", error)
+      console.error("[v0] Error fetching bag totals:", error)
+      // Set defaults on error so the component doesn't crash
+      setBagTotals({
+        arabica_dry_parchment_bags: 0,
+        arabica_dry_cherry_bags: 0,
+        robusta_dry_parchment_bags: 0,
+        robusta_dry_cherry_bags: 0,
+      })
     }
   }, [selectedFiscalYear])
 
