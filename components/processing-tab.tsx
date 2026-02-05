@@ -376,7 +376,7 @@ export default function ProcessingTab() {
             cumulativeWetParchment += Number(rec.wet_parchment) || 0
             cumulativeDryP += Number(rec.dry_parch) || 0
             cumulativeDryCherry += Number(rec.dry_cherry) || 0
-            cumulativeDryPBags += Number(rec.dry_p_bags) || 0
+            cumulativeDryPBags += Number(rec.dry_parchment_bags) || 0
             cumulativeDryCherryBags += Number(rec.dry_cherry_bags) || 0
           })
 
