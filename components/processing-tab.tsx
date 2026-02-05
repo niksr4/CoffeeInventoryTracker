@@ -61,13 +61,13 @@ const emptyRecord: Omit<ProcessingRecord, "id"> = {
   wet_parchment: null,
   fr_wp_percent: 0,
   dry_parch: null,
-  dry_p_todate: 0,
+  dry_parchment_todate: 0,
   wp_dp_percent: 0,
   dry_cherry: null,
   dry_cherry_todate: 0,
   dry_cherry_percent: 0,
-  dry_p_bags: 0,
-  dry_p_bags_todate: 0,
+  dry_parchment_bags: 0,
+  dry_parchment_bags_todate: 0,
   dry_cherry_bags: 0,
   dry_cherry_bags_todate: 0,
   notes: "",
@@ -156,8 +156,8 @@ export default function ProcessingTab() {
         const prevFloatTodate = Number(previousRecord.float_todate) || 0
         const prevDryPTodate = Number(previousRecord.dry_p_todate) || 0
         const prevDryCherryTodate = Number(previousRecord.dry_cherry_todate) || 0
-        const prevDryPBagsTodate = Number(previousRecord.dry_p_bags_todate) || 0
-        const prevDryCherryBagsTodate = Number(previousRecord.dry_cherry_bags_todate) || 0
+      const prevDryPBagsTodate = Number(previousRecord.dry_parchment_bags_todate) || 0
+      const prevDryCherryBagsTodate = Number(previousRecord.dry_cherry_bags_todate) || 0
 
         updated.crop_todate = Number.parseFloat((prevCropTodate + cropToday).toFixed(2))
         updated.ripe_todate = Number.parseFloat((prevRipeTodate + ripeToday).toFixed(2))
@@ -171,8 +171,8 @@ export default function ProcessingTab() {
 
         updated.dry_p_bags = dryPBags
         updated.dry_cherry_bags = dryCherryBags
-        updated.dry_p_bags_todate = Number.parseFloat((prevDryPBagsTodate + dryPBags).toFixed(2))
-        updated.dry_cherry_bags_todate = Number.parseFloat((prevDryCherryBagsTodate + dryCherryBags).toFixed(2))
+      updated.dry_parchment_bags_todate = Number.parseFloat((prevDryPBagsTodate + dryPBags).toFixed(2))
+      updated.dry_cherry_bags_todate = Number.parseFloat((prevDryCherryBagsTodate + dryCherryBags).toFixed(2))
       } else {
         updated.crop_todate = cropToday
         updated.ripe_todate = ripeToday
@@ -183,8 +183,8 @@ export default function ProcessingTab() {
 
         updated.dry_p_bags = Number.parseFloat((dryParch / 50).toFixed(2))
         updated.dry_cherry_bags = Number.parseFloat((dryCherry / 50).toFixed(2))
-        updated.dry_p_bags_todate = updated.dry_p_bags
-        updated.dry_cherry_bags_todate = updated.dry_cherry_bags
+      updated.dry_parchment_bags_todate = updated.dry_parchment_bags
+      updated.dry_cherry_bags_todate = updated.dry_cherry_bags
       }
 
       if (cropToday > 0) {
@@ -562,7 +562,7 @@ export default function ProcessingTab() {
         cumulativeWetParchment += Number(rec.wet_parchment) || 0
         cumulativeDryP += Number(rec.dry_parch) || 0
         cumulativeDryCherry += Number(rec.dry_cherry) || 0
-        cumulativeDryPBags += Number(rec.dry_p_bags) || 0
+        cumulativeDryPBags += Number(rec.dry_parchment_bags) || 0
         cumulativeDryCherryBags += Number(rec.dry_cherry_bags) || 0
 
         return {
@@ -572,9 +572,9 @@ export default function ProcessingTab() {
           green_todate: cumulativeGreen,
           float_todate: cumulativeFloat,
           wet_parchment_todate: cumulativeWetParchment,
-          dry_p_todate: cumulativeDryP,
+          dry_parchment_todate: cumulativeDryP,
           dry_cherry_todate: cumulativeDryCherry,
-          dry_p_bags_todate: cumulativeDryPBags,
+          dry_parchment_bags_todate: cumulativeDryPBags,
           dry_cherry_bags_todate: cumulativeDryCherryBags,
         }
       })
@@ -625,13 +625,13 @@ export default function ProcessingTab() {
         rec.wet_parchment_todate,
         rec.fr_wp_percent,
         rec.dry_parch ?? "",
-        rec.dry_p_todate,
+        rec.dry_parchment_todate,
         rec.wp_dp_percent,
         rec.dry_cherry ?? "",
         rec.dry_cherry_todate,
         rec.dry_cherry_percent,
-        rec.dry_p_bags,
-        rec.dry_p_bags_todate,
+        rec.dry_parchment_bags,
+        rec.dry_parchment_bags_todate,
         rec.dry_cherry_bags,
         rec.dry_cherry_bags_todate,
         `"${(rec.notes || "").replace(/"/g, '""')}"`,
