@@ -462,7 +462,7 @@ return (
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Inventory Available for Sale</CardTitle>
-          <CardDescription>Dispatched coffee available to sell (in KGs)</CardDescription>
+          <CardDescription>Bags received from dispatch, sold amounts, and remaining balance</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -473,33 +473,42 @@ return (
               {/* Arabica Cherry */}
               <div className="p-3 bg-green-50 border border-green-200 rounded-md">
                 <div className="text-xs font-medium text-green-700">Cherry</div>
-                <div className="text-lg font-bold text-green-600 mt-1">
-                  {available.arabica_cherry.toFixed(2)} KGs
+                <div className="text-2xl font-bold text-green-600 mt-1">
+                  {(dispatchTotals.arabica_cherry / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-green-600">
-                  {(available.arabica_cherry / 50).toFixed(2)} Bags
+                <div className="text-xs text-green-600 mt-1">
+                  Sold: {(soldTotals.arabica_cherry / 50).toFixed(2)}
+                </div>
+                <div className={cn("text-xs font-medium mt-0.5", available.arabica_cherry < 0 ? "text-red-600" : "text-green-700")}>
+                  Balance: {(available.arabica_cherry / 50).toFixed(2)}
                 </div>
               </div>
 
               {/* Arabica Parchment */}
               <div className="p-3 bg-green-50 border border-green-200 rounded-md">
                 <div className="text-xs font-medium text-green-700">Parchment</div>
-                <div className="text-lg font-bold text-green-600 mt-1">
-                  {available.arabica_parchment.toFixed(2)} KGs
+                <div className="text-2xl font-bold text-green-600 mt-1">
+                  {(dispatchTotals.arabica_parchment / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-green-600">
-                  {(available.arabica_parchment / 50).toFixed(2)} Bags
+                <div className="text-xs text-green-600 mt-1">
+                  Sold: {(soldTotals.arabica_parchment / 50).toFixed(2)}
+                </div>
+                <div className={cn("text-xs font-medium mt-0.5", available.arabica_parchment < 0 ? "text-red-600" : "text-green-700")}>
+                  Balance: {(available.arabica_parchment / 50).toFixed(2)}
                 </div>
               </div>
 
               {/* Arabica Total */}
               <div className="p-3 bg-green-100 border-2 border-green-400 rounded-md">
                 <div className="text-xs font-bold text-green-800">Total Arabica</div>
-                <div className="text-xl font-bold text-green-700 mt-1">
-                  {available.arabica_total.toFixed(2)} KGs
+                <div className="text-2xl font-bold text-green-700 mt-1">
+                  {(dispatchTotals.arabica_total / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-green-700">
-                  {(available.arabica_total / 50).toFixed(2)} Bags
+                <div className="text-xs text-green-700 mt-1">
+                  Sold: {(soldTotals.arabica_total / 50).toFixed(2)}
+                </div>
+                <div className={cn("text-xs font-bold mt-0.5", available.arabica_total < 0 ? "text-red-600" : "text-green-800")}>
+                  Balance: {(available.arabica_total / 50).toFixed(2)}
                 </div>
               </div>
             </div>
@@ -511,33 +520,42 @@ return (
               {/* Robusta Cherry */}
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
                 <div className="text-xs font-medium text-amber-700">Cherry</div>
-                <div className="text-lg font-bold text-amber-600 mt-1">
-                  {available.robusta_cherry.toFixed(2)} KGs
+                <div className="text-2xl font-bold text-amber-600 mt-1">
+                  {(dispatchTotals.robusta_cherry / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-amber-600">
-                  {(available.robusta_cherry / 50).toFixed(2)} Bags
+                <div className="text-xs text-amber-600 mt-1">
+                  Sold: {(soldTotals.robusta_cherry / 50).toFixed(2)}
+                </div>
+                <div className={cn("text-xs font-medium mt-0.5", available.robusta_cherry < 0 ? "text-red-600" : "text-amber-700")}>
+                  Balance: {(available.robusta_cherry / 50).toFixed(2)}
                 </div>
               </div>
 
               {/* Robusta Parchment */}
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
                 <div className="text-xs font-medium text-amber-700">Parchment</div>
-                <div className="text-lg font-bold text-amber-600 mt-1">
-                  {available.robusta_parchment.toFixed(2)} KGs
+                <div className="text-2xl font-bold text-amber-600 mt-1">
+                  {(dispatchTotals.robusta_parchment / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-amber-600">
-                  {(available.robusta_parchment / 50).toFixed(2)} Bags
+                <div className="text-xs text-amber-600 mt-1">
+                  Sold: {(soldTotals.robusta_parchment / 50).toFixed(2)}
+                </div>
+                <div className={cn("text-xs font-medium mt-0.5", available.robusta_parchment < 0 ? "text-red-600" : "text-amber-700")}>
+                  Balance: {(available.robusta_parchment / 50).toFixed(2)}
                 </div>
               </div>
 
               {/* Robusta Total */}
               <div className="p-3 bg-amber-100 border-2 border-amber-400 rounded-md">
                 <div className="text-xs font-bold text-amber-800">Total Robusta</div>
-                <div className="text-xl font-bold text-amber-700 mt-1">
-                  {available.robusta_total.toFixed(2)} KGs
+                <div className="text-2xl font-bold text-amber-700 mt-1">
+                  {(dispatchTotals.robusta_total / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-amber-700">
-                  {(available.robusta_total / 50).toFixed(2)} Bags
+                <div className="text-xs text-amber-700 mt-1">
+                  Sold: {(soldTotals.robusta_total / 50).toFixed(2)}
+                </div>
+                <div className={cn("text-xs font-bold mt-0.5", available.robusta_total < 0 ? "text-red-600" : "text-amber-800")}>
+                  Balance: {(available.robusta_total / 50).toFixed(2)}
                 </div>
               </div>
             </div>
@@ -546,36 +564,36 @@ return (
             <div className="space-y-3">
               <div className="text-base font-semibold text-slate-800 mb-2">Summary</div>
               
-              {/* Dispatched Total */}
+              {/* Total Received from Dispatch */}
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <div className="text-xs font-medium text-blue-700">Total Dispatched</div>
-                <div className="text-lg font-bold text-blue-600 mt-1">
-                  {(dispatchTotals.arabica_total + dispatchTotals.robusta_total).toFixed(2)} KGs
+                <div className="text-xs font-medium text-blue-700">Total Received</div>
+                <div className="text-2xl font-bold text-blue-600 mt-1">
+                  {((dispatchTotals.arabica_total + dispatchTotals.robusta_total) / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-blue-600">
-                  {((dispatchTotals.arabica_total + dispatchTotals.robusta_total) / 50).toFixed(2)} Bags
+                <div className="text-xs text-blue-600 mt-1">
+                  {(dispatchTotals.arabica_total + dispatchTotals.robusta_total).toFixed(2)} KGs
                 </div>
               </div>
 
               {/* Sold Total */}
               <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
                 <div className="text-xs font-medium text-purple-700">Total Sold</div>
-                <div className="text-lg font-bold text-purple-600 mt-1">
-                  {(soldTotals.arabica_total + soldTotals.robusta_total).toFixed(2)} KGs
+                <div className="text-2xl font-bold text-purple-600 mt-1">
+                  {((soldTotals.arabica_total + soldTotals.robusta_total) / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-purple-600">
-                  {((soldTotals.arabica_total + soldTotals.robusta_total) / 50).toFixed(2)} Bags
+                <div className="text-xs text-purple-600 mt-1">
+                  {(soldTotals.arabica_total + soldTotals.robusta_total).toFixed(2)} KGs
                 </div>
               </div>
 
               {/* Available Total */}
               <div className="p-3 bg-slate-100 border-2 border-slate-400 rounded-md">
-                <div className="text-xs font-bold text-slate-800">Total Available</div>
-                <div className="text-xl font-bold text-slate-700 mt-1">
-                  {(available.arabica_total + available.robusta_total).toFixed(2)} KGs
+                <div className="text-xs font-bold text-slate-800">Total Balance</div>
+                <div className={cn("text-2xl font-bold mt-1", (available.arabica_total + available.robusta_total) < 0 ? "text-red-600" : "text-slate-700")}>
+                  {((available.arabica_total + available.robusta_total) / 50).toFixed(2)}
                 </div>
-                <div className="text-xs text-slate-700">
-                  {((available.arabica_total + available.robusta_total) / 50).toFixed(2)} Bags
+                <div className="text-xs text-slate-700 mt-1">
+                  {(available.arabica_total + available.robusta_total).toFixed(2)} KGs
                 </div>
               </div>
             </div>

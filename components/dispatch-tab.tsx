@@ -101,7 +101,6 @@ export default function DispatchTab() {
   // Calculate cumulative totals by summing all "today" values (same as processing dashboard)
   const fetchBagTotals = useCallback(async () => {
     try {
-      console.log("[v0] Fetching bag totals for fiscal year:", selectedFiscalYear)
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
       const locations = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
       
@@ -117,22 +116,22 @@ export default function DispatchTab() {
             const data = await response.json()
 
             if (data.success && data.records && data.records.length > 0) {
-              // Calculate cumulative totals by summing all "today" bag values from all records
-              let cumulativeDryParchmentBags = 0
-              let cumulativeDryCherryBags = 0
+              // Calculate cumulative kg totals by summing all "today" values
+              let cumulativeDryParchmentKg = 0
+              let cumulativeDryCherryKg = 0
               
-              for (const record of data.records) {
-                cumulativeDryParchmentBags += Number(record.dry_parchment_bags) || 0
-                cumulativeDryCherryBags += Number(record.dry_cherry_bags) || 0
-              }
+              data.records.forEach((rec: any) => {
+                cumulativeDryParchmentKg += Number(rec.dry_parch) || 0
+                cumulativeDryCherryKg += Number(rec.dry_cherry) || 0
+              })
               
+              // Calculate bags from kg: bags = kg / 50
               locationTotals[location] = {
-                dryParchmentBags: Number(cumulativeDryParchmentBags.toFixed(2)),
-                dryCherryBags: Number(cumulativeDryCherryBags.toFixed(2)),
+                dryParchmentBags: Number((cumulativeDryParchmentKg / 50).toFixed(2)),
+                dryCherryBags: Number((cumulativeDryCherryKg / 50).toFixed(2)),
               }
             }
           } catch (err) {
-            console.log("[v0] Error fetching processing records for location:", location, err)
             // Continue with other locations even if one fails
           }
         })
@@ -152,13 +151,6 @@ export default function DispatchTab() {
         (locationTotals["MV Robusta"]?.dryCherryBags || 0) +
         (locationTotals["PG Robusta"]?.dryCherryBags || 0)
 
-      console.log("[v0] Calculated bag totals:", {
-        arabicaDryParchment,
-        arabicaDryCherry,
-        robustaDryParchment,
-        robustaDryCherry
-      })
-
       setBagTotals({
         arabica_dry_parchment_bags: arabicaDryParchment,
         arabica_dry_cherry_bags: arabicaDryCherry,
@@ -166,7 +158,6 @@ export default function DispatchTab() {
         robusta_dry_cherry_bags: robustaDryCherry,
       })
     } catch (error) {
-      console.error("[v0] Error fetching bag totals:", error)
       // Set defaults on error so the component doesn't crash
       setBagTotals({
         arabica_dry_parchment_bags: 0,
@@ -357,9 +348,9 @@ export default function DispatchTab() {
 
   // Get current selected balance
   const getBalanceForSelection = () => {
-    if (coffeeType === "Arabica" && bagType === "Dry Parchment") return balanceArabicaDryP
+    if (coffeeType === "Arabica" && bagType === "Dry Parchment") return balanceArabicaDryParchment
     if (coffeeType === "Arabica" && bagType === "Dry Cherry") return balanceArabicaDryCherry
-    if (coffeeType === "Robusta" && bagType === "Dry Parchment") return balanceRobustaDryP
+    if (coffeeType === "Robusta" && bagType === "Dry Parchment") return balanceRobustaDryParchment
     if (coffeeType === "Robusta" && bagType === "Dry Cherry") return balanceRobustaDryCherry
     return 0
   }
@@ -660,6 +651,7 @@ export default function DispatchTab() {
                     <TableHead>Bag Type</TableHead>
                     <TableHead className="text-right">Bags Sent</TableHead>
                     <TableHead className="text-right">KGs Received</TableHead>
+                    <TableHead className="text-right">Bags Received</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -674,6 +666,9 @@ export default function DispatchTab() {
                       <TableCell className="text-right">{Number(record.bags_dispatched).toFixed(2)}</TableCell>
                       <TableCell className="text-right">
                         {record.kgs_received ? Number(record.kgs_received).toFixed(2) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {record.kgs_received ? (Number(record.kgs_received) / 50).toFixed(2) : "-"}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
                       <TableCell className="text-right">
