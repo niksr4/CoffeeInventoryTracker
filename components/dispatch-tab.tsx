@@ -74,8 +74,22 @@ export default function DispatchTab() {
     }
 
     dispatchRecords.forEach((record) => {
-      const key = `${record.coffee_type.toLowerCase()}_${record.bag_type.toLowerCase().replace(" ", "_")}` as keyof typeof totals
-      if (totals[key] !== undefined) {
+      const coffeeType = record.coffee_type.toLowerCase()
+      const bagType = record.bag_type.toLowerCase()
+      
+      // Map bag types to the correct key format
+      let key: keyof typeof totals | undefined
+      if (coffeeType === "arabica" && bagType === "dry parchment") {
+        key = "arabica_dry_p"
+      } else if (coffeeType === "arabica" && bagType === "dry cherry") {
+        key = "arabica_dry_cherry"
+      } else if (coffeeType === "robusta" && bagType === "dry parchment") {
+        key = "robusta_dry_p"
+      } else if (coffeeType === "robusta" && bagType === "dry cherry") {
+        key = "robusta_dry_cherry"
+      }
+      
+      if (key) {
         totals[key] += Number(record.bags_dispatched)
       }
     })
