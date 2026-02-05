@@ -33,13 +33,13 @@ interface ProcessingRecord {
   wet_parchment: number | null
   fr_wp_percent: number
   dry_parch: number | null
-  dry_p_todate: number
+  dry_parchment_todate: number
   wp_dp_percent: number
   dry_cherry: number | null
   dry_cherry_todate: number
   dry_cherry_percent: number
-  dry_p_bags: number
-  dry_p_bags_todate: number
+  dry_parchment_bags: number
+  dry_parchment_bags_todate: number
   dry_cherry_bags: number
   dry_cherry_bags_todate: number
   notes: string
@@ -80,9 +80,9 @@ interface DashboardData {
   greenToDate: number
   floatToDate: number
   wetParchmentToDate: number
-  dryPToDate: number
+  dryParchmentToDate: number
   dryCherryToDate: number
-  dryPBagsToDate: number
+  dryParchmentBagsToDate: number
   dryCherryBagsToDate: number
 }
 
