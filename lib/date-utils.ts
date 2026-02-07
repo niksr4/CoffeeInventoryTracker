@@ -1,8 +1,19 @@
-export function formatDateForDisplay(dateString?: string): string {
-  if (!dateString) return "N/A"
+type DateInput = string | Date | null | undefined
+
+const resolveDate = (input: DateInput): Date | null => {
+  if (!input) return null
+  if (input instanceof Date) {
+    return isNaN(input.getTime()) ? null : input
+  }
+  const parsed = new Date(input)
+  return isNaN(parsed.getTime()) ? null : parsed
+}
+
+export function formatDateForDisplay(dateInput?: DateInput): string {
+  if (!dateInput) return "N/A"
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
+    const date = resolveDate(dateInput)
+    if (!date) return typeof dateInput === "string" ? dateInput : "N/A"
 
     const day = date.getDate().toString().padStart(2, "0")
     const month = (date.getMonth() + 1).toString().padStart(2, "0")
@@ -14,15 +25,15 @@ export function formatDateForDisplay(dateString?: string): string {
 
     return `${day}/${month}/${year}, ${displayHours}:${minutes} ${ampm}`
   } catch (error) {
-    return dateString
+    return typeof dateInput === "string" ? dateInput : "N/A"
   }
 }
 
-export function formatDateOnly(dateString?: string): string {
-  if (!dateString) return "N/A"
+export function formatDateOnly(dateInput?: DateInput): string {
+  if (!dateInput) return "N/A"
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
+    const date = resolveDate(dateInput)
+    if (!date) return typeof dateInput === "string" ? dateInput : "N/A"
 
     const day = date.getDate().toString().padStart(2, "0")
     const month = (date.getMonth() + 1).toString().padStart(2, "0")
@@ -30,16 +41,15 @@ export function formatDateOnly(dateString?: string): string {
 
     return `${day}/${month}/${year}`
   } catch (error) {
-    return dateString
+    return typeof dateInput === "string" ? dateInput : "N/A"
   }
 }
 
-export function formatDateForQIF(dateString?: string): string {
-  if (!dateString) return ""
+export function formatDateForQIF(dateInput?: DateInput): string {
+  if (!dateInput) return ""
   try {
-    // Parse the date string - handle both ISO format and other formats
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return ""
+    const date = resolveDate(dateInput)
+    if (!date) return ""
 
     // Get the date components in local time
     const day = date.getDate()
@@ -54,11 +64,11 @@ export function formatDateForQIF(dateString?: string): string {
   }
 }
 
-export function formatDateForInput(dateString?: string): string {
-  if (!dateString) return ""
+export function formatDateForInput(dateInput?: DateInput): string {
+  if (!dateInput) return ""
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return ""
+    const date = resolveDate(dateInput)
+    if (!date) return ""
 
     const year = date.getFullYear()
     const month = (date.getMonth() + 1).toString().padStart(2, "0")

@@ -15,8 +15,15 @@ import { CalendarIcon, Download, Loader2, Save, Leaf } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { getCurrentFiscalYear, getAvailableFiscalYears, type FiscalYear } from "@/lib/fiscal-year-utils"
+import { useAuth } from "@/hooks/use-auth"
+import { buildTenantHeaders } from "@/lib/tenant"
+import { formatDateOnly } from "@/lib/date-utils"
 
-const locations = ["HF Pepper", "PG Pepper", "MV Pepper"]
+interface LocationOption {
+  id: string
+  name: string
+  code: string
+}
 
 interface PepperRecord {
   id: number
@@ -33,10 +40,13 @@ interface PepperRecord {
 }
 
 export function PepperTab() {
+  const { user } = useAuth()
+  const tenantHeaders = buildTenantHeaders(user?.tenantId)
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
   const availableFiscalYears = getAvailableFiscalYears()
 
-  const [selectedLocation, setSelectedLocation] = useState("HF Pepper")
+  const [locations, setLocations] = useState<LocationOption[]>([])
+  const [selectedLocationId, setSelectedLocationId] = useState("")
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [kgPicked, setKgPicked] = useState("")
   const [greenPepper, setGreenPepper] = useState("")
@@ -46,6 +56,22 @@ export function PepperTab() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const selectedLocation = locations.find((loc) => loc.id === selectedLocationId) || null
+
+  const loadLocations = async () => {
+    try {
+      const response = await fetch("/api/locations", { headers: tenantHeaders })
+      const data = await response.json()
+      if (data.success) {
+        setLocations(data.locations || [])
+        if (!selectedLocationId && data.locations?.length) {
+          setSelectedLocationId(data.locations[0].id)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching locations:", error)
+    }
+  }
 
   // Calculate percentages
   const greenPepperPercent =
@@ -57,10 +83,12 @@ export function PepperTab() {
 
   // Fetch recent records
   const fetchRecentRecords = async () => {
+    if (!selectedLocationId) return
     setLoading(true)
     try {
       const response = await fetch(
-        `/api/pepper-records?location=${encodeURIComponent(selectedLocation)}&fiscalYearStart=${selectedFiscalYear.startDate}&fiscalYearEnd=${selectedFiscalYear.endDate}`,
+        `/api/pepper-records?locationId=${selectedLocationId}&fiscalYearStart=${selectedFiscalYear.startDate}&fiscalYearEnd=${selectedFiscalYear.endDate}`,
+        { headers: tenantHeaders },
       )
       const data = await response.json()
 
@@ -76,10 +104,12 @@ export function PepperTab() {
 
   // Fetch record for selected date
   const fetchRecordForDate = async (date: Date) => {
+    if (!selectedLocationId) return
     try {
       const dateStr = format(date, "yyyy-MM-dd")
       const response = await fetch(
-        `/api/pepper-records?location=${encodeURIComponent(selectedLocation)}&date=${dateStr}`,
+        `/api/pepper-records?locationId=${selectedLocationId}&date=${dateStr}`,
+        { headers: tenantHeaders },
       )
       const data = await response.json()
 
@@ -103,19 +133,27 @@ export function PepperTab() {
 
   // Load recent records when location changes
   useEffect(() => {
+    loadLocations()
+  }, [])
+
+  useEffect(() => {
     fetchRecentRecords()
-  }, [selectedLocation])
+  }, [selectedLocationId])
 
   // Load record when date changes
   useEffect(() => {
     fetchRecordForDate(selectedDate)
-  }, [selectedDate, selectedLocation])
+  }, [selectedDate, selectedLocationId])
 
   useEffect(() => {
     fetchRecentRecords()
   }, [selectedFiscalYear])
 
   const handleSave = async () => {
+    if (!selectedLocationId) {
+      setMessage({ type: "error", text: "Estate location not set yet" })
+      return
+    }
     if (!kgPicked || !greenPepper || !dryPepper) {
       setMessage({ type: "error", text: "Please fill in all required fields" })
       return
@@ -127,9 +165,9 @@ export function PepperTab() {
     try {
       const response = await fetch("/api/pepper-records", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...tenantHeaders },
         body: JSON.stringify({
-          location: selectedLocation,
+          locationId: selectedLocationId,
           process_date: format(selectedDate, "yyyy-MM-dd"),
           kg_picked: Number.parseFloat(kgPicked),
           green_pepper: Number.parseFloat(greenPepper),
@@ -176,7 +214,10 @@ export function PepperTab() {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `pepper-${selectedLocation.toLowerCase().replace(" ", "-")}-${format(new Date(), "yyyy-MM-dd")}.csv`
+    a.download = `pepper-${(selectedLocation?.name || "estate").toLowerCase().replace(" ", "-")}-${format(
+      new Date(),
+      "yyyy-MM-dd",
+    )}.csv`
     a.click()
     window.URL.revokeObjectURL(url)
   }
@@ -229,23 +270,6 @@ export function PepperTab() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Location Selector */}
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location} value={location}>
-                      {location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Date Picker */}
             <div className="space-y-2">
               <Label>Date</Label>
@@ -259,7 +283,7 @@ export function PepperTab() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    {selectedDate ? formatDateOnly(selectedDate) : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -271,6 +295,30 @@ export function PepperTab() {
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            {/* Location Selector */}
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Select
+                value={selectedLocationId}
+                onValueChange={(value) => setSelectedLocationId(value)}
+                disabled={locations.length === 0}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={locations.length ? "Select location" : "No locations"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name || loc.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {locations.length === 0 && (
+                <p className="text-xs text-muted-foreground">Add locations in Settings to enable pepper tracking.</p>
+              )}
             </div>
           </div>
 
@@ -376,7 +424,7 @@ export function PepperTab() {
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : recentRecords.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No records found for this location</div>
+            <div className="text-center py-8 text-muted-foreground">No records found yet</div>
           ) : (
             <div className="rounded-md border overflow-x-auto">
               <Table>
@@ -398,7 +446,7 @@ export function PepperTab() {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => loadRecord(record)}
                     >
-                      <TableCell>{format(new Date(record.process_date), "MMM dd, yyyy")}</TableCell>
+                      <TableCell>{formatDateOnly(record.process_date)}</TableCell>
                       <TableCell className="text-right">{record.kg_picked.toFixed(2)}</TableCell>
                       <TableCell className="text-right">{record.green_pepper.toFixed(2)}</TableCell>
                       <TableCell className="text-right">{record.green_pepper_percent.toFixed(2)}%</TableCell>

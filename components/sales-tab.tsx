@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,101 +15,292 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getCurrentFiscalYear, getAvailableFiscalYears, getFiscalYearDateRange, type FiscalYear } from "@/lib/fiscal-year-utils"
+import { DEFAULT_COFFEE_VARIETIES } from "@/lib/crop-config"
+import { useAuth } from "@/hooks/use-auth"
+import { useTenantSettings } from "@/hooks/use-tenant-settings"
+import { buildTenantHeaders } from "@/lib/tenant"
+import { formatDateOnly } from "@/lib/date-utils"
 
 interface SalesRecord {
   id?: number
   sale_date: string
   batch_no: string
-  estate: string
-  bags_sent: number
-  kgs: number
+  location_id?: string | null
+  location_name?: string | null
+  location_code?: string | null
+  estate?: string | null
+  lot_id?: string | null
+  coffee_type: string | null
+  bag_type: string | null
+  buyer_name?: string | null
   bags_sold: number
   price_per_bag: number
   revenue: number
+  kgs?: number | null
   bank_account: string | null
   notes: string | null
 }
 
-const ESTATES = ["HF A", "HF B", "HF C", "MV"]
-const BATCH_NOS = ["hfa", "hfb", "hfc", "mv"]
+interface DispatchSummaryRow {
+  coffee_type: string
+  bag_type: string
+  bags_dispatched: number
+  kgs_received: number
+}
+
+interface SalesSummaryRow {
+  coffee_type: string
+  bag_type: string
+  bags_sold: number
+  revenue: number
+}
+
+interface LocationOption {
+  id: string
+  name: string
+  code: string
+}
+
+type InventoryTotals = { bags: number; kgs: number }
+type InventoryBreakdown = { cherry: InventoryTotals; parchment: InventoryTotals; total: InventoryTotals }
+
+const COFFEE_TYPES = DEFAULT_COFFEE_VARIETIES
+const BAG_TYPES = ["Dry Parchment", "Dry Cherry"]
+const normalizeBagType = (value: string | null | undefined) =>
+  String(value || "").toLowerCase().includes("cherry") ? "cherry" : "parchment"
+const formatBagTypeLabel = (value: string | null | undefined) =>
+  normalizeBagType(value) === "cherry" ? "Dry Cherry" : "Dry Parchment"
 
 export default function SalesTab() {
+  const { user } = useAuth()
+  const { settings } = useTenantSettings()
+  const tenantHeaders = useMemo(() => buildTenantHeaders(user?.tenantId), [user?.tenantId])
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
   const availableFiscalYears = getAvailableFiscalYears()
+  const bagWeightKg = Number(settings.bagWeightKg) || 50
+  const canDelete = user?.role === "admin" || user?.role === "owner"
   
+  const [locations, setLocations] = useState<LocationOption[]>([])
   const [date, setDate] = useState<Date>(new Date())
   const [batchNo, setBatchNo] = useState<string>("")
-  const [estate, setEstate] = useState<string>("HF A")
-  const [bagsSent, setBagsSent] = useState<string>("")
+  const [selectedLocationId, setSelectedLocationId] = useState<string>("")
+  const [lotId, setLotId] = useState<string>("")
+  const [coffeeType, setCoffeeType] = useState<string>("Arabica")
+  const [bagType, setBagType] = useState<string>("Dry Parchment")
   const [bagsSold, setBagsSold] = useState<string>("")
   const [pricePerBag, setPricePerBag] = useState<string>("")
+  const [buyerName, setBuyerName] = useState<string>("")
   const [bankAccount, setBankAccount] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
+  const [buyerSuggestions, setBuyerSuggestions] = useState<string[]>([])
   
-  // Auto-calculate kgs as bags sent x 50
-  const kgs = bagsSent ? Number(bagsSent) * 50 : 0
-  // Auto-calculate revenue as bags sold x price per bag
-  const calculatedRevenue = bagsSold && pricePerBag ? Number(bagsSold) * Number(pricePerBag) : 0
+  const bagsSoldValue = Number(bagsSold) || 0
+  const pricePerBagValue = Number(pricePerBag) || 0
+  const kgsSold = Number((bagsSoldValue * bagWeightKg).toFixed(2))
+  const calculatedRevenue = Number((bagsSoldValue * pricePerBagValue).toFixed(2))
   
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
+  const [dispatchSummary, setDispatchSummary] = useState<DispatchSummaryRow[]>([])
+  const [salesSummary, setSalesSummary] = useState<SalesSummaryRow[]>([])
+  const [salesTotalCount, setSalesTotalCount] = useState(0)
+  const [salesTotals, setSalesTotals] = useState({ totalBagsSold: 0, totalRevenue: 0 })
+  const [salesPage, setSalesPage] = useState(0)
+  const [salesHasMore, setSalesHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [editingRecord, setEditingRecord] = useState<SalesRecord | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
+  const salesPageSize = 25
 
-  // Calculate totals from sales records
+  const selectedLocation = useMemo(
+    () => locations.find((loc) => loc.id === selectedLocationId) || null,
+    [locations, selectedLocationId],
+  )
+
+  const loadLocations = useCallback(async () => {
+    if (!tenantHeaders) return
+    try {
+      const response = await fetch("/api/locations", { headers: tenantHeaders })
+      const data = await response.json()
+      if (!response.ok || !data.success) {
+        return
+      }
+      const loaded = Array.isArray(data.locations) ? data.locations : []
+      setLocations(loaded)
+      if (!selectedLocationId && loaded.length > 0) {
+        setSelectedLocationId(loaded[0].id)
+      }
+    } catch (error) {
+      console.error("Error loading locations:", error)
+    }
+  }, [selectedLocationId, tenantHeaders])
+
+  const resolveLocationIdFromLabel = useCallback(
+    (label?: string | null) => {
+      const value = String(label || "").trim()
+      if (!value) return ""
+      const normalized = value.toLowerCase()
+      const token = normalized.split(" ")[0] || normalized
+      const match = locations.find((loc) => {
+        const name = String(loc.name || "").toLowerCase()
+        const code = String(loc.code || "").toLowerCase()
+        return name === normalized || code === normalized || name === token || code === token
+      })
+      return match?.id || ""
+    },
+    [locations],
+  )
+
+  const getLocationLabel = useCallback(
+    (record: SalesRecord) => {
+      if (record.location_id) {
+        const match = locations.find((loc) => loc.id === record.location_id)
+        if (match) return match.name || match.code
+      }
+      const fallback = record.location_name || record.location_code || record.estate
+      if (fallback) return fallback
+      return "Unknown"
+    },
+    [locations],
+  )
+
+  const loadBuyerSuggestions = useCallback(async () => {
+    if (!tenantHeaders) return
+    try {
+      const response = await fetch("/api/sales?buyers=true", { headers: tenantHeaders })
+      const data = await response.json()
+      if (!response.ok || !data.success) return
+      const buyers = Array.isArray(data.buyers) ? data.buyers : []
+      setBuyerSuggestions(buyers.filter((name: string) => name && typeof name === "string"))
+    } catch (error) {
+      console.error("Error loading buyers:", error)
+    }
+  }, [tenantHeaders])
+
   const calculateTotals = useCallback(() => {
     const totals = {
-      totalBagsSent: 0,
-      totalKgs: 0,
       totalBagsSold: 0,
+      totalKgsSold: 0,
       totalRevenue: 0,
     }
 
     salesRecords.forEach((record) => {
-      totals.totalBagsSent += Number(record.bags_sent)
-      totals.totalKgs += Number(record.kgs)
-      totals.totalBagsSold += Number(record.bags_sold)
-      totals.totalRevenue += Number(record.revenue)
+      const bagsSoldCount = Number(record.bags_sold) || 0
+      totals.totalBagsSold += bagsSoldCount
+      totals.totalKgsSold += bagsSoldCount * bagWeightKg
+      totals.totalRevenue += Number(record.revenue) || 0
     })
 
     return totals
-  }, [salesRecords])
+  }, [bagWeightKg, salesRecords])
 
   // Fetch sales records
-  const fetchSalesRecords = useCallback(async () => {
-    setIsLoading(true)
+  const fetchSalesRecords = useCallback(async (pageIndex = 0, append = false) => {
+    if (append) {
+      setIsLoadingMore(true)
+    } else {
+      setIsLoading(true)
+    }
     try {
       const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
-      const response = await fetch(`/api/sales?startDate=${startDate}&endDate=${endDate}`)
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+        limit: salesPageSize.toString(),
+        offset: String(pageIndex * salesPageSize),
+      })
+      const response = await fetch(`/api/sales?${params.toString()}`, { headers: tenantHeaders })
       const data = await response.json()
       
       if (data.success) {
-        setSalesRecords(data.records || [])
+        const nextRecords = Array.isArray(data.records) ? data.records : []
+        const nextTotalCount = Number(data.totalCount) || 0
+        setSalesRecords((prev) => (append ? [...prev, ...nextRecords] : nextRecords))
+        setSalesSummary(Array.isArray(data.totalsByType) ? data.totalsByType : [])
+        setSalesTotals({
+          totalBagsSold: Number(data.totalBagsSold) || 0,
+          totalRevenue: Number(data.totalRevenue) || 0,
+        })
+        setSalesTotalCount(nextTotalCount)
+        const resolvedCount = append ? pageIndex * salesPageSize + nextRecords.length : nextRecords.length
+        setSalesHasMore(nextTotalCount ? resolvedCount < nextTotalCount : nextRecords.length === salesPageSize)
+        setSalesPage(pageIndex)
       } else {
         console.error("Error fetching sales records:", data.error)
       }
     } catch (error) {
       console.error("Error fetching sales records:", error)
     } finally {
-      setIsLoading(false)
+      if (append) {
+        setIsLoadingMore(false)
+      } else {
+        setIsLoading(false)
+      }
     }
-  }, [selectedFiscalYear])
+  }, [salesPageSize, selectedFiscalYear, tenantHeaders])
+
+  const fetchDispatchSummary = useCallback(async () => {
+    try {
+      const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
+      const response = await fetch(`/api/dispatch?startDate=${startDate}&endDate=${endDate}&summaryOnly=true`, {
+        headers: tenantHeaders,
+      })
+      const data = await response.json()
+
+      if (data.success) {
+        setDispatchSummary(Array.isArray(data.totalsByType) ? data.totalsByType : [])
+      }
+    } catch (error) {
+      console.error("Error fetching dispatch records:", error)
+    }
+  }, [selectedFiscalYear, tenantHeaders])
 
   useEffect(() => {
-    fetchSalesRecords()
-  }, [fetchSalesRecords])
+    loadLocations()
+    fetchSalesRecords(0, false)
+    loadBuyerSuggestions()
+  }, [fetchSalesRecords, loadBuyerSuggestions, loadLocations])
+
+  useEffect(() => {
+    fetchDispatchSummary()
+  }, [fetchDispatchSummary])
+
+  const getAvailableForSelection = () => {
+    const normalizedCoffee = coffeeType.toLowerCase()
+    const normalizedBag = normalizeBagType(bagType)
+    let receivedKgs = 0
+    let soldKgs = 0
+
+    dispatchSummary.forEach((row) => {
+      const recordCoffee = String(row.coffee_type || "").toLowerCase()
+      if (recordCoffee !== normalizedCoffee) return
+      if (normalizeBagType(row.bag_type) !== normalizedBag) return
+      receivedKgs += Number(row.kgs_received) || 0
+    })
+
+    salesSummary.forEach((row) => {
+      const recordCoffee = String(row.coffee_type || "").toLowerCase()
+      if (recordCoffee !== normalizedCoffee) return
+      if (normalizeBagType(row.bag_type) !== normalizedBag) return
+      const bagsSoldCount = Number(row.bags_sold) || 0
+      soldKgs += bagsSoldCount * bagWeightKg
+    })
+
+    const availableKgs = Math.max(0, receivedKgs - soldKgs)
+    const availableBags = availableKgs / bagWeightKg
+    return { availableKgs, availableBags }
+  }
 
   const handleSave = async () => {
-    if (!bagsSent || Number(bagsSent) <= 0) {
+    if (!selectedLocationId) {
       toast({
-        title: "Error",
-        description: "Please enter the number of bags sent",
+        title: "Location required",
+        description: "Select a location before recording a sale.",
         variant: "destructive",
       })
       return
     }
-
     if (!bagsSold || Number(bagsSold) <= 0) {
       toast({
         title: "Error",
@@ -128,22 +319,35 @@ export default function SalesTab() {
       return
     }
 
+    const { availableBags } = getAvailableForSelection()
+    if (Number(bagsSold) > availableBags) {
+      toast({
+        title: "Insufficient Inventory",
+        description: `Only ${availableBags.toFixed(2)} ${coffeeType} ${bagType} bags available based on received inventory.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSaving(true)
     try {
+      const locationLabel = selectedLocation?.name || selectedLocation?.code || ""
       const method = editingRecord ? "PUT" : "POST"
       const response = await fetch("/api/sales", {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...tenantHeaders },
         body: JSON.stringify({
           id: editingRecord?.id,
           sale_date: format(date, "yyyy-MM-dd"),
           batch_no: batchNo || null,
-          estate: estate,
-          bags_sent: Number(bagsSent),
-          kgs: kgs,
+          lot_id: lotId || null,
+          locationId: selectedLocationId,
+          estate: locationLabel || null,
+          coffee_type: coffeeType,
+          bag_type: bagType,
+          buyer_name: buyerName || null,
           bags_sold: Number(bagsSold),
           price_per_bag: Number(pricePerBag),
-          revenue: calculatedRevenue,
           bank_account: bankAccount || null,
           notes: notes || null,
         }),
@@ -156,10 +360,14 @@ export default function SalesTab() {
           title: "Success",
           description: editingRecord ? "Sales record updated successfully" : "Sales record saved successfully",
         })
+        if (buyerName.trim()) {
+          setBuyerSuggestions((prev) => Array.from(new Set([buyerName.trim(), ...prev])))
+        }
         // Reset form
         resetForm()
         // Refresh records
-        fetchSalesRecords()
+        fetchSalesRecords(0, false)
+        fetchDispatchSummary()
       } else {
         toast({
           title: "Error",
@@ -180,10 +388,12 @@ export default function SalesTab() {
 
   const resetForm = () => {
     setBatchNo("")
-    setEstate("HF A")
-    setBagsSent("")
+    setLotId("")
+    setCoffeeType("Arabica")
+    setBagType("Dry Parchment")
     setBagsSold("")
     setPricePerBag("")
+    setBuyerName("")
     setBankAccount("")
     setNotes("")
     setEditingRecord(null)
@@ -193,10 +403,17 @@ export default function SalesTab() {
     setEditingRecord(record)
     setDate(new Date(record.sale_date))
     setBatchNo(record.batch_no || "")
-    setEstate(record.estate || "HF A")
-    setBagsSent(record.bags_sent.toString())
-    setBagsSold(record.bags_sold.toString())
+    setLotId(record.lot_id || "")
+    const resolvedLocationId =
+      record.location_id || resolveLocationIdFromLabel(record.location_name || record.location_code || record.estate)
+    if (resolvedLocationId) {
+      setSelectedLocationId(resolvedLocationId)
+    }
+    setCoffeeType(record.coffee_type || "Arabica")
+    setBagType(formatBagTypeLabel(record.bag_type))
+    setBagsSold(record.bags_sold?.toString() || "")
     setPricePerBag(record.price_per_bag.toString())
+    setBuyerName(record.buyer_name || "")
     setBankAccount(record.bank_account || "")
     setNotes(record.notes || "")
   }
@@ -207,6 +424,7 @@ export default function SalesTab() {
     try {
       const response = await fetch(`/api/sales?id=${id}`, {
         method: "DELETE",
+        headers: tenantHeaders,
       })
 
       const data = await response.json()
@@ -216,7 +434,7 @@ export default function SalesTab() {
           title: "Success",
           description: "Record deleted successfully",
         })
-        fetchSalesRecords()
+        fetchSalesRecords(0, false)
       } else {
         toast({
           title: "Error",
@@ -234,58 +452,153 @@ export default function SalesTab() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "B&L Batch No", "Estate", "Bags Sent", "KGs", "Bags Sold", "Price/Bag", "Revenue", "Bank Account", "Notes"]
-    const rows = salesRecords.map((record) => [
-      format(new Date(record.sale_date), "yyyy-MM-dd"),
-      record.batch_no || "",
-      record.estate || "",
-      record.bags_sent.toString(),
-      record.kgs.toString(),
-      record.bags_sold.toString(),
-      record.price_per_bag.toString(),
-      record.revenue.toString(),
-      record.bank_account || "",
-      record.notes || "",
-    ])
-
-    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `sales_records_${selectedFiscalYear.label.replace("/", "-")}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const totals = calculateTotals()
-  const avgPricePerBag = totals.totalBagsSold > 0 ? totals.totalRevenue / totals.totalBagsSold : 0
-
-const runMigration = async () => {
-    try {
-      const response = await fetch('/api/migrate-sales', { method: 'POST' })
+    const runExport = async () => {
+      const { startDate, endDate } = getFiscalYearDateRange(selectedFiscalYear)
+      const response = await fetch(`/api/sales?startDate=${startDate}&endDate=${endDate}&all=true`, {
+        headers: tenantHeaders,
+      })
       const data = await response.json()
-      if (data.success) {
-        toast({
-          title: "Migration Complete",
-          description: "Database updated successfully. Please refresh the page.",
-        })
-      } else {
-        toast({
-          title: "Migration Failed",
-          description: data.error || "Unknown error",
-          variant: "destructive",
-        })
+
+      if (!data.success || !Array.isArray(data.records)) {
+        throw new Error(data.error || "Failed to load sales records for export")
       }
-    } catch (error) {
+
+      const headers = [
+        "Date",
+        "B&L Batch No",
+        "Lot ID",
+        "Location",
+        "Coffee Type",
+        "Bags Sold",
+        "Bag Type",
+        "KGs Sold",
+        "Buyer",
+        "Price/Bag",
+        "Revenue",
+        "Bank Account",
+        "Notes",
+      ]
+      const rows = data.records.map((record: SalesRecord) => [
+        format(new Date(record.sale_date), "yyyy-MM-dd"),
+        record.batch_no || "",
+        record.lot_id || "",
+        getLocationLabel(record),
+        record.coffee_type || "",
+        record.bags_sold.toString(),
+        formatBagTypeLabel(record.bag_type),
+        (typeof record.kgs === "number" ? record.kgs : Number(record.bags_sold) * bagWeightKg).toFixed(2),
+        record.buyer_name || "",
+        record.price_per_bag.toString(),
+        record.revenue.toString(),
+        record.bank_account || "",
+        record.notes || "",
+      ])
+
+      const csvContent = [headers.join(","), ...rows.map((row: string[]) => row.map((cell) => `"${cell}"`).join(","))].join(
+        "\n",
+      )
+
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `sales_records_${selectedFiscalYear.label.replace("/", "-")}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    runExport().catch((error) => {
+      console.error("Error exporting sales records:", error)
       toast({
-        title: "Migration Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: "Error",
+        description: "Failed to export sales records",
         variant: "destructive",
       })
-    }
+    })
   }
+
+  const fallbackTotals = calculateTotals()
+  const totalBagsSold = salesTotals.totalBagsSold || fallbackTotals.totalBagsSold
+  const totalRevenue = salesTotals.totalRevenue || fallbackTotals.totalRevenue
+  const totals = {
+    totalBagsSold,
+    totalKgsSold: totalBagsSold * bagWeightKg,
+    totalRevenue,
+  }
+  const avgPricePerBag = totals.totalBagsSold > 0 ? totals.totalRevenue / totals.totalBagsSold : 0
+  const resolvedSalesCount = salesTotalCount || salesRecords.length
+  const resolvedSalesCountLabel =
+    salesTotalCount > salesRecords.length
+      ? `Showing ${salesRecords.length} of ${salesTotalCount}`
+      : `${salesRecords.length} record(s)`
+  const createBreakdown = (): InventoryBreakdown => ({
+    cherry: { bags: 0, kgs: 0 },
+    parchment: { bags: 0, kgs: 0 },
+    total: { bags: 0, kgs: 0 },
+  })
+
+  const receivedTotals = COFFEE_TYPES.reduce(
+    (acc, type) => {
+      acc[type] = createBreakdown()
+      return acc
+    },
+    {} as Record<string, InventoryBreakdown>,
+  )
+
+  const soldTotals = COFFEE_TYPES.reduce(
+    (acc, type) => {
+      acc[type] = createBreakdown()
+      return acc
+    },
+    {} as Record<string, InventoryBreakdown>,
+  )
+
+  dispatchSummary.forEach((record) => {
+    const type = record.coffee_type || "Unknown"
+    if (!receivedTotals[type]) {
+      receivedTotals[type] = createBreakdown()
+    }
+    const kgsReceived = Number(record.kgs_received) || 0
+    const bagsReceived = kgsReceived / bagWeightKg
+    const bagType = normalizeBagType(record.bag_type)
+    receivedTotals[type][bagType].bags += bagsReceived
+    receivedTotals[type][bagType].kgs += kgsReceived
+    receivedTotals[type].total.bags += bagsReceived
+    receivedTotals[type].total.kgs += kgsReceived
+  })
+
+  salesSummary.forEach((record) => {
+    const type = record.coffee_type || "Unknown"
+    if (!soldTotals[type]) {
+      soldTotals[type] = createBreakdown()
+    }
+    const bagsSoldCount = Number(record.bags_sold) || 0
+    const kgsSoldCount = bagsSoldCount * bagWeightKg
+    const bagType = normalizeBagType(record.bag_type)
+    soldTotals[type][bagType].bags += bagsSoldCount
+    soldTotals[type][bagType].kgs += kgsSoldCount
+    soldTotals[type].total.bags += bagsSoldCount
+    soldTotals[type].total.kgs += kgsSoldCount
+  })
+
+  const availableTotals = Object.keys(receivedTotals).reduce((acc, type) => {
+    acc[type] = createBreakdown()
+    acc[type].cherry.bags = Math.max(0, receivedTotals[type].cherry.bags - (soldTotals[type]?.cherry.bags || 0))
+    acc[type].cherry.kgs = Math.max(0, receivedTotals[type].cherry.kgs - (soldTotals[type]?.cherry.kgs || 0))
+    acc[type].parchment.bags = Math.max(0, receivedTotals[type].parchment.bags - (soldTotals[type]?.parchment.bags || 0))
+    acc[type].parchment.kgs = Math.max(0, receivedTotals[type].parchment.kgs - (soldTotals[type]?.parchment.kgs || 0))
+    acc[type].total.bags = Math.max(0, receivedTotals[type].total.bags - (soldTotals[type]?.total.bags || 0))
+    acc[type].total.kgs = Math.max(0, receivedTotals[type].total.kgs - (soldTotals[type]?.total.kgs || 0))
+    return acc
+  }, {} as Record<string, InventoryBreakdown>)
+
+  const totalReceived = COFFEE_TYPES.reduce((sum, type) => sum + (receivedTotals[type]?.total.kgs || 0), 0)
+  const totalReceivedBags = COFFEE_TYPES.reduce((sum, type) => sum + (receivedTotals[type]?.total.bags || 0), 0)
+  const totalSold = COFFEE_TYPES.reduce((sum, type) => sum + (soldTotals[type]?.total.kgs || 0), 0)
+  const totalSoldBags = COFFEE_TYPES.reduce((sum, type) => sum + (soldTotals[type]?.total.bags || 0), 0)
+  const totalAvailable = Math.max(0, totalReceived - totalSold)
+  const totalAvailableBags = Math.max(0, totalReceivedBags - totalSoldBags)
+  const selectionAvailability = getAvailableForSelection()
 
   return (
     <div className="space-y-6">
@@ -293,9 +606,6 @@ const runMigration = async () => {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Coffee Sales</h2>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={runMigration}>
-            Run DB Migration
-          </Button>
           <Label htmlFor="fiscal-year" className="text-sm text-muted-foreground">
             Fiscal Year:
           </Label>
@@ -320,6 +630,56 @@ const runMigration = async () => {
         </div>
       </div>
 
+      <Card className="border-2 border-muted">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Available for Sale</CardTitle>
+          <CardDescription>Received coffee available to sell (in KGs)</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {COFFEE_TYPES.map((type) => {
+            const totals = availableTotals[type]
+            return (
+              <div key={type} className="space-y-3">
+                <div className="text-sm font-semibold">{type}</div>
+                <div className="rounded-md border p-3 space-y-1">
+                  <div className="text-xs text-muted-foreground">Cherry</div>
+                  <div className="text-lg font-semibold">{totals.cherry.kgs.toFixed(2)} KGs</div>
+                  <div className="text-xs text-muted-foreground">{totals.cherry.bags.toFixed(2)} Bags</div>
+                </div>
+                <div className="rounded-md border p-3 space-y-1">
+                  <div className="text-xs text-muted-foreground">Parchment</div>
+                  <div className="text-lg font-semibold">{totals.parchment.kgs.toFixed(2)} KGs</div>
+                  <div className="text-xs text-muted-foreground">{totals.parchment.bags.toFixed(2)} Bags</div>
+                </div>
+                <div className="rounded-md border p-3 space-y-1">
+                  <div className="text-xs text-muted-foreground">Total {type}</div>
+                  <div className="text-lg font-semibold">{totals.total.kgs.toFixed(2)} KGs</div>
+                  <div className="text-xs text-muted-foreground">{totals.total.bags.toFixed(2)} Bags</div>
+                </div>
+              </div>
+            )
+          })}
+          <div className="space-y-3">
+            <div className="text-sm font-semibold">Summary</div>
+            <div className="rounded-md border p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Total Received</div>
+              <div className="text-lg font-semibold">{totalReceived.toFixed(2)} KGs</div>
+              <div className="text-xs text-muted-foreground">{totalReceivedBags.toFixed(2)} Bags</div>
+            </div>
+            <div className="rounded-md border p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Total Sold</div>
+              <div className="text-lg font-semibold">{totalSold.toFixed(2)} KGs</div>
+              <div className="text-xs text-muted-foreground">{totalSoldBags.toFixed(2)} Bags</div>
+            </div>
+            <div className="rounded-md border p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Total Available</div>
+              <div className="text-lg font-semibold">{totalAvailable.toFixed(2)} KGs</div>
+              <div className="text-xs text-muted-foreground">{totalAvailableBags.toFixed(2)} Bags</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue */}
@@ -330,23 +690,10 @@ const runMigration = async () => {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">₹{totals.totalRevenue.toLocaleString()}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              {salesRecords.length} sales recorded
+              {resolvedSalesCount} sales recorded
             </div>
             <div className="text-sm font-medium mt-1 text-blue-600">
               Avg Price/Bag: ₹{avgPricePerBag.toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Bags Sent */}
-        <Card className="border-2 border-muted">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Bags Sent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalBagsSent}</div>
-            <div className="text-sm text-muted-foreground mt-1">
-              KGs: {totals.totalKgs.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -359,7 +706,20 @@ const runMigration = async () => {
           <CardContent>
             <div className="text-2xl font-bold">{totals.totalBagsSold.toFixed(2)}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Received at buyer
+              KGs Sold: {totals.totalKgsSold.toFixed(2)}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total KGs Sold */}
+        <Card className="border-2 border-muted">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total KGs Sold</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totals.totalKgsSold.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground mt-1">
+              Bags Sold: {totals.totalBagsSold.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -401,7 +761,7 @@ const runMigration = async () => {
                     className={cn("w-full justify-start text-left font-normal bg-transparent", !date && "text-muted-foreground")}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                    {date ? formatDateOnly(date) : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -421,43 +781,66 @@ const runMigration = async () => {
               />
             </div>
 
-            {/* Estate */}
+            {/* Lot ID */}
             <div className="space-y-2">
-              <Label>Estate</Label>
-              <Select value={estate} onValueChange={setEstate}>
+              <Label>Lot ID</Label>
+              <Input
+                type="text"
+                placeholder="e.g., LOT-2026-001"
+                value={lotId}
+                onChange={(e) => setLotId(e.target.value)}
+              />
+            </div>
+
+            {/* Location */}
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Select value={selectedLocationId} onValueChange={setSelectedLocationId} disabled={!locations.length}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={locations.length ? "Select location" : "Add a location first"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {ESTATES.map((e) => (
-                    <SelectItem key={e} value={e}>
-                      {e}
+                  {locations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name || loc.code}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Bags Sent */}
+            {/* Coffee Type */}
             <div className="space-y-2">
-              <Label>Bags Sent</Label>
-              <Input
-                type="number"
-                step="1"
-                min="1"
-                placeholder="Number of bags"
-                value={bagsSent}
-                onChange={(e) => setBagsSent(e.target.value)}
-              />
+              <Label>Coffee Type</Label>
+              <Select value={coffeeType} onValueChange={setCoffeeType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COFFEE_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* KGs (Auto-calculated) */}
+            {/* Bag Type */}
             <div className="space-y-2">
-              <Label>KGs (Bags x 50)</Label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-                <span className="font-medium">{kgs.toFixed(2)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-calculated</p>
+              <Label>Bag Type</Label>
+              <Select value={bagType} onValueChange={setBagType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BAG_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Bags Sold */}
@@ -465,11 +848,24 @@ const runMigration = async () => {
               <Label>Bags Sold</Label>
               <Input
                 type="number"
-                step="0.01"
-                placeholder="kgs/50"
+                step="1"
+                min="1"
+                placeholder="Number of bags sold"
                 value={bagsSold}
                 onChange={(e) => setBagsSold(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Available: {selectionAvailability.availableBags.toFixed(2)} bags ({selectionAvailability.availableKgs.toFixed(2)} KGs)
+              </p>
+            </div>
+
+            {/* KGs Sold (Auto-calculated) */}
+            <div className="space-y-2">
+              <Label>KGs Sold (Bags x {bagWeightKg})</Label>
+              <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+                <span className="font-medium">{kgsSold.toFixed(2)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Auto-calculated</p>
             </div>
 
             {/* Price per Bag */}
@@ -503,6 +899,23 @@ const runMigration = async () => {
                 value={bankAccount}
                 onChange={(e) => setBankAccount(e.target.value)}
               />
+            </div>
+
+            {/* Buyer */}
+            <div className="space-y-2">
+              <Label>Buyer</Label>
+              <Input
+                type="text"
+                list="buyer-suggestions"
+                placeholder="e.g., LD, Ned"
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+              />
+              <datalist id="buyer-suggestions">
+                {buyerSuggestions.map((buyer) => (
+                  <option key={buyer} value={buyer} />
+                ))}
+              </datalist>
             </div>
 
             {/* Notes */}
@@ -549,7 +962,7 @@ const runMigration = async () => {
                 <TrendingUp className="h-5 w-5" />
                 Sales Records
               </CardTitle>
-              <CardDescription>History of all coffee sales</CardDescription>
+              <CardDescription>History of all coffee sales · {resolvedSalesCountLabel}</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={exportToCSV} className="bg-transparent">
               <Download className="mr-2 h-4 w-4" />
@@ -565,62 +978,86 @@ const runMigration = async () => {
           ) : salesRecords.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No sales records found</div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>B&L Batch No</TableHead>
-                    <TableHead>Estate</TableHead>
-                    <TableHead className="text-right">Bags Sent</TableHead>
-                    <TableHead className="text-right">KGs</TableHead>
-                    <TableHead className="text-right">Bags Sold</TableHead>
-                    <TableHead className="text-right">Price/Bag</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead>Bank Account</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {salesRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>{format(new Date(record.sale_date), "dd MMM yyyy")}</TableCell>
-                      <TableCell>{record.batch_no || "-"}</TableCell>
-                      <TableCell>{record.estate || "-"}</TableCell>
-                      <TableCell className="text-right">{Number(record.bags_sent)}</TableCell>
-                      <TableCell className="text-right">{Number(record.kgs).toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{Number(record.bags_sold).toFixed(2)}</TableCell>
-                      <TableCell className="text-right">₹{Number(record.price_per_bag).toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-medium text-green-600">
-                        ₹{Number(record.revenue).toLocaleString()}
-                      </TableCell>
-                      <TableCell>{record.bank_account || "-"}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(record)}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(record.id!)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            <div className="space-y-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>B&L Batch No</TableHead>
+                      <TableHead>Lot ID</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Coffee Type</TableHead>
+                      <TableHead>Bag Type</TableHead>
+                      <TableHead>Buyer</TableHead>
+                      <TableHead className="text-right">Bags Sold</TableHead>
+                      <TableHead className="text-right">KGs Sold</TableHead>
+                      <TableHead className="text-right">Price/Bag</TableHead>
+                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead>Bank Account</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {salesRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell>{formatDateOnly(record.sale_date)}</TableCell>
+                        <TableCell>{record.batch_no || "-"}</TableCell>
+                        <TableCell>{record.lot_id || "-"}</TableCell>
+                        <TableCell>{getLocationLabel(record)}</TableCell>
+                        <TableCell>{record.coffee_type || "-"}</TableCell>
+                        <TableCell>{formatBagTypeLabel(record.bag_type)}</TableCell>
+                        <TableCell>{record.buyer_name || "-"}</TableCell>
+                        <TableCell className="text-right">{Number(record.bags_sold).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">
+                          {(typeof record.kgs === "number" ? record.kgs : Number(record.bags_sold) * bagWeightKg).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right">₹{Number(record.price_per_bag).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-medium text-green-600">
+                          ₹{Number(record.revenue).toLocaleString()}
+                        </TableCell>
+                        <TableCell>{record.bank_account || "-"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(record)}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(record.id!)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {salesHasMore && (
+                <div className="flex justify-center pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchSalesRecords(salesPage + 1, true)}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

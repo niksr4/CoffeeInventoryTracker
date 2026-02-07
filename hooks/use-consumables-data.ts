@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { useAuth } from "@/hooks/use-auth"
+import { buildTenantHeaders } from "@/lib/tenant"
 
-interface Deployment {
+export interface ConsumableDeployment {
   id: number
   date: string
   code: string
@@ -12,16 +14,54 @@ interface Deployment {
   user: string
 }
 
-export function useConsumablesData() {
-  const [deployments, setDeployments] = useState<Deployment[]>([])
-  const [loading, setLoading] = useState(true)
+type ConsumablesDataOptions = {
+  pageSize?: number
+}
 
-  const fetchDeployments = async () => {
+export function useConsumablesData(locationId?: string, options: ConsumablesDataOptions = {}) {
+  const { user } = useAuth()
+  const tenantHeaders = useMemo(() => buildTenantHeaders(user?.tenantId), [user?.tenantId])
+  const [deployments, setDeployments] = useState<ConsumableDeployment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalAmount, setTotalAmount] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [page, setPage] = useState(0)
+  const pageSize = options.pageSize ?? 50
+
+  const fetchDeployments = useCallback(
+    async (pageIndex = 0, append = false) => {
     try {
-      setLoading(true)
+      if (!user?.tenantId) {
+        setLoading(false)
+        setHasMore(false)
+        setTotalCount(0)
+        setTotalAmount(0)
+        return
+      }
+      if (append) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+      }
       console.log("🔄 Fetching deployments from /api/expenses-neon...")
 
-      const response = await fetch("/api/expenses-neon")
+      const query = new URLSearchParams()
+      query.set("limit", pageSize.toString())
+      query.set("offset", String(pageIndex * pageSize))
+      if (locationId) {
+        query.set("locationId", locationId)
+      }
+
+      const response = await fetch(`/api/expenses-neon?${query.toString()}`, { headers: tenantHeaders })
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("❌ Failed to load deployments:", errorText)
+        setDeployments([])
+        setHasMore(false)
+        return
+      }
       const data = await response.json()
 
       console.log("📥 Raw API response:", data)
@@ -29,38 +69,68 @@ export function useConsumablesData() {
       if (data.success && data.deployments) {
         console.log("✅ Deployments loaded:", data.deployments.length)
         console.log("📋 First deployment:", data.deployments[0])
-        setDeployments(data.deployments)
+        const nextTotalCount = Number(data.totalCount) || 0
+        const nextTotalAmount = Number(data.totalAmount) || 0
+        setTotalCount(nextTotalCount)
+        setTotalAmount(nextTotalAmount)
+        setDeployments((prev) => {
+          const nextDeployments = append ? [...prev, ...data.deployments] : data.deployments
+          const canPaginate = pageSize > 0
+          const hasNextPage = canPaginate
+            ? nextTotalCount
+              ? nextDeployments.length < nextTotalCount
+              : data.deployments.length === pageSize
+            : false
+          setHasMore(hasNextPage)
+          return nextDeployments
+        })
+        setPage(pageIndex)
       } else {
         console.error("❌ Failed to load deployments:", data)
         setDeployments([])
+        setHasMore(false)
       }
     } catch (error) {
       console.error("❌ Error fetching deployments:", error)
       setDeployments([])
+      setHasMore(false)
     } finally {
-      setLoading(false)
+      if (append) {
+        setLoadingMore(false)
+      } else {
+        setLoading(false)
+      }
     }
-  }
+    },
+    [locationId, pageSize, tenantHeaders, user?.tenantId],
+  )
 
   useEffect(() => {
     fetchDeployments()
-  }, [])
+  }, [fetchDeployments])
 
-  const addDeployment = async (deployment: Omit<Deployment, "id">) => {
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading || !hasMore) {
+      return
+    }
+    await fetchDeployments(page + 1, true)
+  }, [fetchDeployments, hasMore, loading, loadingMore, page])
+
+  const addDeployment = async (deployment: Omit<ConsumableDeployment, "id">) => {
     try {
       console.log("➕ Adding deployment:", deployment)
 
       const response = await fetch("/api/expenses-neon", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(deployment),
+        headers: { "Content-Type": "application/json", ...tenantHeaders },
+        body: JSON.stringify({ ...deployment, locationId }),
       })
 
       const data = await response.json()
 
       if (data.success) {
         console.log("✅ Deployment added successfully")
-        await fetchDeployments() // Refresh the list
+        await fetchDeployments(0, false) // Refresh the list
       } else {
         console.error("❌ Failed to add deployment:", data)
       }
@@ -69,21 +139,21 @@ export function useConsumablesData() {
     }
   }
 
-  const updateDeployment = async (id: number, deployment: Omit<Deployment, "id" | "user">) => {
+  const updateDeployment = async (id: number, deployment: Omit<ConsumableDeployment, "id" | "user">) => {
     try {
       console.log("📝 Updating deployment:", id, deployment)
 
       const response = await fetch("/api/expenses-neon", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...deployment }),
+        headers: { "Content-Type": "application/json", ...tenantHeaders },
+        body: JSON.stringify({ id, ...deployment, locationId }),
       })
 
       const data = await response.json()
 
       if (data.success) {
         console.log("✅ Deployment updated successfully")
-        await fetchDeployments() // Refresh the list
+        await fetchDeployments(0, false) // Refresh the list
       } else {
         console.error("❌ Failed to update deployment:", data)
       }
@@ -96,15 +166,16 @@ export function useConsumablesData() {
     try {
       console.log("🗑️ Deleting deployment:", id)
 
-      const response = await fetch(`/api/expenses-neon?id=${id}`, {
+      const response = await fetch(`/api/expenses-neon?id=${id}${locationId ? `&locationId=${locationId}` : ""}`, {
         method: "DELETE",
+        headers: tenantHeaders,
       })
 
       const data = await response.json()
 
       if (data.success) {
         console.log("✅ Deployment deleted successfully")
-        await fetchDeployments() // Refresh the list
+        await fetchDeployments(0, false) // Refresh the list
       } else {
         console.error("❌ Failed to delete deployment:", data)
       }
@@ -116,6 +187,11 @@ export function useConsumablesData() {
   return {
     deployments,
     loading,
+    loadingMore,
+    totalCount,
+    totalAmount,
+    hasMore,
+    loadMore,
     addDeployment,
     updateDeployment,
     deleteDeployment,

@@ -19,6 +19,7 @@ import LaborDeploymentTab from "./labor-deployment-tab"
 import OtherExpensesTab from "./other-expenses-tab"
 import { toast } from "sonner"
 import { getCurrentFiscalYear, getAvailableFiscalYears, type FiscalYear } from "@/lib/fiscal-year-utils"
+import { buildTenantHeaders } from "@/lib/tenant"
 
 interface AccountActivity {
   code: string
@@ -31,12 +32,14 @@ interface Activity {
 }
 
 export default function AccountsPage() {
-  const { isAdmin } = useAuth()
-  const { deployments: laborDeployments, loading: laborLoading } = useLaborData()
-  const { deployments: consumableDeployments, loading: consumablesLoading } = useConsumablesData()
+  const { isAdmin, user } = useAuth()
+  const { deployments: laborDeployments, loading: laborLoading, totalCount: laborCount } = useLaborData()
+  const { deployments: consumableDeployments, loading: consumablesLoading, totalCount: consumablesCount } =
+    useConsumablesData()
 
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
   const availableFiscalYears = getAvailableFiscalYears()
+  const tenantHeaders = useMemo(() => buildTenantHeaders(user?.tenantId), [user?.tenantId])
 
   const [exportStartDate, setExportStartDate] = useState<string>("")
   const [exportEndDate, setExportEndDate] = useState<string>("")
@@ -48,16 +51,59 @@ export default function AccountsPage() {
   const [newActivityCode, setNewActivityCode] = useState("")
   const [newActivityReference, setNewActivityReference] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [summaryTotals, setSummaryTotals] = useState({
+    laborTotal: 0,
+    otherTotal: 0,
+    grandTotal: 0,
+  })
+  const [summaryLoading, setSummaryLoading] = useState(true)
 
   useEffect(() => {
     fetchAllActivities()
     fetchAccountActivities()
   }, [])
 
+  useEffect(() => {
+    const fetchTotals = async () => {
+      if (!user?.tenantId) {
+        setSummaryLoading(false)
+        return
+      }
+      try {
+        setSummaryLoading(true)
+        const params = new URLSearchParams({
+          startDate: selectedFiscalYear.startDate,
+          endDate: selectedFiscalYear.endDate,
+        })
+        const response = await fetch(`/api/accounts-totals?${params.toString()}`, { headers: tenantHeaders })
+        const data = await response.json()
+
+        if (!response.ok || !data.success) {
+          console.error("Failed to load account totals:", data)
+          setSummaryTotals({ laborTotal: 0, otherTotal: 0, grandTotal: 0 })
+          return
+        }
+
+        setSummaryTotals({
+          laborTotal: Number(data.laborTotal) || 0,
+          otherTotal: Number(data.otherTotal) || 0,
+          grandTotal: Number(data.grandTotal) || 0,
+        })
+      } catch (error) {
+        console.error("Error loading account totals:", error)
+        setSummaryTotals({ laborTotal: 0, otherTotal: 0, grandTotal: 0 })
+      } finally {
+        setSummaryLoading(false)
+      }
+    }
+
+    fetchTotals()
+  }, [selectedFiscalYear.endDate, selectedFiscalYear.startDate, tenantHeaders, user?.tenantId])
+
   const fetchAllActivities = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch("/api/get-activity")
+      const response = await fetch("/api/get-activity", { headers: tenantHeaders })
       const data = await response.json()
       console.log("Fetched activities:", data)
 
@@ -80,7 +126,7 @@ export default function AccountsPage() {
     setLoadingActivities(true)
     try {
       console.log("[v0] Fetching account activities...")
-      const response = await fetch("/api/get-activity")
+      const response = await fetch("/api/get-activity", { headers: tenantHeaders })
       const data = await response.json()
       console.log("[v0] Account activities response:", data)
       if (data.success && data.activities) {
@@ -110,6 +156,7 @@ export default function AccountsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...tenantHeaders,
         },
         body: JSON.stringify({
           code: newActivityCode.trim(),
@@ -139,60 +186,66 @@ export default function AccountsPage() {
     }
   }
 
-  const laborTotal = useMemo(() => {
-    return laborDeployments.reduce((total, deployment) => total + deployment.totalCost, 0)
-  }, [laborDeployments])
+  type CombinedDeployment =
+    | (LaborDeployment & { entryType: "Labor"; totalCost: number })
+    | (ConsumableDeployment & { entryType: "Other Expense"; totalCost: number })
 
-  const otherExpensesTotal = useMemo(() => {
-    return consumableDeployments.reduce((total, deployment) => total + deployment.amount, 0)
-  }, [consumableDeployments])
+  const fetchAllDeploymentsForExport = async (): Promise<CombinedDeployment[] | null> => {
+    try {
+      const [laborResponse, expenseResponse] = await Promise.all([
+        fetch("/api/labor-neon?all=true", { headers: tenantHeaders }),
+        fetch("/api/expenses-neon?all=true", { headers: tenantHeaders }),
+      ])
 
-  const grandTotal = useMemo(() => {
-    return laborTotal + otherExpensesTotal
-  }, [laborTotal, otherExpensesTotal])
+      if (!laborResponse.ok) {
+        const errorText = await laborResponse.text()
+        console.error("Failed to load labor deployments for export:", errorText)
+        toast.error("Failed to load labor deployments for export")
+        return null
+      }
 
-  const combinedDeployments = useMemo(() => {
-    const typedLaborDeployments = laborDeployments.map((d) => ({ ...d, entryType: "Labor" }))
-    const typedConsumableDeployments = consumableDeployments.map((d) => ({ ...d, entryType: "Other Expense" }))
+      if (!expenseResponse.ok) {
+        const errorText = await expenseResponse.text()
+        console.error("Failed to load expenses for export:", errorText)
+        toast.error("Failed to load expenses for export")
+        return null
+      }
 
-    const allDeployments = [
-      ...typedLaborDeployments,
-      ...typedConsumableDeployments.map((cd) => ({ ...cd, totalCost: cd.amount })),
-    ] as (
-      | (LaborDeployment & { entryType: "Labor"; totalCost: number })
-      | (ConsumableDeployment & { entryType: "Other Expense"; totalCost: number })
-    )[]
+      const laborData = await laborResponse.json()
+      const expenseData = await expenseResponse.json()
 
-    return allDeployments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [laborDeployments, consumableDeployments])
+      if (!laborData.success || !expenseData.success) {
+        toast.error("Failed to load export data")
+        return null
+      }
 
-  const filteredCombinedDeployments = useMemo(() => {
-    return combinedDeployments.filter((d) => {
-      const deploymentDate = new Date(d.date)
-      const fyStart = new Date(selectedFiscalYear.startDate)
-      const fyEnd = new Date(selectedFiscalYear.endDate)
-      return deploymentDate >= fyStart && deploymentDate <= fyEnd
-    })
-  }, [combinedDeployments, selectedFiscalYear])
+      const typedLaborDeployments = (laborData.deployments || []).map((d: LaborDeployment) => ({
+        ...d,
+        entryType: "Labor" as const,
+      }))
+      const typedConsumableDeployments = (expenseData.deployments || []).map((d: ConsumableDeployment) => ({
+        ...d,
+        entryType: "Other Expense" as const,
+        totalCost: d.amount,
+      }))
 
-  const filteredLaborTotal = useMemo(() => {
-    return filteredCombinedDeployments
-      .filter((d) => d.entryType === "Labor")
-      .reduce((total, deployment) => total + deployment.totalCost, 0)
-  }, [filteredCombinedDeployments])
+      return [...typedLaborDeployments, ...typedConsumableDeployments].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      )
+    } catch (error) {
+      console.error("Error fetching export data:", error)
+      toast.error("Failed to load export data")
+      return null
+    }
+  }
 
-  const filteredOtherExpensesTotal = useMemo(() => {
-    return filteredCombinedDeployments
-      .filter((d) => d.entryType === "Other Expense")
-      .reduce((total, deployment) => total + (deployment as ConsumableDeployment).amount, 0)
-  }, [filteredCombinedDeployments])
+  const getFilteredDeploymentsForExport = async () => {
+    const allDeployments = await fetchAllDeploymentsForExport()
+    if (!allDeployments) {
+      return null
+    }
 
-  const filteredGrandTotal = useMemo(() => {
-    return filteredLaborTotal + filteredOtherExpensesTotal
-  }, [filteredLaborTotal, filteredOtherExpensesTotal])
-
-  const getFilteredDeploymentsForExport = () => {
-    let deploymentsToExport = [...filteredCombinedDeployments]
+    let deploymentsToExport = [...allDeployments]
     if (exportStartDate && exportEndDate) {
       const startDate = new Date(exportStartDate)
       startDate.setHours(0, 0, 0, 0)
@@ -218,7 +271,7 @@ export default function AccountsPage() {
     return deploymentsToExport
   }
 
-  const exportCombinedCSV = () => {
+  const exportCombinedCSV = async () => {
     const escapeCsvField = (field: any): string => {
       if (field === null || field === undefined) return ""
       const stringField = String(field)
@@ -226,7 +279,7 @@ export default function AccountsPage() {
       return stringField
     }
 
-    const deploymentsToExport = getFilteredDeploymentsForExport()
+    const deploymentsToExport = await getFilteredDeploymentsForExport()
     if (!deploymentsToExport) return
 
     deploymentsToExport.sort((a, b) => {
@@ -299,7 +352,7 @@ export default function AccountsPage() {
           totalHfLaborCost += hfCount * hfEntry.costPerLabor
         }
         if (d.laborEntries && d.laborEntries.length > 1) {
-          d.laborEntries.slice(1).forEach((le) => {
+          d.laborEntries.slice(1).forEach((le: LaborEntry) => {
             const outsideCount =
               typeof le.laborCount === "number" ? le.laborCount : Number.parseFloat(String(le.laborCount)) || 0
             totalOutsideLaborCount += outsideCount
@@ -370,8 +423,8 @@ export default function AccountsPage() {
     document.body.removeChild(link)
   }
 
-  const exportQIF = () => {
-    const deploymentsToExport = getFilteredDeploymentsForExport()
+  const exportQIF = async () => {
+    const deploymentsToExport = await getFilteredDeploymentsForExport()
     if (!deploymentsToExport) return
 
     let qifContent = "!Type:Bank\n"
@@ -404,7 +457,7 @@ export default function AccountsPage() {
               : ""
             const outsideDetails = d.laborEntries
               .slice(1)
-              .map((le, index) => `DS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
+              .map((le: LaborEntry, index: number) => `DS${index + 1}: ${le.laborCount}@${le.costPerLabor.toFixed(2)}`)
               .join("; ")
             memo = [hfDetail, outsideDetails].filter(Boolean).join("; ")
           }
@@ -465,6 +518,13 @@ export default function AccountsPage() {
     return `${year}${month}${day}`
   }
 
+  const totalEntries =
+    (laborCount || laborDeployments.length) + (consumablesCount || consumableDeployments.length)
+  const hasAnyData = totalEntries > 0
+  const filteredLaborTotal = summaryTotals.laborTotal
+  const filteredOtherExpensesTotal = summaryTotals.otherTotal
+  const filteredGrandTotal = summaryTotals.grandTotal
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
@@ -478,28 +538,33 @@ export default function AccountsPage() {
           <CardDescription>Select the accounting year to view (April 1 - March 31)</CardDescription>
         </CardHeader>
         <CardContent>
-          <Select
-            value={selectedFiscalYear.label}
-            onValueChange={(value) => {
-              const fy = availableFiscalYears.find((f) => f.label === value)
-              if (fy) setSelectedFiscalYear(fy)
-            }}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {availableFiscalYears.map((fy) => (
-                <SelectItem key={fy.label} value={fy.label}>
-                  {fy.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <Label>Fiscal Year</Label>
+              <Select
+                value={selectedFiscalYear.label}
+                onValueChange={(value) => {
+                  const fy = availableFiscalYears.find((f) => f.label === value)
+                  if (fy) setSelectedFiscalYear(fy)
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableFiscalYears.map((fy) => (
+                    <SelectItem key={fy.label} value={fy.label}>
+                      {fy.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {isAdmin && filteredCombinedDeployments.length > 0 && (
+      {isAdmin && hasAnyData && (
         <Card>
           <CardHeader>
             <div className="flex justify-between items-start">
@@ -511,7 +576,7 @@ export default function AccountsPage() {
               </div>
               <div className="text-right flex-shrink-0 pl-4">
                 <p className="text-sm font-medium text-muted-foreground">Grand Total</p>
-                {laborLoading || consumablesLoading ? (
+                {summaryLoading ? (
                   <Skeleton className="h-8 w-32 mt-1" />
                 ) : (
                   <div className="space-y-1">
@@ -570,7 +635,7 @@ export default function AccountsPage() {
               onClick={exportCombinedCSV}
               variant="outline"
               size="sm"
-              disabled={filteredCombinedDeployments.length === 0 || laborLoading || consumablesLoading}
+              disabled={!hasAnyData || summaryLoading || laborLoading || consumablesLoading}
               className="w-full sm:w-auto bg-transparent"
             >
               <FileText className="mr-2 h-4 w-4" /> Export CSV
@@ -579,7 +644,7 @@ export default function AccountsPage() {
               onClick={exportQIF}
               variant="outline"
               size="sm"
-              disabled={filteredCombinedDeployments.length === 0 || laborLoading || consumablesLoading}
+              disabled={!hasAnyData || summaryLoading || laborLoading || consumablesLoading}
               className="w-full sm:w-auto bg-transparent"
             >
               <Coins className="mr-2 h-4 w-4" /> Export QIF
@@ -589,7 +654,7 @@ export default function AccountsPage() {
       )}
 
       <Tabs defaultValue="labor" className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="w-full justify-start sm:justify-center">
           <TabsTrigger value="labor" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Labor Deployments
@@ -605,12 +670,12 @@ export default function AccountsPage() {
         </TabsList>
 
         <TabsContent value="labor" className="mt-6">
-          <LaborDeploymentTab />
-        </TabsContent>
+            <LaborDeploymentTab />
+          </TabsContent>
 
         <TabsContent value="expenses" className="mt-6">
-          <OtherExpensesTab />
-        </TabsContent>
+            <OtherExpensesTab />
+          </TabsContent>
 
         <TabsContent value="activities">
           <Card>

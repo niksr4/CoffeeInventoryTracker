@@ -7,22 +7,29 @@ import {
   CartesianGrid,
   XAxis,
   YAxis,
-  Pie,
-  PieChart,
-  Cell,
-  Legend,
   Line,
-  LineChart,
-  ResponsiveContainer,
+  Area,
+  AreaChart,
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+import type { InventoryItem, Transaction } from "@/lib/inventory-types"
 import { getFiscalYearDateRange, getCurrentFiscalYear } from "@/lib/fiscal-year-utils"
+import { useAuth } from "@/hooks/use-auth"
+import { buildTenantHeaders } from "@/lib/tenant"
+import { formatDateForDisplay, formatDateOnly } from "@/lib/date-utils"
 
 interface AiAnalysisChartsProps {
   inventory: InventoryItem[]
   transactions: Transaction[]
+}
+
+type ChartTransaction = {
+  itemType: string
+  quantity: number
+  transactionType: "Restocking" | "Depleting" | "Item Deleted" | "Unit Change" | string
+  totalCost?: number
+  date: string
 }
 
 interface LaborRecord {
@@ -48,7 +55,13 @@ const LABOR_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"] // Blue palett
 // Helper to parse DD/MM/YYYY HH:MM date strings
 const parseTransactionDate = (dateString: string): Date | null => {
   if (!dateString || typeof dateString !== "string") return null
-  const parts = dateString.split(" ")
+  if (dateString.includes("T")) {
+    const direct = new Date(dateString)
+    return isNaN(direct.getTime()) ? null : direct
+  }
+
+  const cleaned = dateString.replace(",", "").trim()
+  const parts = cleaned.split(" ")
   if (parts.length < 1) return null
   const dateParts = parts[0].split("/")
   if (dateParts.length !== 3) return null
@@ -59,17 +72,23 @@ const parseTransactionDate = (dateString: string): Date | null => {
 }
 
 export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysisChartsProps) {
+  const { user } = useAuth()
+  const tenantHeaders = React.useMemo(() => buildTenantHeaders(user?.tenantId), [user?.tenantId])
   const [laborData, setLaborData] = React.useState<LaborRecord[]>([])
   const [processingData, setProcessingData] = React.useState<Record<string, ProcessingRecord[]>>({})
+  const [fallbackTransactions, setFallbackTransactions] = React.useState<ChartTransaction[]>([])
 
   // Fetch labor and processing data from dedicated API
   React.useEffect(() => {
     const fetchData = async () => {
+      if (!user?.tenantId) return
       const fiscalYear = getCurrentFiscalYear()
       const { startDate, endDate } = getFiscalYearDateRange(fiscalYear)
 
       try {
-        const response = await fetch(`/api/ai-charts-data?fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`)
+        const response = await fetch(`/api/ai-charts-data?fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`, {
+          headers: tenantHeaders,
+        })
         const data = await response.json()
         
         if (data.success) {
@@ -86,11 +105,88 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
     }
 
     fetchData()
-  }, [])
+  }, [user?.tenantId, tenantHeaders])
+
+  React.useEffect(() => {
+    const fetchFallbackTransactions = async () => {
+      if (!user?.tenantId) return
+      if (transactions.length > 0) return
+
+      try {
+        const response = await fetch("/api/transactions-neon?limit=500", { headers: tenantHeaders })
+        const data = await response.json()
+        if (data.success && Array.isArray(data.transactions)) {
+          const mapped: ChartTransaction[] = data.transactions.map((t: any) => {
+            let transactionType: ChartTransaction["transactionType"] = "Depleting"
+            const typeStr = String(t.transaction_type || "").toLowerCase()
+
+            if (typeStr === "restock" || typeStr === "restocking") {
+              transactionType = "Restocking"
+            } else if (typeStr === "deplete" || typeStr === "depleting") {
+              transactionType = "Depleting"
+            } else if (typeStr === "item deleted") {
+              transactionType = "Item Deleted"
+            } else if (typeStr === "unit change") {
+              transactionType = "Unit Change"
+            }
+
+            return {
+              itemType: String(t.item_type),
+              quantity: Number(t.quantity) || 0,
+              transactionType,
+              date: t.transaction_date ? formatDateForDisplay(t.transaction_date) : "",
+              totalCost: t.total_cost ? Number(t.total_cost) : undefined,
+            }
+          })
+          setFallbackTransactions(mapped)
+        }
+      } catch (error) {
+        console.error("Error fetching fallback transactions:", error)
+      }
+    }
+
+    fetchFallbackTransactions()
+  }, [user?.tenantId, tenantHeaders, transactions.length])
+
+  const chartTransactions = React.useMemo<ChartTransaction[]>(() => {
+    const source = transactions.length > 0 ? transactions : fallbackTransactions
+    return source
+      .map((t: any) => {
+        const itemType = t.itemType ?? t.item_type
+        const quantity = Number(t.quantity) || 0
+        const totalCost = t.totalCost ?? t.total_cost
+        const date = t.date ?? t.transaction_date
+        const rawType = String(t.transactionType ?? t.transaction_type ?? "").toLowerCase()
+
+        let transactionType: ChartTransaction["transactionType"] = "Depleting"
+        if (rawType === "restock" || rawType === "restocking") {
+          transactionType = "Restocking"
+        } else if (rawType === "deplete" || rawType === "depleting") {
+          transactionType = "Depleting"
+        } else if (rawType === "item deleted") {
+          transactionType = "Item Deleted"
+        } else if (rawType === "unit change") {
+          transactionType = "Unit Change"
+        } else if (t.transactionType) {
+          transactionType = t.transactionType
+        }
+
+        if (!itemType || !date) return null
+
+        return {
+          itemType: String(itemType),
+          quantity,
+          transactionType,
+          totalCost: totalCost ? Number(totalCost) : undefined,
+          date: String(date),
+        }
+      })
+      .filter(Boolean) as ChartTransaction[]
+  }, [transactions, fallbackTransactions])
 
   const consumptionData = React.useMemo(() => {
     const monthlyConsumption: { [key: string]: { date: Date; total: number } } = {}
-    transactions
+    chartTransactions
       .filter((t) => t.transactionType === "Depleting")
       .forEach((t) => {
         const date = parseTransactionDate(t.date)
@@ -106,17 +202,21 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
     const sortedData = Object.values(monthlyConsumption)
       .sort((a, b) => a.date.getTime() - b.date.getTime())
       .slice(-6) // Limit to last 6 months
-      .map((item) => ({
-        month: item.date.toLocaleString("default", { month: "short", year: "2-digit" }), // For display
-        total: item.total,
-      }))
+      .map((item) => {
+        const month = String(item.date.getMonth() + 1).padStart(2, "0")
+        const year = String(item.date.getFullYear()).slice(-2)
+        return {
+          month: `${month}/${year}`,
+          total: item.total,
+        }
+      })
     console.log("Processed consumptionData:", sortedData)
     return sortedData
-  }, [transactions])
+  }, [chartTransactions])
 
   const costAnalysisData = React.useMemo(() => {
     const itemCosts: { [key: string]: number } = {}
-    transactions
+    chartTransactions
       .filter((t) => t.transactionType === "Restocking" && t.totalCost !== undefined && t.totalCost !== null)
       .forEach((t) => {
         if (!itemCosts[t.itemType]) {
@@ -131,15 +231,15 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       .slice(0, 6) // Top 6 items by cost
     console.log("Processed costAnalysisData:", sortedData)
     return sortedData
-  }, [transactions])
+  }, [chartTransactions])
 
   const inventoryValueData = React.useMemo(() => {
-    if (transactions.length === 0) {
+    if (chartTransactions.length === 0) {
       console.log("Processed inventoryValueData (no transactions): []")
       return []
     }
 
-    const chronologicalTransactions = [...transactions]
+    const chronologicalTransactions = [...chartTransactions]
       .map((t) => ({ ...t, parsedDate: parseTransactionDate(t.date) }))
       .filter((t) => t.parsedDate !== null)
       .sort((a, b) => a.parsedDate!.getTime() - b.parsedDate!.getTime())
@@ -196,25 +296,31 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       .slice(-30) // Last 30 days
     console.log("Processed inventoryValueData:", sortedData)
     return sortedData
-  }, [transactions])
+  }, [chartTransactions])
 
   // Labor cost data by month
   const laborCostData = React.useMemo(() => {
-    const monthlyLabor: Record<string, { month: string; hfCost: number; outsideCost: number }> = {}
+    const monthlyLabor: Record<
+      string,
+      { month: string; hfCost: number; outsideCost: number; totalCost: number }
+    > = {}
     
     laborData.forEach((record) => {
       const date = new Date(record.deployment_date)
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-      const monthLabel = date.toLocaleString("default", { month: "short", year: "2-digit" })
+      const month = String(date.getMonth() + 1).padStart(2, "0")
+      const year = String(date.getFullYear()).slice(-2)
+      const monthLabel = `${month}/${year}`
       
       if (!monthlyLabor[monthKey]) {
-        monthlyLabor[monthKey] = { month: monthLabel, hfCost: 0, outsideCost: 0 }
+        monthlyLabor[monthKey] = { month: monthLabel, hfCost: 0, outsideCost: 0, totalCost: 0 }
       }
       // Calculate cost: laborers * cost_per_laborer
       const hfCost = (Number(record.hf_laborers) || 0) * (Number(record.hf_cost_per_laborer) || 0)
       const outsideCost = (Number(record.outside_laborers) || 0) * (Number(record.outside_cost_per_laborer) || 0)
       monthlyLabor[monthKey].hfCost += hfCost
       monthlyLabor[monthKey].outsideCost += outsideCost
+      monthlyLabor[monthKey].totalCost += hfCost + outsideCost
     })
 
     return Object.entries(monthlyLabor)
@@ -229,10 +335,12 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       const totalDryPBags = records.reduce((sum, r) => sum + (Number(r.dry_p_bags) || 0), 0)
       const totalDryCherryBags = records.reduce((sum, r) => sum + (Number(r.dry_cherry_bags) || 0), 0)
       const shortName = location.replace(" Robusta", "").replace(" Arabica", "")
+      const total = totalDryPBags + totalDryCherryBags
       return {
         name: shortName,
         dryP: Number(totalDryPBags.toFixed(2)),
         dryCherry: Number(totalDryCherryBags.toFixed(2)),
+        total: Number(total.toFixed(2)),
       }
     })
   }, [processingData])
@@ -253,27 +361,32 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       label: "Outside Labor",
       color: LABOR_COLORS[1],
     },
+    totalCost: {
+      label: "Total Labor",
+      color: LABOR_COLORS[3],
+    },
   }
 
   const processingChartConfig: ChartConfig = {
     dryP: {
-      label: "Dry P Bags",
+      label: "Dry Parchment Bags",
       color: COLORS[0],
     },
     dryCherry: {
       label: "Dry Cherry Bags",
       color: COLORS[2],
     },
+    total: {
+      label: "Total Bags",
+      color: COLORS[3],
+    },
   }
 
   const costChartConfig: ChartConfig = {
     value: {
       label: "Cost (₹)",
+      color: COLORS[0],
     },
-    ...costAnalysisData.reduce((acc, item, index) => {
-      acc[item.name] = { label: item.name, color: COLORS[index % COLORS.length] }
-      return acc
-    }, {} as ChartConfig),
   }
 
   const valueChartConfig: ChartConfig = {
@@ -313,17 +426,16 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
         </CardHeader>
         <CardContent>
           {laborCostData.length > 0 ? (
-            <ChartContainer config={laborChartConfig} className="min-h-[250px] w-full">
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={laborCostData} accessibilityLayer>
-                  <CartesianGrid vertical={false} />
-                  <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-                  <YAxis tickFormatter={(value) => `₹${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="hfCost" fill="var(--color-hfCost)" radius={[4, 4, 0, 0]} stackId="labor" />
-                  <Bar dataKey="outsideCost" fill="var(--color-outsideCost)" radius={[4, 4, 0, 0]} stackId="labor" />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartContainer config={laborChartConfig} className="h-[250px] w-full">
+              <BarChart data={laborCostData} accessibilityLayer>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+                <YAxis tickFormatter={(value) => `₹${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="hfCost" fill="var(--color-hfCost)" radius={[4, 4, 0, 0]} stackId="labor" />
+                <Bar dataKey="outsideCost" fill="var(--color-outsideCost)" radius={[4, 4, 0, 0]} stackId="labor" />
+                <Line type="monotone" dataKey="totalCost" stroke="var(--color-totalCost)" strokeWidth={2} dot={false} />
+              </BarChart>
             </ChartContainer>
           ) : (
             <div className="flex items-center justify-center min-h-[250px]">
@@ -337,21 +449,20 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       <Card className="xl:col-span-1">
         <CardHeader>
           <CardTitle>Processing Output by Location</CardTitle>
-          <CardDescription>Dry P and Dry Cherry bags by location.</CardDescription>
+          <CardDescription>Dry Parchment and Dry Cherry bags by location.</CardDescription>
         </CardHeader>
         <CardContent>
           {processingOutputData.length > 0 ? (
-            <ChartContainer config={processingChartConfig} className="min-h-[250px] w-full">
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={processingOutputData} accessibilityLayer layout="vertical">
-                  <CartesianGrid horizontal={false} />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={50} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="dryP" fill="var(--color-dryP)" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="dryCherry" fill="var(--color-dryCherry)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartContainer config={processingChartConfig} className="h-[250px] w-full">
+              <BarChart data={processingOutputData} accessibilityLayer>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                <YAxis />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="dryP" fill="var(--color-dryP)" radius={[4, 4, 0, 0]} stackId="processing" />
+                <Bar dataKey="dryCherry" fill="var(--color-dryCherry)" radius={[4, 4, 0, 0]} stackId="processing" />
+                <Line type="monotone" dataKey="total" stroke="var(--color-total)" strokeWidth={2} dot={false} />
+              </BarChart>
             </ChartContainer>
           ) : (
             <div className="flex items-center justify-center min-h-[250px]">
@@ -365,59 +476,21 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
       <Card className="xl:col-span-1">
         <CardHeader>
           <CardTitle>Restocking Cost Analysis</CardTitle>
-          <CardDescription>Top 6 items by restocking cost.</CardDescription>
+          <CardDescription>Top 6 items ranked by restocking spend.</CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center">
+        <CardContent>
           {costAnalysisData.length > 0 ? (
-            <ChartContainer config={costChartConfig} className="min-h-[250px] w-full">
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                  <Pie
-                    data={costAnalysisData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    labelLine={false}
-                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                      const RADIAN = Math.PI / 180
-                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5
-                      const x = cx + radius * Math.cos(-midAngle * RADIAN)
-                      const y = cy + radius * Math.sin(-midAngle * RADIAN)
-                      return (
-                        <text
-                          x={x}
-                          y={y}
-                          fill="white"
-                          textAnchor={x > cx ? "start" : "end"}
-                          dominantBaseline="central"
-                          fontSize="10px"
-                        >
-                          {`${(percent * 100).toFixed(0)}%`}
-                        </text>
-                      )
-                    }}
-                  >
-                    {costAnalysisData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend
-                    content={({ payload }) => (
-                      <ul className="flex flex-wrap gap-x-4 gap-y-2 justify-center mt-4 text-xs">
-                        {payload?.map((entry, index) => (
-                          <li key={`item-${index}`} className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                            {entry.value}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <ChartContainer config={costChartConfig} className="h-[250px] w-full">
+              <BarChart data={costAnalysisData} layout="vertical" accessibilityLayer>
+                <CartesianGrid horizontal={false} />
+                <XAxis
+                  type="number"
+                  tickFormatter={(value) => `₹${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`}
+                />
+                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={80} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="var(--color-value)" radius={[0, 6, 6, 0]} />
+              </BarChart>
             </ChartContainer>
           ) : (
             <div className="flex items-center justify-center min-h-[250px]">
@@ -435,16 +508,14 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
         </CardHeader>
         <CardContent>
           {consumptionData.length > 0 ? (
-            <ChartContainer config={consumptionChartConfig} className="min-h-[250px] w-full">
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={consumptionData} accessibilityLayer>
-                  <CartesianGrid vertical={false} />
-                  <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="total" fill="var(--color-total)" radius={4} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartContainer config={consumptionChartConfig} className="h-[250px] w-full">
+              <BarChart data={consumptionData} accessibilityLayer>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+                <YAxis />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="total" fill="var(--color-total)" radius={4} />
+              </BarChart>
             </ChartContainer>
           ) : (
             <div className="flex items-center justify-center min-h-[250px]">
@@ -462,27 +533,28 @@ export default function AiAnalysisCharts({ inventory, transactions }: AiAnalysis
         </CardHeader>
         <CardContent>
           {inventoryValueData.length > 0 ? (
-            <ChartContainer config={valueChartConfig} className="min-h-[250px] w-full">
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={inventoryValueData} accessibilityLayer>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={
-                      (value) =>
-                        new Date(value + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                    }
-                  />
-                  <YAxis
-                    tickFormatter={(value) => `₹${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toFixed(0)}`}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+            <ChartContainer config={valueChartConfig} className="h-[250px] w-full">
+              <AreaChart data={inventoryValueData} accessibilityLayer>
+                <defs>
+                  <linearGradient id="valueFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-value)" stopOpacity={0.45} />
+                    <stop offset="95%" stopColor="var(--color-value)" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) => formatDateOnly(`${value}T00:00:00`)}
+                />
+                <YAxis
+                  tickFormatter={(value) => `₹${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toFixed(0)}`}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="url(#valueFill)" />
+              </AreaChart>
             </ChartContainer>
           ) : (
             <div className="flex items-center justify-center min-h-[250px]">

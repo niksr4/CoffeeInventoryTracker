@@ -143,3 +143,40 @@ Once data is imported:
 - Create additional views for custom reports
 - Set up alerts in Neon for database usage
 - Consider adding more indexes if queries are slow
+
+## 🧭 Processing Normalization (Multi-tenant)
+
+For multi-tenant estates, processing and pepper data are now normalized into shared tables.
+
+Run these scripts (in order) on the target database:
+
+1. `20-tenant-schema.sql`
+2. `25-tenant-settings.sql` (bag weight per estate)
+3. `23-normalize-processing.sql`
+4. `32-normalize-dispatch-sales.sql` (adds `location_id` to dispatch + sales and backfills from estate labels)
+5. `26-lot-traceability.sql` (lot IDs for processing, dispatch, sales)
+6. `27-quality-metrics.sql` (moisture + quality fields on processing records)
+7. `28-audit-logs.sql` (audit trail table)
+8. `21-tenant-constraints.sql`
+9. `24-location-aware-inventory-accounts.sql` (optional, if you want inventory + accounts per location)
+10. `29-backfill-tenant-ids.sql` (set tenant_id on legacy rows before enabling RLS)
+11. `22-enable-rls.sql` (enable row-level security after data is in place)
+12. `30-lock-legacy-tables.sql` (optional, prevent writes to deprecated legacy tables)
+13. `31-drop-legacy-tables.sql` (optional, permanently remove legacy tables after verification)
+
+New tables:
+- `locations`
+- `processing_records`
+- `pepper_records`
+- `tenant_modules`
+- `user_modules` (per-user module overrides)
+
+Legacy tables (`hf_arabica`, `hf_robusta`, `mv_robusta`, `pg_robusta`, `hf_pepper`, `mv_pepper`, `pg_pepper`) are kept for reference but should be treated as deprecated once migrated.
+Optional hardening: run `30-lock-legacy-tables.sql` to prevent writes to legacy tables after you confirm the app uses the normalized tables.
+If you want to permanently remove them, run `31-drop-legacy-tables.sql` after validation/backup.
+
+### RLS Notes
+
+- RLS policies rely on `set_config('app.tenant_id', ...)` and `set_config('app.role', ...)` per request.
+- `owner` role bypasses tenant filters; other roles are restricted to their `tenant_id`.
+- Run `29-backfill-tenant-ids.sql` to attach legacy rows to the correct tenant before enabling RLS.

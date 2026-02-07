@@ -1,82 +1,61 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { SessionProvider, signIn, signOut, useSession } from "next-auth/react"
+import type { ReactNode } from "react"
 
 interface User {
   username: string
-  role: "admin" | "user"
+  role: "admin" | "user" | "owner"
+  tenantId: string
 }
 
 interface AuthContextType {
   user: User | null
-  login: (username: string, role: "admin" | "user") => void
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => void
   isAdmin: boolean
+  isOwner: boolean
+  status: "loading" | "authenticated" | "unauthenticated"
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  return <SessionProvider>{children}</SessionProvider>
+}
 
-  // Load user from sessionStorage on mount
-  useEffect(() => {
-    try {
-      const storedUser = sessionStorage.getItem("user")
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
-        console.log("✅ Restored user session:", parsedUser.username)
+export function useAuth(): AuthContextType {
+  const { data: session, status } = useSession()
+  const user = session?.user
+    ? {
+        username: String(session.user.name || ""),
+        role: (session.user as any).role as User["role"],
+        tenantId: String((session.user as any).tenantId || ""),
       }
-    } catch (error) {
-      console.error("Error loading user from sessionStorage:", error)
-      sessionStorage.removeItem("user")
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    : null
 
-  const login = (username: string, role: "admin" | "user") => {
-    const newUser = { username, role }
-    setUser(newUser)
-    sessionStorage.setItem("user", JSON.stringify(newUser))
-    console.log("✅ User logged in:", username)
+  const login = async (username: string, password: string) => {
+    const result = await signIn("credentials", {
+      username,
+      password,
+      redirect: false,
+    })
+
+    if (result?.ok) {
+      return { ok: true }
+    }
+
+    return { ok: false, error: result?.error || "Invalid username or password" }
   }
 
   const logout = () => {
-    setUser(null)
-    sessionStorage.removeItem("user")
-    console.log("✅ User logged out")
+    signOut({ callbackUrl: "/" })
   }
 
-  // Don't render children until we've checked sessionStorage
-  if (isLoading) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-700"></div>
-      </div>
-    )
+  return {
+    user,
+    login,
+    logout,
+    isAdmin: user?.role === "admin",
+    isOwner: user?.role === "owner",
+    status,
   }
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        logout,
-        isAdmin: user?.role === "admin",
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  )
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
 }

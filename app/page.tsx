@@ -1,23 +1,27 @@
 "use client"
 
-import LoginPage from "@/components/login-page"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
+import LandingPage from "@/components/landing-page"
 
 export default function HomePage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, status } = useAuth()
 
   useEffect(() => {
-    if (user) {
+    if (status === "authenticated" && user) {
       router.push("/dashboard")
     }
-  }, [user, router])
+  }, [user, status, router])
+
+  if (status === "loading") {
+    return null
+  }
 
   if (user) {
     return null
   }
 
-  return <LoginPage />
+  return <LandingPage />
 }

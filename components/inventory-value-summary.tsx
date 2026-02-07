@@ -1,6 +1,6 @@
 import { TrendingUp, Package, Scale, Activity } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { InventoryItem, Transaction } from "@/lib/inventory-service"
+import type { InventoryItem, Transaction } from "@/lib/inventory-types"
 
 interface InventoryValueSummaryProps {
   inventory: InventoryItem[]
@@ -14,6 +14,11 @@ interface InventoryValueSummaryProps {
 
 const parseCustomDateString = (dateString: string): Date | null => {
   if (!dateString || typeof dateString !== "string") return null
+
+  const iso = Date.parse(dateString)
+  if (!isNaN(iso)) {
+    return new Date(iso)
+  }
 
   // Handle format: DD/MM/YYYY HH:MM
   const parts = dateString.split(" ")
@@ -59,15 +64,18 @@ const isWithinLastNDays = (dateString: string, days: number): boolean => {
 
 export default function InventoryValueSummary({ inventory, transactions, summary }: InventoryValueSummaryProps) {
   // Calculate recent activity (last 7 days)
-  const recentTransactions = transactions.filter((t) => isWithinLastNDays(t.date, 7))
-
-  console.log("📊 Recent activity calculation:")
-  console.log("  Total transactions:", transactions.length)
-  console.log("  Transactions in last 7 days:", recentTransactions.length)
-  console.log(
-    "  Sample dates:",
-    transactions.slice(0, 3).map((t) => t.date),
+  const recentTransactions = transactions.filter((t) =>
+    isWithinLastNDays((t.transaction_date || (t as any).date) as string, 7),
   )
+  const totalsByUnit = inventory.reduce<Record<string, number>>((acc, item) => {
+    const unit = String(item.unit || "unit").trim() || "unit"
+    const qty = Number(item.quantity) || 0
+    acc[unit] = (acc[unit] || 0) + qty
+    return acc
+  }, {})
+  const totalsByUnitLabel = Object.entries(totalsByUnit)
+    .map(([unit, qty]) => `${qty.toFixed(1)} ${unit}`)
+    .join(" · ")
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -99,8 +107,8 @@ export default function InventoryValueSummary({ inventory, transactions, summary
           <Scale className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{summary.total_quantity.toFixed(1)}</div>
-          <p className="text-xs text-muted-foreground">Combined units across all items</p>
+          <div className="text-2xl font-bold">{totalsByUnitLabel || "0"}</div>
+          <p className="text-xs text-muted-foreground">Totals by unit type</p>
         </CardContent>
       </Card>
 

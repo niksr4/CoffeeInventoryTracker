@@ -1,99 +1,93 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/neon"
 import { getFiscalYearDateRange, getCurrentFiscalYear } from "@/lib/fiscal-year-utils"
-
-// Database connections
-const getAccountsDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/?]+(\?|$)/, "/accounts_db$1"))
-const getProcessingDb = () => neon(process.env.DATABASE_URL!.replace(/\/[^/?]+(\?|$)/, "/processing_db$1"))
-
-// Helper functions to fetch from each processing table (using correct column names)
-async function fetchHfArabica(start: string, end: string) {
-  const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_arabica WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
-}
-
-async function fetchHfRobusta(start: string, end: string) {
-  const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM hf_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
-}
-
-async function fetchMvRobusta(start: string, end: string) {
-  const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM mv_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
-}
-
-async function fetchPgRobusta(start: string, end: string) {
-  const sql = getProcessingDb()
-  return sql`SELECT process_date, crop_today, ripe_today, dry_parch, dry_cherry, dry_p_bags, dry_cherry_bags, dry_p_bags_todate, dry_cherry_bags_todate FROM pg_robusta WHERE process_date >= ${start}::date AND process_date <= ${end}::date ORDER BY process_date DESC`
-}
+import { requireModuleAccess, isModuleAccessError } from "@/lib/module-access"
+import { normalizeTenantContext, runTenantQuery } from "@/lib/tenant-db"
 
 export async function GET(request: Request) {
   try {
+    const sessionUser = await requireModuleAccess("ai-analysis")
+    const tenantId = sessionUser.tenantId
+    const tenantContext = normalizeTenantContext(tenantId, sessionUser.role)
     const { searchParams } = new URL(request.url)
     const fiscalYearStart = searchParams.get("fiscalYearStart")
     const fiscalYearEnd = searchParams.get("fiscalYearEnd")
 
-    // Use current fiscal year if not specified
     const fiscalYear = getCurrentFiscalYear()
     const { startDate, endDate } = getFiscalYearDateRange(fiscalYear)
     const start = fiscalYearStart || startDate
     const end = fiscalYearEnd || endDate
 
-    // Fetch labor data
     let laborData: unknown[] = []
     try {
-      const sql = getAccountsDb()
-      laborData = await sql`
-        SELECT 
-          deployment_date,
-          hf_laborers,
-          hf_cost_per_laborer,
-          outside_laborers,
-          outside_cost_per_laborer,
-          total_cost,
-          code
+      laborData = await runTenantQuery(
+        sql,
+        tenantContext,
+        sql`
+          SELECT 
+            deployment_date,
+            hf_laborers,
+            hf_cost_per_laborer,
+            outside_laborers,
+            outside_cost_per_laborer,
+            total_cost,
+            code
         FROM labor_transactions
         WHERE deployment_date >= ${start}::date AND deployment_date <= ${end}::date
+          AND tenant_id = ${tenantId}
         ORDER BY deployment_date DESC
-      `
+      `,
+      )
     } catch (error) {
       console.error("Error fetching labor data:", error)
     }
 
-    // Fetch processing data from all locations in parallel
-    const processingData: Record<string, unknown[]> = {
-      "HF Arabica": [],
-      "HF Robusta": [],
-      "MV Robusta": [],
-      "PG Robusta": []
-    }
+    const processingRows = await runTenantQuery(
+      sql,
+      tenantContext,
+      sql`
+        SELECT 
+          pr.process_date,
+          pr.crop_today,
+          pr.ripe_today,
+          pr.dry_parch,
+          pr.dry_cherry,
+          pr.dry_p_bags,
+          pr.dry_cherry_bags,
+          pr.dry_p_bags_todate,
+          pr.dry_cherry_bags_todate,
+          pr.coffee_type,
+          l.name as location_name
+        FROM processing_records pr
+        JOIN locations l ON l.id = pr.location_id
+        WHERE pr.process_date >= ${start}::date AND pr.process_date <= ${end}::date
+          AND pr.tenant_id = ${tenantId}
+        ORDER BY pr.process_date DESC
+      `,
+    )
 
-    try {
-      const [hfArabica, hfRobusta, mvRobusta, pgRobusta] = await Promise.all([
-        fetchHfArabica(start, end).catch(() => []),
-        fetchHfRobusta(start, end).catch(() => []),
-        fetchMvRobusta(start, end).catch(() => []),
-        fetchPgRobusta(start, end).catch(() => [])
-      ])
-      
-      processingData["HF Arabica"] = hfArabica
-      processingData["HF Robusta"] = hfRobusta
-      processingData["MV Robusta"] = mvRobusta
-      processingData["PG Robusta"] = pgRobusta
-    } catch (error) {
-      console.error("Error fetching processing data:", error)
+    const processingData: Record<string, unknown[]> = {}
+    for (const row of processingRows) {
+      const key = `${row.location_name} ${row.coffee_type}`.trim()
+      if (!processingData[key]) {
+        processingData[key] = []
+      }
+      processingData[key].push(row)
     }
 
     return NextResponse.json({
       success: true,
       laborData,
-      processingData
+      processingData,
     })
   } catch (error) {
     console.error("AI Charts data error:", error)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

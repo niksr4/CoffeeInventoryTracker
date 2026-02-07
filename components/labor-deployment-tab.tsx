@@ -13,6 +13,8 @@ import { PlusCircle, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from "luci
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { useAuth } from "@/hooks/use-auth"
+import { buildTenantHeaders } from "@/lib/tenant"
 
 interface ActivityCode {
   code: string
@@ -30,8 +32,21 @@ interface FormData {
   notes: string
 }
 
-export default function LaborDeploymentTab() {
-  const { deployments, loading, addDeployment, updateDeployment, deleteDeployment } = useLaborData()
+export default function LaborDeploymentTab({ locationId }: { locationId?: string }) {
+  const { user } = useAuth()
+  const tenantHeaders = buildTenantHeaders(user?.tenantId)
+  const {
+    deployments,
+    loading,
+    loadingMore,
+    totalCost,
+    totalCount,
+    hasMore,
+    loadMore,
+    addDeployment,
+    updateDeployment,
+    deleteDeployment,
+  } = useLaborData(locationId)
 
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -52,11 +67,14 @@ export default function LaborDeploymentTab() {
 
   useEffect(() => {
     fetchActivities()
-  }, [])
+  }, [locationId])
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch("/api/get-activity")
+      const response = await fetch(
+        locationId ? `/api/get-activity?locationId=${locationId}` : "/api/get-activity",
+        { headers: tenantHeaders },
+      )
       const data = await response.json()
       if (data.success && data.activities) {
         setActivities(data.activities)
@@ -104,7 +122,7 @@ export default function LaborDeploymentTab() {
 
     const laborEntries = [
       {
-        name: "HoneyFarm",
+        name: "Estate Labor",
         laborCount: formData.hfLaborers,
         costPerLabor: formData.hfCostPerLaborer,
       },
@@ -183,7 +201,9 @@ export default function LaborDeploymentTab() {
     return `${day}/${month}/${year}`
   }
 
-  const totalDeploymentCost = deployments.reduce((sum, d) => sum + d.totalCost, 0)
+  const computedTotalCost = deployments.reduce((sum, d) => sum + d.totalCost, 0)
+  const totalDeploymentCost = totalCost || computedTotalCost
+  const resolvedTotalCount = totalCount || deployments.length
 
   return (
     <div className="space-y-4">
@@ -192,13 +212,18 @@ export default function LaborDeploymentTab() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle className="text-xl sm:text-2xl">Labor Deployments</CardTitle>
-              <CardDescription className="text-sm">Track HoneyFarm and outside labor</CardDescription>
+              <CardDescription className="text-sm">Track estate and outside labor</CardDescription>
             </div>
             <div className="text-left sm:text-right">
               <p className="text-sm font-medium text-muted-foreground">Total Labor Cost</p>
               <p className="text-xl sm:text-2xl font-bold">
                 ₹{totalDeploymentCost.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
+              {resolvedTotalCount > deployments.length && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Showing {deployments.length} of {resolvedTotalCount}
+                </p>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -262,7 +287,7 @@ export default function LaborDeploymentTab() {
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-3 text-base">HoneyFarm Labor</h4>
+                <h4 className="font-medium mb-3 text-base">Estate Labor</h4>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="hfLaborers" className="text-base">
@@ -538,6 +563,13 @@ export default function LaborDeploymentTab() {
                 </TableBody>
               </Table>
             </div>
+            {hasMore && (
+              <div className="flex justify-center p-4 border-t">
+                <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "Loading..." : "Load more"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (

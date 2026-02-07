@@ -1,27 +1,14 @@
 import { neon } from "@neondatabase/serverless"
 
-// Helper function to construct database URLs
-function getDatabaseUrl(dbName: string): string {
-  const baseUrl = process.env.DATABASE_URL
-  if (!baseUrl) {
-    throw new Error("DATABASE_URL environment variable is not set")
-  }
-
-  console.log("Base URL (first 50 chars):", baseUrl.substring(0, 50))
-
-  // Replace the database name in the connection string
-  // Handle both formats: postgres://...dbname and postgres://.../dbname?params
-  const newUrl = baseUrl.replace(/\/[^/?]*(\?|$)/, `/${dbName}$1`)
-
-  console.log(`Database URL for ${dbName} (first 50 chars):`, newUrl.substring(0, 50))
-
-  return newUrl
+const baseUrl = process.env.DATABASE_URL
+if (!baseUrl) {
+  throw new Error("DATABASE_URL environment variable is not set")
 }
 
-// Create SQL clients for each database
-export const inventorySql = neon(getDatabaseUrl("inventory_db"))
-export const accountsSql = neon(getDatabaseUrl("accounts_db"))
-export const processingSql = neon(getDatabaseUrl("processing_db"))
+// Single-DB mode: all clients point to the same database.
+export const inventorySql = neon(baseUrl)
+export const accountsSql = neon(baseUrl)
+export const processingSql = neon(baseUrl)
 
 // Test connections
 export async function testConnections() {

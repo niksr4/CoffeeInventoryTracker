@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Wind, Droplets, Thermometer, AlertTriangle, Cloudy } from "lucide-react"
+import { formatDateOnly } from "@/lib/date-utils"
 
 // Type definitions for the WeatherAPI.com response
 interface WeatherApiData {
@@ -183,7 +184,7 @@ export default function WeatherTab() {
                   <p className="font-semibold w-20">
                     {index === 0
                       ? "Today"
-                      : new Date(day.date_epoch * 1000).toLocaleDateString("en-IN", { weekday: "short" })}
+                      : formatDateOnly(new Date(day.date_epoch * 1000))}
                   </p>
                   <Image
                     src={`https:${day.day.condition.icon}`}

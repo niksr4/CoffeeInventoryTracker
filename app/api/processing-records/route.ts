@@ -1,152 +1,453 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { processingSql } from "@/lib/neon-connections"
+import { sql } from "@/lib/neon"
+import { requireModuleAccess, isModuleAccessError } from "@/lib/module-access"
+import { normalizeTenantContext, runTenantQuery, runTenantQueries } from "@/lib/tenant-db"
+import { logAuditEvent } from "@/lib/audit-log"
 
-// Map location names to table names
-const locationToTable: Record<string, string> = {
-  "HF Arabica": "hf_arabica",
-  "HF Robusta": "hf_robusta",
-  "MV Robusta": "mv_robusta",
-  "PG Robusta": "pg_robusta",
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+
+const resolveBagWeightKg = async (tenantContext: { tenantId: string; role: string }) => {
+  const rows = await runTenantQuery(
+    sql,
+    tenantContext,
+    sql`
+      SELECT bag_weight_kg
+      FROM tenants
+      WHERE id = ${tenantContext.tenantId}
+      LIMIT 1
+    `,
+  )
+  const bagWeightKg = Number(rows?.[0]?.bag_weight_kg) || 50
+  return bagWeightKg > 0 ? bagWeightKg : 50
 }
 
-function getTableName(location: string): string {
-  const tableName = locationToTable[location]
-  if (!tableName) {
-    throw new Error(`Invalid location: ${location}`)
-  }
-  return tableName
+const recomputeProcessingTotals = async (
+  tenantContext: { tenantId: string; role: string },
+  locationId: string,
+  coffeeType: string,
+) => {
+  const bagWeightKg = await resolveBagWeightKg(tenantContext)
+
+  await runTenantQuery(
+    sql,
+    tenantContext,
+    sql.query(
+      `
+      WITH ordered AS (
+        SELECT
+          id,
+          COALESCE(crop_today, 0) AS crop_today,
+          COALESCE(ripe_today, 0) AS ripe_today,
+          COALESCE(green_today, 0) AS green_today,
+          COALESCE(float_today, 0) AS float_today,
+          COALESCE(wet_parchment, 0) AS wet_parchment,
+          COALESCE(dry_parch, 0) AS dry_parch,
+          COALESCE(dry_cherry, 0) AS dry_cherry,
+          COALESCE(ROUND((COALESCE(dry_parch, 0) / NULLIF($4, 0))::numeric, 2), 0) AS dry_p_bags,
+          COALESCE(ROUND((COALESCE(dry_cherry, 0) / NULLIF($4, 0))::numeric, 2), 0) AS dry_cherry_bags,
+          SUM(COALESCE(crop_today, 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS crop_todate,
+          SUM(COALESCE(ripe_today, 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS ripe_todate,
+          SUM(COALESCE(green_today, 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS green_todate,
+          SUM(COALESCE(float_today, 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS float_todate,
+          SUM(COALESCE(dry_parch, 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS dry_p_todate,
+          SUM(COALESCE(dry_cherry, 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS dry_cherry_todate,
+          SUM(COALESCE(ROUND((COALESCE(dry_parch, 0) / NULLIF($4, 0))::numeric, 2), 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS dry_p_bags_todate,
+          SUM(COALESCE(ROUND((COALESCE(dry_cherry, 0) / NULLIF($4, 0))::numeric, 2), 0)) OVER (
+            PARTITION BY tenant_id, location_id, coffee_type
+            ORDER BY process_date, id
+          ) AS dry_cherry_bags_todate,
+          CASE WHEN COALESCE(crop_today, 0) > 0
+            THEN ROUND((COALESCE(ripe_today, 0) / COALESCE(crop_today, 0)) * 100, 2)
+            ELSE 0
+          END AS ripe_percent,
+          CASE WHEN COALESCE(crop_today, 0) > 0
+            THEN ROUND((COALESCE(green_today, 0) / COALESCE(crop_today, 0)) * 100, 2)
+            ELSE 0
+          END AS green_percent,
+          CASE WHEN COALESCE(crop_today, 0) > 0
+            THEN ROUND((COALESCE(float_today, 0) / COALESCE(crop_today, 0)) * 100, 2)
+            ELSE 0
+          END AS float_percent,
+          CASE WHEN COALESCE(ripe_today, 0) > 0
+            THEN ROUND((COALESCE(wet_parchment, 0) / COALESCE(ripe_today, 0)) * 100, 2)
+            ELSE 0
+          END AS fr_wp_percent,
+          CASE WHEN COALESCE(wet_parchment, 0) > 0
+            THEN ROUND((COALESCE(dry_parch, 0) / COALESCE(wet_parchment, 0)) * 100, 2)
+            ELSE 0
+          END AS wp_dp_percent,
+          CASE WHEN (COALESCE(green_today, 0) + COALESCE(float_today, 0)) > 0
+            THEN ROUND((COALESCE(dry_cherry, 0) / (COALESCE(green_today, 0) + COALESCE(float_today, 0))) * 100, 2)
+            ELSE 0
+          END AS dry_cherry_percent
+        FROM processing_records
+        WHERE tenant_id = $1
+          AND location_id = $2
+          AND coffee_type = $3
+      )
+      UPDATE processing_records pr
+      SET
+        crop_todate = ordered.crop_todate,
+        ripe_todate = ordered.ripe_todate,
+        green_todate = ordered.green_todate,
+        float_todate = ordered.float_todate,
+        dry_p_todate = ordered.dry_p_todate,
+        dry_cherry_todate = ordered.dry_cherry_todate,
+        dry_p_bags = ordered.dry_p_bags,
+        dry_cherry_bags = ordered.dry_cherry_bags,
+        dry_p_bags_todate = ordered.dry_p_bags_todate,
+        dry_cherry_bags_todate = ordered.dry_cherry_bags_todate,
+        ripe_percent = ordered.ripe_percent,
+        green_percent = ordered.green_percent,
+        float_percent = ordered.float_percent,
+        fr_wp_percent = ordered.fr_wp_percent,
+        wp_dp_percent = ordered.wp_dp_percent,
+        dry_cherry_percent = ordered.dry_cherry_percent
+      FROM ordered
+      WHERE pr.id = ordered.id
+      `,
+      [tenantContext.tenantId, locationId, coffeeType, bagWeightKg],
+    ),
+  )
 }
 
 export async function GET(request: NextRequest) {
   try {
+    if (!sql) {
+      return NextResponse.json({ success: false, error: "Database not configured", records: [] }, { status: 500 })
+    }
+
+    const sessionUser = await requireModuleAccess("processing")
+    // Allow data entry for user/admin/owner; reserve destructive actions for admin/owner.
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
     const { searchParams } = new URL(request.url)
     const date = searchParams.get("date")
-    const location = searchParams.get("location") || "HF Arabica"
+    const beforeDate = searchParams.get("beforeDate")
+    const locationId = searchParams.get("locationId")
+    const coffeeType = searchParams.get("coffeeType")
     const fiscalYearStart = searchParams.get("fiscalYearStart")
     const fiscalYearEnd = searchParams.get("fiscalYearEnd")
-    const tableName = getTableName(location)
+    const summary = searchParams.get("summary")
+    const all = searchParams.get("all") === "true"
+    const limitParam = searchParams.get("limit")
+    const offsetParam = searchParams.get("offset")
+    const limit = !all && limitParam ? Math.min(Math.max(Number.parseInt(limitParam, 10) || 0, 1), 500) : null
+    const offset = !all && offsetParam ? Math.max(Number.parseInt(offsetParam, 10) || 0, 0) : 0
 
-    console.log("GET request - location:", location, "tableName:", tableName, "date:", date)
+    console.log("GET request - locationId:", locationId, "coffeeType:", coffeeType, "date:", date)
 
-    if (date) {
-      // Get a specific record by date - use DATE() to compare only the date part
-      const query = `SELECT * FROM ${tableName} WHERE DATE(process_date) = $1 ORDER BY id DESC LIMIT 1`
-      console.log("Executing query:", query, [date])
+    const numericFields = [
+      "crop_today",
+      "crop_todate",
+      "ripe_today",
+      "ripe_todate",
+      "ripe_percent",
+      "green_today",
+      "green_todate",
+      "green_percent",
+      "float_today",
+      "float_todate",
+      "float_percent",
+      "wet_parchment",
+      "fr_wp_percent",
+      "dry_parch",
+      "dry_p_todate",
+      "wp_dp_percent",
+      "dry_cherry",
+      "dry_cherry_todate",
+      "dry_cherry_percent",
+      "dry_p_bags",
+      "dry_p_bags_todate",
+      "dry_cherry_bags",
+      "dry_cherry_bags_todate",
+      "moisture_pct",
+    ]
 
-      const result = await processingSql.query(query, [date])
-      console.log("Query result:", result)
+    const normalizeRecord = (record: any) => {
+      numericFields.forEach((field) => {
+        if (record[field] !== null && record[field] !== undefined) {
+          record[field] = Number(record[field])
+        }
+      })
+      return record
+    }
 
-      if (result && Array.isArray(result) && result.length > 0) {
-        const record = result[0]
-        const numericFields = [
-          "crop_today",
-          "crop_todate",
-          "ripe_today",
-          "ripe_todate",
-          "ripe_percent",
-          "green_today",
-          "green_todate",
-          "green_percent",
-          "float_today",
-          "float_todate",
-          "float_percent",
-          "wet_parchment",
-          "fr_wp_percent",
-          "dry_parch",
-          "dry_p_todate",
-          "wp_dp_percent",
-          "dry_cherry",
-          "dry_cherry_todate",
-          "dry_cherry_percent",
-          "dry_p_bags",
-          "dry_p_bags_todate",
-          "dry_cherry_bags",
-          "dry_cherry_bags_todate",
-        ]
-
-        numericFields.forEach((field) => {
-          if (record[field] !== null && record[field] !== undefined) {
-            record[field] = Number(record[field])
-          }
-        })
-
-        return NextResponse.json({ success: true, record })
-      } else {
-        return NextResponse.json({ success: true, record: null })
-      }
-    } else {
-      let query = `SELECT * FROM ${tableName}`
-      const queryParams: string[] = []
+    if (summary) {
+      const params: any[] = [tenantContext.tenantId]
+      let whereClause = `pr.tenant_id = $1`
 
       if (fiscalYearStart && fiscalYearEnd) {
-        query += ` WHERE process_date >= $1 AND process_date <= $2`
-        queryParams.push(fiscalYearStart, fiscalYearEnd)
+        params.push(fiscalYearStart, fiscalYearEnd)
+        whereClause += ` AND pr.process_date >= $${params.length - 1}::date AND pr.process_date <= $${params.length}::date`
       }
 
-      query += ` ORDER BY process_date DESC`
-      console.log("Executing query:", query, queryParams)
-
-      const results = await processingSql.query(query, queryParams)
-      console.log("Query results:", results)
-
-      if (!results || !Array.isArray(results)) {
-        return NextResponse.json({ success: true, records: [] })
+      if (locationId) {
+        if (isUuid(locationId)) {
+          params.push(locationId)
+          whereClause += ` AND pr.location_id = $${params.length}`
+        } else {
+          params.push(locationId, locationId)
+          whereClause += ` AND (l.code = $${params.length - 1} OR l.name = $${params.length})`
+        }
       }
 
-      const records = results.map((record: any) => {
-        const numericFields = [
-          "crop_today",
-          "crop_todate",
-          "ripe_today",
-          "ripe_todate",
-          "ripe_percent",
-          "green_today",
-          "green_todate",
-          "green_percent",
-          "float_today",
-          "float_todate",
-          "float_percent",
-          "wet_parchment",
-          "fr_wp_percent",
-          "dry_parch",
-          "dry_p_todate",
-          "wp_dp_percent",
-          "dry_cherry",
-          "dry_cherry_todate",
-          "dry_cherry_percent",
-          "dry_p_bags",
-          "dry_p_bags_todate",
-          "dry_cherry_bags",
-          "dry_cherry_bags_todate",
-        ]
+      if (coffeeType) {
+        params.push(coffeeType)
+        whereClause += ` AND pr.coffee_type = $${params.length}`
+      }
 
-        numericFields.forEach((field) => {
-          if (record[field] !== null && record[field] !== undefined) {
-            record[field] = Number(record[field])
-          }
-        })
+      if (summary === "dashboard") {
+        const result = await runTenantQuery(
+          sql,
+          tenantContext,
+          sql.query(
+          `
+          SELECT 
+            l.name as location_name,
+            l.code as location_code,
+            pr.coffee_type,
+            COALESCE(SUM(pr.crop_today), 0) as crop_total,
+            COALESCE(SUM(pr.ripe_today), 0) as ripe_total,
+            COALESCE(SUM(pr.green_today), 0) as green_total,
+            COALESCE(SUM(pr.float_today), 0) as float_total,
+            COALESCE(SUM(pr.wet_parchment), 0) as wet_parchment_total,
+            COALESCE(SUM(pr.dry_parch), 0) as dry_parch_total,
+            COALESCE(SUM(pr.dry_cherry), 0) as dry_cherry_total,
+            COALESCE(SUM(pr.dry_p_bags), 0) as dry_p_bags_total,
+            COALESCE(SUM(pr.dry_cherry_bags), 0) as dry_cherry_bags_total
+          FROM processing_records pr
+          LEFT JOIN locations l ON l.id = pr.location_id
+          WHERE ${whereClause}
+          GROUP BY l.name, l.code, pr.coffee_type
+          ORDER BY l.name NULLS LAST, l.code NULLS LAST, pr.coffee_type
+          `,
+          params,
+        ),
+        )
 
-        return record
-      })
+        return NextResponse.json({ success: true, records: result })
+      }
 
-      return NextResponse.json({ success: true, records })
+      if (summary === "bagTotals") {
+        const result = await runTenantQuery(
+          sql,
+          tenantContext,
+          sql.query(
+          `
+          SELECT 
+            pr.coffee_type,
+            COALESCE(SUM(pr.dry_p_bags), 0) as dry_p_bags,
+            COALESCE(SUM(pr.dry_cherry_bags), 0) as dry_cherry_bags
+          FROM processing_records pr
+          LEFT JOIN locations l ON l.id = pr.location_id
+          WHERE ${whereClause}
+          GROUP BY pr.coffee_type
+          ORDER BY pr.coffee_type
+          `,
+          params,
+        ),
+        )
+
+        return NextResponse.json({ success: true, totals: result })
+      }
+
+      return NextResponse.json({ success: false, error: "Unknown summary type" }, { status: 400 })
     }
+
+    if (beforeDate && locationId && coffeeType) {
+      const params: any[] = [tenantContext.tenantId]
+      let whereClause = `pr.tenant_id = $1`
+
+      if (isUuid(locationId)) {
+        params.push(locationId)
+        whereClause += ` AND pr.location_id = $${params.length}`
+      } else {
+        params.push(locationId, locationId)
+        whereClause += ` AND (l.code = $${params.length - 1} OR l.name = $${params.length})`
+      }
+
+      params.push(coffeeType)
+      whereClause += ` AND pr.coffee_type = $${params.length}`
+
+      params.push(beforeDate)
+      whereClause += ` AND pr.process_date < $${params.length}::date`
+
+      const result = await runTenantQuery(
+        sql,
+        tenantContext,
+        sql.query(
+        `
+        SELECT pr.*, l.name as location_name, l.code as location_code
+        FROM processing_records pr
+        LEFT JOIN locations l ON l.id = pr.location_id
+        WHERE ${whereClause}
+        ORDER BY pr.process_date DESC
+        LIMIT 1
+        `,
+        params,
+      ),
+      )
+
+      if (result && Array.isArray(result) && result.length > 0) {
+        const record = normalizeRecord(result[0])
+        return NextResponse.json({ success: true, record })
+      }
+
+      return NextResponse.json({ success: true, record: null })
+    }
+
+    if (date && locationId && coffeeType) {
+      const params: any[] = [tenantContext.tenantId]
+      let whereClause = `pr.tenant_id = $1`
+
+      if (isUuid(locationId)) {
+        params.push(locationId)
+        whereClause += ` AND pr.location_id = $${params.length}`
+      } else {
+        params.push(locationId, locationId)
+        whereClause += ` AND (l.code = $${params.length - 1} OR l.name = $${params.length})`
+      }
+
+      params.push(coffeeType)
+      whereClause += ` AND pr.coffee_type = $${params.length}`
+
+      params.push(date)
+      whereClause += ` AND DATE(pr.process_date) = $${params.length}::date`
+
+      const result = await runTenantQuery(
+        sql,
+        tenantContext,
+        sql.query(
+        `
+        SELECT pr.*, l.name as location_name, l.code as location_code
+        FROM processing_records pr
+        LEFT JOIN locations l ON l.id = pr.location_id
+        WHERE ${whereClause}
+        ORDER BY pr.id DESC
+        LIMIT 1
+        `,
+        params,
+      ),
+      )
+
+      if (result && Array.isArray(result) && result.length > 0) {
+        const record = normalizeRecord(result[0])
+        return NextResponse.json({ success: true, record })
+      }
+
+      return NextResponse.json({ success: true, record: null })
+    }
+
+    const params: any[] = [tenantContext.tenantId]
+    let whereClause = `pr.tenant_id = $1`
+
+    if (fiscalYearStart && fiscalYearEnd) {
+      params.push(fiscalYearStart, fiscalYearEnd)
+      whereClause += ` AND pr.process_date >= $${params.length - 1}::date AND pr.process_date <= $${params.length}::date`
+    }
+
+    if (locationId) {
+      if (isUuid(locationId)) {
+        params.push(locationId)
+        whereClause += ` AND pr.location_id = $${params.length}`
+      } else {
+        params.push(locationId, locationId)
+        whereClause += ` AND (l.code = $${params.length - 1} OR l.name = $${params.length})`
+      }
+    }
+
+    if (coffeeType) {
+      params.push(coffeeType)
+      whereClause += ` AND pr.coffee_type = $${params.length}`
+    }
+
+    const listParams = [...params]
+    let listQuery = `
+      SELECT pr.*, l.name as location_name, l.code as location_code
+      FROM processing_records pr
+      LEFT JOIN locations l ON l.id = pr.location_id
+      WHERE ${whereClause}
+      ORDER BY pr.process_date DESC
+    `
+
+    if (limit) {
+      listParams.push(limit, offset)
+      listQuery += ` LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`
+    }
+
+    const [countResult, results] = await runTenantQueries(sql, tenantContext, [
+      sql.query(
+        `
+        SELECT COUNT(*)::int as count
+        FROM processing_records pr
+        LEFT JOIN locations l ON l.id = pr.location_id
+        WHERE ${whereClause}
+        `,
+        params,
+      ),
+      sql.query(listQuery, listParams),
+    ])
+    const totalCount = Number(countResult?.[0]?.count) || 0
+
+    if (!results || !Array.isArray(results)) {
+      return NextResponse.json({ success: true, records: [], totalCount })
+    }
+
+    const records = results.map((record: any) => normalizeRecord(record))
+
+    return NextResponse.json({ success: true, records, totalCount })
   } catch (error: any) {
     console.error("Error fetching processing records:", error)
-    console.error("Error stack:", error.stack)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled", records: [] }, { status: 403 })
+    }
     return NextResponse.json({ success: false, error: error.message, records: [] }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
-    const location = data.location || "HF Arabica"
-    const tableName = getTableName(location)
+    if (!sql) {
+      return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 })
+    }
 
-    console.log("Saving to table:", tableName, "with data:", data)
+    const sessionUser = await requireModuleAccess("processing")
+    if (!["admin", "owner"].includes(sessionUser.role)) {
+      return NextResponse.json({ success: false, error: "Admin role required" }, { status: 403 })
+    }
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
+    const data = await request.json()
+    const locationId = data.locationId
+    const coffeeType = data.coffeeType
+
+    if (!locationId || !coffeeType) {
+      return NextResponse.json({ success: false, error: "Location and coffee type are required" }, { status: 400 })
+    }
 
     const record = {
+      lot_id: data.lot_id ?? null,
       process_date: data.process_date,
       crop_today: data.crop_today ?? 0,
       crop_todate: Number(data.crop_todate) || 0,
@@ -171,107 +472,163 @@ export async function POST(request: NextRequest) {
       dry_p_bags_todate: Number(data.dry_p_bags_todate) || 0,
       dry_cherry_bags: Number(data.dry_cherry_bags) || 0,
       dry_cherry_bags_todate: Number(data.dry_cherry_bags_todate) || 0,
+      moisture_pct: data.moisture_pct ?? null,
+      quality_grade: data.quality_grade || null,
+      defect_notes: data.defect_notes || null,
+      quality_photo_url: data.quality_photo_url || null,
       notes: data.notes || "",
     }
 
-    // Use DATE() to ensure only one record per date
-    const query = `
-      INSERT INTO ${tableName} (
-        process_date, crop_today, crop_todate, ripe_today, ripe_todate, ripe_percent,
-        green_today, green_todate, green_percent, float_today, float_todate, float_percent,
-        wet_parchment, fr_wp_percent, dry_parch, dry_p_todate, wp_dp_percent,
-        dry_cherry, dry_cherry_todate, dry_cherry_percent,
-        dry_p_bags, dry_p_bags_todate, dry_cherry_bags, dry_cherry_bags_todate, notes
-      )
-      VALUES (
-        $1::date, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-        $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
-      )
-      ON CONFLICT (process_date)
-      DO UPDATE SET
-        crop_today = EXCLUDED.crop_today,
-        crop_todate = EXCLUDED.crop_todate,
-        ripe_today = EXCLUDED.ripe_today,
-        ripe_todate = EXCLUDED.ripe_todate,
-        ripe_percent = EXCLUDED.ripe_percent,
-        green_today = EXCLUDED.green_today,
-        green_todate = EXCLUDED.green_todate,
-        green_percent = EXCLUDED.green_percent,
-        float_today = EXCLUDED.float_today,
-        float_todate = EXCLUDED.float_todate,
-        float_percent = EXCLUDED.float_percent,
-        wet_parchment = EXCLUDED.wet_parchment,
-        fr_wp_percent = EXCLUDED.fr_wp_percent,
-        dry_parch = EXCLUDED.dry_parch,
-        dry_p_todate = EXCLUDED.dry_p_todate,
-        wp_dp_percent = EXCLUDED.wp_dp_percent,
-        dry_cherry = EXCLUDED.dry_cherry,
-        dry_cherry_todate = EXCLUDED.dry_cherry_todate,
-        dry_cherry_percent = EXCLUDED.dry_cherry_percent,
-        dry_p_bags = EXCLUDED.dry_p_bags,
-        dry_p_bags_todate = EXCLUDED.dry_p_bags_todate,
-        dry_cherry_bags = EXCLUDED.dry_cherry_bags,
-        dry_cherry_bags_todate = EXCLUDED.dry_cherry_bags_todate,
-        notes = EXCLUDED.notes,
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `
+    const existing = await runTenantQuery(
+      sql,
+      tenantContext,
+      sql`
+        SELECT *
+        FROM processing_records
+        WHERE tenant_id = ${tenantContext.tenantId}
+          AND location_id = ${locationId}
+          AND coffee_type = ${coffeeType}
+          AND DATE(process_date) = ${record.process_date}::date
+        LIMIT 1
+      `,
+    )
 
-    const result = await processingSql.query(query, [
-      record.process_date,
-      record.crop_today,
-      record.crop_todate,
-      record.ripe_today,
-      record.ripe_todate,
-      record.ripe_percent,
-      record.green_today,
-      record.green_todate,
-      record.green_percent,
-      record.float_today,
-      record.float_todate,
-      record.float_percent,
-      record.wet_parchment,
-      record.fr_wp_percent,
-      record.dry_parch,
-      record.dry_p_todate,
-      record.wp_dp_percent,
-      record.dry_cherry,
-      record.dry_cherry_todate,
-      record.dry_cherry_percent,
-      record.dry_p_bags,
-      record.dry_p_bags_todate,
-      record.dry_cherry_bags,
-      record.dry_cherry_bags_todate,
-      record.notes,
-    ])
+    const result = await runTenantQuery(
+      sql,
+      tenantContext,
+      sql`
+        INSERT INTO processing_records (
+          tenant_id, location_id, coffee_type, lot_id, process_date,
+          crop_today, crop_todate, ripe_today, ripe_todate, ripe_percent,
+          green_today, green_todate, green_percent, float_today, float_todate, float_percent,
+          wet_parchment, fr_wp_percent, dry_parch, dry_p_todate, wp_dp_percent,
+          dry_cherry, dry_cherry_todate, dry_cherry_percent,
+          dry_p_bags, dry_p_bags_todate, dry_cherry_bags, dry_cherry_bags_todate,
+          moisture_pct, quality_grade, defect_notes, quality_photo_url, notes
+        )
+        VALUES (
+          ${tenantContext.tenantId}, ${locationId}, ${coffeeType}, ${record.lot_id}, ${record.process_date}::date,
+          ${record.crop_today}, ${record.crop_todate}, ${record.ripe_today}, ${record.ripe_todate}, ${record.ripe_percent},
+          ${record.green_today}, ${record.green_todate}, ${record.green_percent}, ${record.float_today}, ${record.float_todate}, ${record.float_percent},
+          ${record.wet_parchment}, ${record.fr_wp_percent}, ${record.dry_parch}, ${record.dry_p_todate}, ${record.wp_dp_percent},
+          ${record.dry_cherry}, ${record.dry_cherry_todate}, ${record.dry_cherry_percent},
+          ${record.dry_p_bags}, ${record.dry_p_bags_todate}, ${record.dry_cherry_bags}, ${record.dry_cherry_bags_todate},
+          ${record.moisture_pct}, ${record.quality_grade}, ${record.defect_notes}, ${record.quality_photo_url}, ${record.notes}
+        )
+        ON CONFLICT (tenant_id, location_id, coffee_type, process_date)
+        DO UPDATE SET
+          lot_id = EXCLUDED.lot_id,
+          crop_today = EXCLUDED.crop_today,
+          crop_todate = EXCLUDED.crop_todate,
+          ripe_today = EXCLUDED.ripe_today,
+          ripe_todate = EXCLUDED.ripe_todate,
+          ripe_percent = EXCLUDED.ripe_percent,
+          green_today = EXCLUDED.green_today,
+          green_todate = EXCLUDED.green_todate,
+          green_percent = EXCLUDED.green_percent,
+          float_today = EXCLUDED.float_today,
+          float_todate = EXCLUDED.float_todate,
+          float_percent = EXCLUDED.float_percent,
+          wet_parchment = EXCLUDED.wet_parchment,
+          fr_wp_percent = EXCLUDED.fr_wp_percent,
+          dry_parch = EXCLUDED.dry_parch,
+          dry_p_todate = EXCLUDED.dry_p_todate,
+          wp_dp_percent = EXCLUDED.wp_dp_percent,
+          dry_cherry = EXCLUDED.dry_cherry,
+          dry_cherry_todate = EXCLUDED.dry_cherry_todate,
+          dry_cherry_percent = EXCLUDED.dry_cherry_percent,
+          dry_p_bags = EXCLUDED.dry_p_bags,
+          dry_p_bags_todate = EXCLUDED.dry_p_bags_todate,
+          dry_cherry_bags = EXCLUDED.dry_cherry_bags,
+          dry_cherry_bags_todate = EXCLUDED.dry_cherry_bags_todate,
+          moisture_pct = EXCLUDED.moisture_pct,
+          quality_grade = EXCLUDED.quality_grade,
+          defect_notes = EXCLUDED.defect_notes,
+          quality_photo_url = EXCLUDED.quality_photo_url,
+          notes = EXCLUDED.notes,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING *
+      `,
+    )
 
-    console.log("Database insert/update result:", result[0])
+    await recomputeProcessingTotals(tenantContext, locationId, coffeeType)
+
+    await logAuditEvent(sql, sessionUser, {
+      action: existing?.length ? "update" : "create",
+      entityType: "processing_records",
+      entityId: result?.[0]?.id,
+      before: existing?.[0] ?? null,
+      after: result?.[0] ?? null,
+    })
 
     return NextResponse.json({ success: true, record: result[0] })
   } catch (error: any) {
     console.error("Error saving processing record:", error)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const date = searchParams.get("date")
-    const location = searchParams.get("location") || "HF Arabica"
-    const tableName = getTableName(location)
-
-    if (!date) {
-      return NextResponse.json({ success: false, error: "Date is required" }, { status: 400 })
+    if (!sql) {
+      return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 })
     }
 
-    // Use DATE() to match the date part
-    const query = `DELETE FROM ${tableName} WHERE DATE(process_date) = $1`
-    await processingSql.query(query, [date])
+    const sessionUser = await requireModuleAccess("processing")
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
+    const { searchParams } = new URL(request.url)
+    const date = searchParams.get("date")
+    const locationId = searchParams.get("locationId")
+    const coffeeType = searchParams.get("coffeeType")
+
+    if (!date || !locationId || !coffeeType) {
+      return NextResponse.json({ success: false, error: "Date, location, and coffee type are required" }, { status: 400 })
+    }
+
+    const existing = await runTenantQuery(
+      sql,
+      tenantContext,
+      sql`
+        SELECT *
+        FROM processing_records
+        WHERE tenant_id = ${tenantContext.tenantId}
+          AND location_id = ${locationId}
+          AND coffee_type = ${coffeeType}
+          AND DATE(process_date) = ${date}::date
+        LIMIT 1
+      `,
+    )
+
+    await runTenantQuery(
+      sql,
+      tenantContext,
+      sql`
+        DELETE FROM processing_records
+        WHERE tenant_id = ${tenantContext.tenantId}
+          AND location_id = ${locationId}
+          AND coffee_type = ${coffeeType}
+          AND DATE(process_date) = ${date}::date
+      `,
+    )
+
+    await recomputeProcessingTotals(tenantContext, locationId, coffeeType)
+
+    await logAuditEvent(sql, sessionUser, {
+      action: "delete",
+      entityType: "processing_records",
+      entityId: existing?.[0]?.id,
+      before: existing?.[0] ?? null,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error("Error deleting processing record:", error)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

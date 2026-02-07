@@ -13,14 +13,29 @@ import { PlusCircle, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from "luci
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { useAuth } from "@/hooks/use-auth"
+import { buildTenantHeaders } from "@/lib/tenant"
 
 interface ActivityCode {
   code: string
   reference: string
 }
 
-export default function OtherExpensesTab() {
-  const { deployments, loading, addDeployment, updateDeployment, deleteDeployment } = useConsumablesData()
+export default function OtherExpensesTab({ locationId }: { locationId?: string }) {
+  const { user } = useAuth()
+  const tenantHeaders = buildTenantHeaders(user?.tenantId)
+  const {
+    deployments,
+    loading,
+    loadingMore,
+    totalAmount,
+    totalCount,
+    hasMore,
+    loadMore,
+    addDeployment,
+    updateDeployment,
+    deleteDeployment,
+  } = useConsumablesData(locationId)
 
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -38,11 +53,14 @@ export default function OtherExpensesTab() {
 
   useEffect(() => {
     fetchActivities()
-  }, [])
+  }, [locationId])
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch("/api/get-activity")
+      const response = await fetch(
+        locationId ? `/api/get-activity?locationId=${locationId}` : "/api/get-activity",
+        { headers: tenantHeaders },
+      )
       const data = await response.json()
       if (data.success && data.activities) {
         console.log("📋 Fetched activities:", data.activities)
@@ -133,7 +151,9 @@ export default function OtherExpensesTab() {
     return `${day}/${month}/${year}`
   }
 
-  const totalExpenses = deployments.reduce((sum, d) => sum + d.amount, 0)
+  const computedTotalAmount = deployments.reduce((sum, d) => sum + d.amount, 0)
+  const totalExpenses = totalAmount || computedTotalAmount
+  const resolvedTotalCount = totalCount || deployments.length
 
   return (
     <div className="space-y-4">
@@ -149,6 +169,11 @@ export default function OtherExpensesTab() {
               <p className="text-xl sm:text-2xl font-bold">
                 ₹{totalExpenses.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
+              {resolvedTotalCount > deployments.length && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Showing {deployments.length} of {resolvedTotalCount}
+                </p>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -381,6 +406,13 @@ export default function OtherExpensesTab() {
                 </TableBody>
               </Table>
             </div>
+            {hasMore && (
+              <div className="flex justify-center p-4 border-t">
+                <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "Loading..." : "Load more"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (

@@ -4,13 +4,14 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/hooks/use-auth"
+import BrandWatermark from "@/components/brand-watermark"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"], display: "swap" })
 
 export const metadata: Metadata = {
-  title: "Honey Farm Inventory System",
-  description: "Track your inventory with ease",
-    generator: 'v0.dev'
+  title: "Farm Flow",
+  description: "Traceability and operations for coffee, tea, cocoa, and specialty crops.",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -19,10 +20,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <BrandWatermark />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -1,11 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { inventorySql } from "@/lib/neon-connections"
+import { requireModuleAccess, isModuleAccessError } from "@/lib/module-access"
+import { normalizeTenantContext, runTenantQuery } from "@/lib/tenant-db"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
     console.log("[SERVER] 📥 GET /api/transactions-neon")
+    const sessionUser = await requireModuleAccess("transactions")
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
 
     const { searchParams } = new URL(request.url)
     const itemType = searchParams.get("item_type")
@@ -13,7 +17,10 @@ export async function GET(request: NextRequest) {
 
     let query
     if (itemType) {
-      query = await inventorySql`
+      query = await runTenantQuery(
+        inventorySql,
+        tenantContext,
+        inventorySql`
         SELECT 
           th.id,
           th.item_type, 
@@ -26,13 +33,23 @@ export async function GET(request: NextRequest) {
           COALESCE(th.total_cost, 0) as total_cost,
           COALESCE(ci.unit, 'kg') as unit
         FROM transaction_history th
-        LEFT JOIN current_inventory ci ON th.item_type = ci.item_type
+        LEFT JOIN (
+          SELECT item_type, COALESCE(MIN(unit), 'kg') as unit
+          FROM current_inventory
+          WHERE tenant_id = ${tenantContext.tenantId}
+          GROUP BY item_type
+        ) ci ON th.item_type = ci.item_type
         WHERE th.item_type = ${itemType}
+          AND th.tenant_id = ${tenantContext.tenantId}
         ORDER BY th.transaction_date DESC
-      `
+      `,
+      )
     } else {
       const limitValue = limit ? Number.parseInt(limit) : 100
-      query = await inventorySql`
+      query = await runTenantQuery(
+        inventorySql,
+        tenantContext,
+        inventorySql`
         SELECT 
           th.id,
           th.item_type,
@@ -45,10 +62,17 @@ export async function GET(request: NextRequest) {
           th.total_cost,
           COALESCE(ci.unit, 'kg') as unit
         FROM transaction_history th
-        LEFT JOIN current_inventory ci ON th.item_type = ci.item_type
+        LEFT JOIN (
+          SELECT item_type, COALESCE(MIN(unit), 'kg') as unit
+          FROM current_inventory
+          WHERE tenant_id = ${tenantContext.tenantId}
+          GROUP BY item_type
+        ) ci ON th.item_type = ci.item_type
+        WHERE th.tenant_id = ${tenantContext.tenantId}
         ORDER BY th.transaction_date DESC
         LIMIT ${limitValue}
-      `
+      `,
+      )
     }
 
     const transactions = query.map((row) => ({
@@ -73,6 +97,9 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error("[SERVER] ❌ Error fetching transactions:", error)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, message: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,
@@ -89,6 +116,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     console.log("[SERVER] 📥 POST /api/transactions-neon")
+    const sessionUser = await requireModuleAccess("transactions")
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
     const body = await request.json()
     console.log("[SERVER] Request body:", JSON.stringify(body, null, 2))
 
@@ -126,7 +155,10 @@ export async function POST(request: NextRequest) {
     })
 
     // Just insert into transaction_history - don't touch current_inventory
-    const result = await inventorySql`
+    const result = await runTenantQuery(
+      inventorySql,
+      tenantContext,
+      inventorySql`
       INSERT INTO transaction_history (
         item_type, 
         quantity, 
@@ -134,7 +166,8 @@ export async function POST(request: NextRequest) {
         notes, 
         user_id, 
         price, 
-        total_cost
+        total_cost,
+        tenant_id
       )
       VALUES (
         ${item_type},
@@ -143,7 +176,8 @@ export async function POST(request: NextRequest) {
         ${notes || ""},
         ${user_id || "system"},
         ${priceValue},
-        ${total_cost}
+        ${total_cost},
+        ${tenantContext.tenantId}
       )
       RETURNING 
         id,
@@ -155,7 +189,8 @@ export async function POST(request: NextRequest) {
         user_id,
         price,
         total_cost
-    `
+    `,
+    )
 
     console.log("[SERVER] ✅ Transaction added:", result[0])
 
@@ -166,6 +201,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error("[SERVER] ❌ Error adding transaction:", error)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, message: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,

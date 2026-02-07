@@ -15,9 +15,15 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getCurrentFiscalYear, getAvailableFiscalYears, type FiscalYear } from "@/lib/fiscal-year-utils"
+import { DEFAULT_COFFEE_VARIETIES } from "@/lib/crop-config"
+import { useAuth } from "@/hooks/use-auth"
+import { useTenantSettings } from "@/hooks/use-tenant-settings"
+import { buildTenantHeaders } from "@/lib/tenant"
+import { formatDateOnly } from "@/lib/date-utils"
 
 interface ProcessingRecord {
   id?: number
+  lot_id?: string | null
   process_date: string
   crop_today: number | null
   crop_todate: number
@@ -42,10 +48,15 @@ interface ProcessingRecord {
   dry_p_bags_todate: number
   dry_cherry_bags: number
   dry_cherry_bags_todate: number
+  moisture_pct: number | null
+  quality_grade: string | null
+  defect_notes: string | null
+  quality_photo_url: string | null
   notes: string
 }
 
 const emptyRecord: Omit<ProcessingRecord, "id"> = {
+  lot_id: "",
   process_date: format(new Date(), "yyyy-MM-dd"),
   crop_today: null,
   crop_todate: 0,
@@ -70,11 +81,16 @@ const emptyRecord: Omit<ProcessingRecord, "id"> = {
   dry_p_bags_todate: 0,
   dry_cherry_bags: 0,
   dry_cherry_bags_todate: 0,
+  moisture_pct: null,
+  quality_grade: "",
+  defect_notes: "",
+  quality_photo_url: "",
   notes: "",
 }
 
 interface DashboardData {
   location: string
+  coffeeType: string
   cropToDate: number
   ripeToDate: number
   greenToDate: number
@@ -84,40 +100,86 @@ interface DashboardData {
   dryCherryToDate: number
   dryPBagsToDate: number
   dryCherryBagsToDate: number
+  isTotal?: boolean
 }
 
-const LOCATIONS = ["HF Arabica", "HF Robusta", "MV Robusta", "PG Robusta"]
+interface LocationOption {
+  id: string
+  name: string
+  code: string
+}
+
+const COFFEE_TYPES = DEFAULT_COFFEE_VARIETIES
 
 export default function ProcessingTab() {
+  const { user } = useAuth()
+  const { settings } = useTenantSettings()
+  const tenantHeaders = buildTenantHeaders(user?.tenantId)
+  const bagWeightKg = Number(settings.bagWeightKg) || 50
+  const canDelete = user?.role === "admin" || user?.role === "owner"
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<FiscalYear>(getCurrentFiscalYear())
   const availableFiscalYears = getAvailableFiscalYears()
 
   const [date, setDate] = useState<Date>(new Date())
-  const [location, setLocation] = useState<string>("HF Arabica")
+  const [locations, setLocations] = useState<LocationOption[]>([])
+  const [selectedLocationId, setSelectedLocationId] = useState<string>("")
+  const [coffeeType, setCoffeeType] = useState<string>(COFFEE_TYPES[0])
   const [record, setRecord] = useState<Omit<ProcessingRecord, "id">>(emptyRecord)
   const [previousRecord, setPreviousRecord] = useState<ProcessingRecord | null>(null)
   const [recentRecords, setRecentRecords] = useState<ProcessingRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingRecords, setIsLoadingRecords] = useState(false)
+  const [isLoadingMoreRecords, setIsLoadingMoreRecords] = useState(false)
+  const [recordsPage, setRecordsPage] = useState(0)
+  const [recordsTotalCount, setRecordsTotalCount] = useState(0)
+  const [hasMoreRecords, setHasMoreRecords] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [dashboardData, setDashboardData] = useState<DashboardData[]>([])
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
   const { toast } = useToast()
+  const recordsPageSize = 25
+
+  const selectedLocation = locations.find((loc) => loc.id === selectedLocationId) || null
+
+  const loadLocations = async () => {
+    try {
+      const response = await fetch("/api/locations", { headers: tenantHeaders })
+      const data = await response.json()
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to load locations")
+      }
+      const loaded = data.locations || []
+      setLocations(loaded)
+      if (!selectedLocationId && loaded.length > 0) {
+        setSelectedLocationId(loaded[0].id)
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to load locations", variant: "destructive" })
+    }
+  }
 
   useEffect(() => {
-    loadDashboardData()
+    loadLocations()
   }, [])
 
   useEffect(() => {
-    console.log("Location changed to:", location)
-    loadRecentRecords()
-  }, [location])
+    loadDashboardData()
+  }, [selectedFiscalYear])
 
   useEffect(() => {
-    console.log("Date or location changed, loading record for date:", format(date, "yyyy-MM-dd"))
-    loadRecordForDate(date)
-  }, [date, location])
+    if (selectedLocationId) {
+      console.log("Location changed to:", selectedLocationId)
+      loadRecentRecords(0, false)
+    }
+  }, [selectedLocationId, coffeeType, selectedFiscalYear])
+
+  useEffect(() => {
+    if (selectedLocationId) {
+      console.log("Date or location changed, loading record for date:", format(date, "yyyy-MM-dd"))
+      loadRecordForDate(date)
+    }
+  }, [date, selectedLocationId, coffeeType])
 
   useEffect(() => {
     autoCalculateFields()
@@ -131,11 +193,6 @@ export default function ProcessingTab() {
     record.dry_cherry,
     previousRecord,
   ])
-
-  useEffect(() => {
-    loadRecentRecords()
-    loadDashboardData()
-  }, [selectedFiscalYear])
 
   const autoCalculateFields = () => {
     setRecord((prev) => {
@@ -166,8 +223,8 @@ export default function ProcessingTab() {
         updated.dry_p_todate = Number.parseFloat((prevDryPTodate + dryParch).toFixed(2))
         updated.dry_cherry_todate = Number.parseFloat((prevDryCherryTodate + dryCherry).toFixed(2))
 
-        const dryPBags = Number.parseFloat((dryParch / 50).toFixed(2))
-        const dryCherryBags = Number.parseFloat((dryCherry / 50).toFixed(2))
+        const dryPBags = Number.parseFloat((dryParch / bagWeightKg).toFixed(2))
+        const dryCherryBags = Number.parseFloat((dryCherry / bagWeightKg).toFixed(2))
 
         updated.dry_p_bags = dryPBags
         updated.dry_cherry_bags = dryCherryBags
@@ -181,8 +238,8 @@ export default function ProcessingTab() {
         updated.dry_p_todate = dryParch
         updated.dry_cherry_todate = dryCherry
 
-        updated.dry_p_bags = Number.parseFloat((dryParch / 50).toFixed(2))
-        updated.dry_cherry_bags = Number.parseFloat((dryCherry / 50).toFixed(2))
+        updated.dry_p_bags = Number.parseFloat((dryParch / bagWeightKg).toFixed(2))
+        updated.dry_cherry_bags = Number.parseFloat((dryCherry / bagWeightKg).toFixed(2))
         updated.dry_p_bags_todate = updated.dry_p_bags
         updated.dry_cherry_bags_todate = updated.dry_cherry_bags
       }
@@ -220,30 +277,72 @@ export default function ProcessingTab() {
     })
   }
 
-  const loadRecentRecords = async () => {
-    console.log("loadRecentRecords called for location:", location)
-    setIsLoadingRecords(true)
+  const loadRecentRecords = async (pageIndex = 0, append = false) => {
+    if (!selectedLocationId) {
+      return
+    }
+    console.log("loadRecentRecords called for location:", selectedLocationId)
+    if (append) {
+      setIsLoadingMoreRecords(true)
+    } else {
+      setIsLoadingRecords(true)
+    }
     try {
-      const url = `/api/processing-records?location=${encodeURIComponent(location)}&fiscalYearStart=${selectedFiscalYear.startDate}&fiscalYearEnd=${selectedFiscalYear.endDate}`
+      const params = new URLSearchParams({
+        locationId: selectedLocationId,
+        coffeeType,
+        fiscalYearStart: selectedFiscalYear.startDate,
+        fiscalYearEnd: selectedFiscalYear.endDate,
+        limit: recordsPageSize.toString(),
+        offset: String(pageIndex * recordsPageSize),
+      })
+      const url = `/api/processing-records?${params.toString()}`
       console.log("Fetching from URL:", url)
 
-      const response = await fetch(url)
-      const data = await response.json()
+      const response = await fetch(url, { headers: tenantHeaders })
+      const responseText = await response.text()
+      let data: any = null
+      try {
+        data = responseText ? JSON.parse(responseText) : null
+      } catch {
+        data = null
+      }
 
       console.log("Recent records response:", data)
 
-      if (data.success) {
+      if (!response.ok) {
+        console.error("Processing API error:", response.status, responseText)
+        setRecentRecords([])
+        toast({
+          title: "Error",
+          description: responseText || `Failed to load recent records (${response.status})`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (data?.success) {
         if (Array.isArray(data.records)) {
           console.log("Setting recent records, count:", data.records.length)
-          setRecentRecords(data.records)
+          const nextTotalCount = Number(data.totalCount) || 0
+          setRecordsTotalCount(nextTotalCount)
+          setRecentRecords((prev) => {
+            const nextRecords = append ? [...prev, ...data.records] : data.records
+            const hasMore = nextTotalCount ? nextRecords.length < nextTotalCount : data.records.length === recordsPageSize
+            setHasMoreRecords(hasMore)
+            return nextRecords
+          })
+          setRecordsPage(pageIndex)
         } else {
           console.warn("data.records is not an array:", data.records)
           setRecentRecords([])
+          setHasMoreRecords(false)
         }
       } else {
         console.error("API returned success: false", data)
         setRecentRecords([])
-        if (data.error) {
+        setHasMoreRecords(false)
+        if (data?.error) {
           toast({
             title: "Error",
             description: data.error,
@@ -254,35 +353,55 @@ export default function ProcessingTab() {
     } catch (error) {
       console.error("Error loading recent records:", error)
       setRecentRecords([])
+      setHasMoreRecords(false)
       toast({
         title: "Error",
         description: "Failed to load recent records",
         variant: "destructive",
       })
     } finally {
-      setIsLoadingRecords(false)
+      if (append) {
+        setIsLoadingMoreRecords(false)
+      } else {
+        setIsLoadingRecords(false)
+      }
     }
   }
 
   const loadRecordForDate = async (selectedDate: Date) => {
+    if (!selectedLocationId) {
+      return
+    }
     setIsLoading(true)
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd")
-      console.log("Loading record for date:", dateStr, "location:", location)
+      console.log("Loading record for date:", dateStr, "location:", selectedLocationId)
 
-      const response = await fetch(`/api/processing-records?date=${dateStr}&location=${encodeURIComponent(location)}`)
+      const response = await fetch(
+        `/api/processing-records?date=${dateStr}&locationId=${selectedLocationId}&coffeeType=${encodeURIComponent(
+          coffeeType,
+        )}`,
+        { headers: tenantHeaders },
+      )
       const data = await response.json()
 
       console.log("Record for date response:", data)
 
       if (data.success && data.record) {
         const record = data.record
+        const nonNumericFields = new Set([
+          "process_date",
+          "notes",
+          "lot_id",
+          "quality_grade",
+          "defect_notes",
+          "quality_photo_url",
+        ])
         Object.keys(record).forEach((key) => {
           if (
             typeof record[key] === "string" &&
             !isNaN(Number(record[key])) &&
-            key !== "process_date" &&
-            key !== "notes"
+            !nonNumericFields.has(key)
           ) {
             record[key] = Number(record[key])
           }
@@ -292,45 +411,38 @@ export default function ProcessingTab() {
         setRecord({ ...emptyRecord, process_date: dateStr })
       }
 
-      // Fetch all records for this location
-      const allRecordsResponse = await fetch(`/api/processing-records?location=${encodeURIComponent(location)}`)
-      const allRecordsData = await allRecordsResponse.json()
+      const previousResponse = await fetch(
+        `/api/processing-records?beforeDate=${dateStr}&locationId=${selectedLocationId}&coffeeType=${encodeURIComponent(
+          coffeeType,
+        )}`,
+        { headers: tenantHeaders },
+      )
+      const previousData = await previousResponse.json()
 
-      if (allRecordsData.success && Array.isArray(allRecordsData.records) && allRecordsData.records.length > 0) {
-        // Filter records that are before the selected date
-        const recordsBeforeDate = allRecordsData.records.filter(
-          (rec: ProcessingRecord) => new Date(rec.process_date) < new Date(selectedDate),
-        )
+      if (previousData?.success && previousData.record) {
+        const prevRecord = previousData.record
+        const nonNumericFields = new Set([
+          "process_date",
+          "notes",
+          "lot_id",
+          "quality_grade",
+          "defect_notes",
+          "quality_photo_url",
+        ])
+        Object.keys(prevRecord).forEach((key) => {
+          if (
+            typeof prevRecord[key] === "string" &&
+            !isNaN(Number(prevRecord[key])) &&
+            !nonNumericFields.has(key)
+          ) {
+            prevRecord[key] = Number(prevRecord[key])
+          }
+        })
 
-        if (recordsBeforeDate.length > 0) {
-          // Sort by date descending and take the most recent one
-          recordsBeforeDate.sort(
-            (a: ProcessingRecord, b: ProcessingRecord) =>
-              new Date(b.process_date).getTime() - new Date(a.process_date).getTime(),
-          )
-
-          const prevRecord = recordsBeforeDate[0]
-
-          // Convert string numbers to actual numbers
-          Object.keys(prevRecord).forEach((key) => {
-            if (
-              typeof prevRecord[key] === "string" &&
-              !isNaN(Number(prevRecord[key])) &&
-              key !== "process_date" &&
-              key !== "notes"
-            ) {
-              prevRecord[key] = Number(prevRecord[key])
-            }
-          })
-
-          console.log("Found previous record:", prevRecord.process_date, "with crop_todate:", prevRecord.crop_todate)
-          setPreviousRecord(prevRecord)
-        } else {
-          console.log("No records found before the selected date")
-          setPreviousRecord(null)
-        }
+        console.log("Found previous record:", prevRecord.process_date, "with crop_todate:", prevRecord.crop_todate)
+        setPreviousRecord(prevRecord)
       } else {
-        console.log("No records available for this location")
+        console.log("No records found before the selected date")
         setPreviousRecord(null)
       }
     } catch (error: any) {
@@ -348,95 +460,68 @@ export default function ProcessingTab() {
   const loadDashboardData = async () => {
     setIsLoadingDashboard(true)
     try {
-      const dashboardPromises = LOCATIONS.map(async (loc) => {
-        const response = await fetch(`/api/processing-records?location=${encodeURIComponent(loc)}`)
-        const data = await response.json()
+      const { startDate, endDate } = selectedFiscalYear
+      const response = await fetch(
+        `/api/processing-records?summary=dashboard&fiscalYearStart=${startDate}&fiscalYearEnd=${endDate}`,
+        { headers: tenantHeaders },
+      )
+      const data = await response.json()
 
-        if (data.success && Array.isArray(data.records) && data.records.length > 0) {
-          const sortedRecords = [...data.records].sort(
-            (a, b) => new Date(a.process_date).getTime() - new Date(b.process_date).getTime(),
-          )
-
-          // Calculate cumulative totals by summing all "today" values
-          let cumulativeCrop = 0
-          let cumulativeRipe = 0
-          let cumulativeGreen = 0
-          let cumulativeFloat = 0
-          let cumulativeWetParchment = 0
-          let cumulativeDryP = 0
-          let cumulativeDryCherry = 0
-          let cumulativeDryPBags = 0
-          let cumulativeDryCherryBags = 0
-
-          sortedRecords.forEach((rec) => {
-            cumulativeCrop += Number(rec.crop_today) || 0
-            cumulativeRipe += Number(rec.ripe_today) || 0
-            cumulativeGreen += Number(rec.green_today) || 0
-            cumulativeFloat += Number(rec.float_today) || 0
-            cumulativeWetParchment += Number(rec.wet_parchment) || 0
-            cumulativeDryP += Number(rec.dry_parch) || 0
-            cumulativeDryCherry += Number(rec.dry_cherry) || 0
-            cumulativeDryPBags += Number(rec.dry_p_bags) || 0
-            cumulativeDryCherryBags += Number(rec.dry_cherry_bags) || 0
-          })
-
-          return {
-            location: loc,
-            cropToDate: Number(cumulativeCrop.toFixed(2)),
-            ripeToDate: Number(cumulativeRipe.toFixed(2)),
-            greenToDate: Number(cumulativeGreen.toFixed(2)),
-            floatToDate: Number(cumulativeFloat.toFixed(2)),
-            wetParchmentToDate: Number(cumulativeWetParchment.toFixed(2)),
-            dryPToDate: Number(cumulativeDryP.toFixed(2)),
-            dryCherryToDate: Number(cumulativeDryCherry.toFixed(2)),
-            dryPBagsToDate: Number(cumulativeDryPBags.toFixed(2)),
-            dryCherryBagsToDate: Number(cumulativeDryCherryBags.toFixed(2)),
-          }
-        } else {
-          return {
-            location: loc,
-            cropToDate: 0,
-            ripeToDate: 0,
-            greenToDate: 0,
-            floatToDate: 0,
-            wetParchmentToDate: 0,
-            dryPToDate: 0,
-            dryCherryToDate: 0,
-            dryPBagsToDate: 0,
-            dryCherryBagsToDate: 0,
-          }
+      if (!data.success || !Array.isArray(data.records)) {
+        setDashboardData([])
+        return
+      }
+      const results: DashboardData[] = data.records.map((rec: any) => {
+        const locationLabel = rec.location_name || rec.location_code || "Estate"
+        const coffeeType = String(rec.coffee_type || "Unknown")
+        const label = `${locationLabel} ${coffeeType}`.trim()
+        return {
+          location: label,
+          coffeeType,
+          cropToDate: Number(rec.crop_total) || 0,
+          ripeToDate: Number(rec.ripe_total) || 0,
+          greenToDate: Number(rec.green_total) || 0,
+          floatToDate: Number(rec.float_total) || 0,
+          wetParchmentToDate: Number(rec.wet_parchment_total) || 0,
+          dryPToDate: Number(rec.dry_parch_total) || 0,
+          dryCherryToDate: Number(rec.dry_cherry_total) || 0,
+          dryPBagsToDate: Number(rec.dry_p_bags_total) || 0,
+          dryCherryBagsToDate: Number(rec.dry_cherry_bags_total) || 0,
         }
       })
 
-      const results = await Promise.all(dashboardPromises)
+      const sumRows = (rows: DashboardData[], label: string, coffeeType: string): DashboardData => ({
+        location: label,
+        coffeeType,
+        cropToDate: rows.reduce((acc, row) => acc + row.cropToDate, 0),
+        ripeToDate: rows.reduce((acc, row) => acc + row.ripeToDate, 0),
+        greenToDate: rows.reduce((acc, row) => acc + row.greenToDate, 0),
+        floatToDate: rows.reduce((acc, row) => acc + row.floatToDate, 0),
+        wetParchmentToDate: rows.reduce((acc, row) => acc + row.wetParchmentToDate, 0),
+        dryPToDate: rows.reduce((acc, row) => acc + row.dryPToDate, 0),
+        dryCherryToDate: rows.reduce((acc, row) => acc + row.dryCherryToDate, 0),
+        dryPBagsToDate: rows.reduce((acc, row) => acc + row.dryPBagsToDate, 0),
+        dryCherryBagsToDate: rows.reduce((acc, row) => acc + row.dryCherryBagsToDate, 0),
+        isTotal: true,
+      })
 
-      const hfRobusta = results.find((r) => r.location === "HF Robusta")
-      const mvRobusta = results.find((r) => r.location === "MV Robusta")
-      const pgRobusta = results.find((r) => r.location === "PG Robusta")
-
-      const totalRobusta: DashboardData = {
-        location: "Total Robusta",
-        cropToDate: (hfRobusta?.cropToDate || 0) + (mvRobusta?.cropToDate || 0) + (pgRobusta?.cropToDate || 0),
-        ripeToDate: (hfRobusta?.ripeToDate || 0) + (mvRobusta?.ripeToDate || 0) + (pgRobusta?.ripeToDate || 0),
-        greenToDate: (hfRobusta?.greenToDate || 0) + (mvRobusta?.greenToDate || 0) + (pgRobusta?.greenToDate || 0),
-        floatToDate: (hfRobusta?.floatToDate || 0) + (mvRobusta?.floatToDate || 0) + (pgRobusta?.floatToDate || 0),
-        wetParchmentToDate:
-          (hfRobusta?.wetParchmentToDate || 0) +
-          (mvRobusta?.wetParchmentToDate || 0) +
-          (pgRobusta?.wetParchmentToDate || 0),
-        dryPToDate: (hfRobusta?.dryPToDate || 0) + (mvRobusta?.dryPToDate || 0) + (pgRobusta?.dryPToDate || 0),
-        dryCherryToDate:
-          (hfRobusta?.dryCherryToDate || 0) + (mvRobusta?.dryCherryToDate || 0) + (pgRobusta?.dryCherryToDate || 0),
-        dryPBagsToDate:
-          (hfRobusta?.dryPBagsToDate || 0) + (mvRobusta?.dryPBagsToDate || 0) + (pgRobusta?.dryPBagsToDate || 0),
-        dryCherryBagsToDate:
-          (hfRobusta?.dryCherryBagsToDate || 0) +
-          (mvRobusta?.dryCherryBagsToDate || 0) +
-          (pgRobusta?.dryCherryBagsToDate || 0),
+      const typeGroups = results.reduce<Record<string, DashboardData[]>>((acc, row) => {
+        const key = row.coffeeType.toLowerCase()
+        if (!acc[key]) acc[key] = []
+        acc[key].push(row)
+        return acc
+      }, {})
+      const typeKeys = Object.keys(typeGroups)
+      const totals: DashboardData[] = []
+      if (typeKeys.length > 1) {
+        if (typeGroups.arabica) totals.push(sumRows(typeGroups.arabica, "Total Arabica", "Arabica"))
+        if (typeGroups.robusta) totals.push(sumRows(typeGroups.robusta, "Total Robusta", "Robusta"))
+      }
+      if (results.length > 0) {
+        totals.push(sumRows(results, "Total All", "All"))
       }
 
-      // Add Total Robusta row after the individual Robusta locations
-      setDashboardData([...results, totalRobusta])
+      setDashboardData(results.length > 0 ? [...results, ...totals] : results)
     } catch (error) {
       console.error("Error loading dashboard data:", error)
       toast({
@@ -450,12 +535,20 @@ export default function ProcessingTab() {
   }
 
   const handleSave = async () => {
+    if (!selectedLocationId) {
+      toast({
+        title: "Estate not ready",
+        description: "Add a location in Neon before saving records.",
+        variant: "destructive",
+      })
+      return
+    }
     setIsSaving(true)
     try {
       const response = await fetch("/api/processing-records", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...record, location }),
+        headers: { "Content-Type": "application/json", ...tenantHeaders },
+        body: JSON.stringify({ ...record, locationId: selectedLocationId, coffeeType }),
       })
 
       const data = await response.json()
@@ -463,10 +556,10 @@ export default function ProcessingTab() {
       if (data.success) {
         toast({
           title: "Success",
-          description: `Processing record saved successfully for ${location}`,
+          description: `Processing record saved successfully for ${selectedLocation?.name || "estate"}`,
         })
 
-        await loadRecentRecords()
+        await loadRecentRecords(0, false)
         await loadDashboardData()
 
         const nextDay = new Date(date)
@@ -492,9 +585,12 @@ export default function ProcessingTab() {
 
     try {
       const response = await fetch(
-        `/api/processing-records?date=${record.process_date}&location=${encodeURIComponent(location)}`,
+        `/api/processing-records?date=${record.process_date}&locationId=${selectedLocationId}&coffeeType=${encodeURIComponent(
+          coffeeType,
+        )}`,
         {
           method: "DELETE",
+          headers: tenantHeaders,
         },
       )
 
@@ -506,7 +602,7 @@ export default function ProcessingTab() {
           description: "Record deleted successfully",
         })
         setRecord({ ...emptyRecord, process_date: format(date, "yyyy-MM-dd") })
-        loadRecentRecords()
+        loadRecentRecords(0, false)
       } else {
         throw new Error(data.error)
       }
@@ -519,10 +615,30 @@ export default function ProcessingTab() {
     }
   }
 
+  const loadMoreRecords = async () => {
+    if (isLoadingMoreRecords || isLoadingRecords || !hasMoreRecords) {
+      return
+    }
+    await loadRecentRecords(recordsPage + 1, true)
+  }
+
   const handleExportCSV = async () => {
+    if (!selectedLocationId) {
+      toast({
+        title: "Estate not ready",
+        description: "Add a location in Neon before exporting.",
+        variant: "destructive",
+      })
+      return
+    }
     setIsExporting(true)
     try {
-      const response = await fetch(`/api/processing-records?location=${encodeURIComponent(location)}`)
+      const response = await fetch(
+        `/api/processing-records?locationId=${selectedLocationId}&coffeeType=${encodeURIComponent(
+          coffeeType,
+        )}&all=true`,
+        { headers: tenantHeaders },
+      )
       const data = await response.json()
 
       let records: ProcessingRecord[] = []
@@ -581,6 +697,7 @@ export default function ProcessingTab() {
 
       const headers = [
         "Date",
+        "Lot ID",
         "Crop Today (kg)",
         "Crop To Date (kg)",
         "Ripe Today (kg)",
@@ -595,21 +712,26 @@ export default function ProcessingTab() {
         "Wet Parchment (kg)",
         "Wet Parchment To-Date (kg)",
         "FR-WP %",
-        "Dry Parch (kg)",
-        "Dry P To Date (kg)",
+        "Dry Parchment (kg)",
+        "Dry Parchment To Date (kg)",
         "WP-DP %",
         "Dry Cherry (kg)",
         "Dry Cherry To Date (kg)",
         "Dry Cherry %",
-        "Dry P Bags",
-        "Dry P Bags To Date",
+        "Dry Parchment Bags",
+        "Dry Parchment Bags To Date",
         "Dry Cherry Bags",
         "Dry Cherry Bags To Date",
+        "Moisture %",
+        "Quality Grade",
+        "Defect Notes",
+        "Quality Photo URL",
         "Notes",
       ]
 
       const rows = processedRecords.map((rec: any) => [
-        format(new Date(rec.process_date), "dd-MM-yyyy"),
+        formatDateOnly(rec.process_date),
+        rec.lot_id || "",
         rec.crop_today ?? "",
         rec.crop_todate,
         rec.ripe_today ?? "",
@@ -634,6 +756,10 @@ export default function ProcessingTab() {
         rec.dry_p_bags_todate,
         rec.dry_cherry_bags,
         rec.dry_cherry_bags_todate,
+        rec.moisture_pct ?? "",
+        `"${String(rec.quality_grade || "").replace(/"/g, '""')}"`,
+        `"${String(rec.defect_notes || "").replace(/"/g, '""')}"`,
+        `"${String(rec.quality_photo_url || "").replace(/"/g, '""')}"`,
         `"${(rec.notes || "").replace(/"/g, '""')}"`,
       ])
 
@@ -645,7 +771,10 @@ export default function ProcessingTab() {
       link.setAttribute("href", url)
       link.setAttribute(
         "download",
-        `${location.replace(/\s+/g, "-")}-processing-records-${format(new Date(), "yyyy-MM-dd")}.csv`,
+        `${(selectedLocation?.name || "estate").replace(/\s+/g, "-")}-${coffeeType.toLowerCase()}-processing-records-${format(
+          new Date(),
+          "yyyy-MM-dd",
+        )}.csv`,
       )
       link.style.visibility = "hidden"
       document.body.appendChild(link)
@@ -654,7 +783,7 @@ export default function ProcessingTab() {
 
       toast({
         title: "Success",
-        description: `Processing records exported to CSV for ${location}`,
+        description: `Processing records exported to CSV for ${selectedLocation?.name || "location"}`,
       })
     } catch (error: any) {
       console.error("Export error:", error)
@@ -725,9 +854,9 @@ export default function ProcessingTab() {
                     <TableHead className="text-right">Green To Date (kg)</TableHead>
                     <TableHead className="text-right">Float To Date (kg)</TableHead>
                     <TableHead className="text-right">WP To Date (kg)</TableHead>
-                    <TableHead className="text-right">Dry P To Date (kg)</TableHead>
+                    <TableHead className="text-right">Dry Parchment To Date (kg)</TableHead>
                     <TableHead className="text-right">Dry Cherry To Date (kg)</TableHead>
-                    <TableHead className="text-right">Dry P Bags To Date</TableHead>
+                    <TableHead className="text-right">Dry Parchment Bags To Date</TableHead>
                     <TableHead className="text-right">Dry Cherry Bags To Date</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -736,7 +865,7 @@ export default function ProcessingTab() {
                     <TableRow
                       key={data.location}
                       className={
-                        data.location === "Total Robusta" ? "border-t-2 border-gray-400 font-semibold bg-gray-50" : ""
+                        data.isTotal ? "border-t-2 border-gray-400 font-semibold bg-gray-50" : ""
                       }
                     >
                       <TableCell className="font-medium">{data.location}</TableCell>
@@ -784,19 +913,29 @@ export default function ProcessingTab() {
         <CardContent className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <Label>Location:</Label>
-              <Select value={location} onValueChange={setLocation}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select location" />
+              <Label>Coffee Type:</Label>
+              <Select value={coffeeType} onValueChange={setCoffeeType}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LOCATIONS.map((loc) => (
-                    <SelectItem key={loc} value={loc}>
-                      {loc}
+                  {COFFEE_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label>Lot ID:</Label>
+              <Input
+                value={record.lot_id ?? ""}
+                onChange={(e) => updateField("lot_id", e.target.value)}
+                placeholder="e.g. LOT-2026-001"
+                className="w-[200px]"
+              />
             </div>
 
             <div className="flex items-center gap-2">
@@ -808,7 +947,7 @@ export default function ProcessingTab() {
                     className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                    {date ? formatDateOnly(date) : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -819,7 +958,7 @@ export default function ProcessingTab() {
             </div>
           </div>
 
-          {!isLoading && (
+          {!isLoading && selectedLocationId && (
             <>
               <Card>
                 <CardHeader>
@@ -1015,7 +1154,7 @@ export default function ProcessingTab() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>Dry Parch (kg)</Label>
+                    <Label>Dry Parchment (kg)</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -1027,7 +1166,7 @@ export default function ProcessingTab() {
                     />
                   </div>
                   <div>
-                    <Label>Dry P To Date (kg)</Label>
+                    <Label>Dry Parchment To Date (kg)</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -1099,7 +1238,7 @@ export default function ProcessingTab() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Dry P Bags</Label>
+                    <Label>Dry Parchment Bags</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -1107,10 +1246,10 @@ export default function ProcessingTab() {
                       disabled
                       className="bg-gray-100 cursor-not-allowed"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Auto-calculated (kg/50)</p>
+                    <p className="text-xs text-muted-foreground mt-1">Auto-calculated (kg/{bagWeightKg})</p>
                   </div>
                   <div>
-                    <Label>Dry P Bags To Date</Label>
+                    <Label>Dry Parchment Bags To Date</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -1129,7 +1268,7 @@ export default function ProcessingTab() {
                       disabled
                       className="bg-gray-100 cursor-not-allowed"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Auto-calculated (kg/50)</p>
+                    <p className="text-xs text-muted-foreground mt-1">Auto-calculated (kg/{bagWeightKg})</p>
                   </div>
                   <div>
                     <Label>Dry Cherry Bags To Date</Label>
@@ -1141,6 +1280,51 @@ export default function ProcessingTab() {
                       className="bg-gray-100 cursor-not-allowed"
                     />
                     <p className="text-xs text-muted-foreground mt-1">Auto-calculated</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Quality & Moisture</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Moisture %</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={record.moisture_pct ?? ""}
+                      onChange={(e) =>
+                        updateField("moisture_pct", e.target.value === "" ? null : Number.parseFloat(e.target.value))
+                      }
+                      placeholder="e.g. 11.5"
+                    />
+                  </div>
+                  <div>
+                    <Label>Quality Grade</Label>
+                    <Input
+                      value={record.quality_grade ?? ""}
+                      onChange={(e) => updateField("quality_grade", e.target.value)}
+                      placeholder="Grade AA / Screen 18"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Defect Notes</Label>
+                    <Textarea
+                      value={record.defect_notes ?? ""}
+                      onChange={(e) => updateField("defect_notes", e.target.value)}
+                      placeholder="Defects, cup notes, or QC checklist remarks..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Quality Photo URL (optional)</Label>
+                    <Input
+                      value={record.quality_photo_url ?? ""}
+                      onChange={(e) => updateField("quality_photo_url", e.target.value)}
+                      placeholder="https://..."
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -1170,10 +1354,12 @@ export default function ProcessingTab() {
                   )}
                 </Button>
                 {record.process_date && (
-                  <Button variant="destructive" onClick={handleDelete}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </Button>
+                  {canDelete && (
+                    <Button variant="destructive" onClick={handleDelete}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
+                  )}
                 )}
               </div>
             </>
@@ -1184,9 +1370,13 @@ export default function ProcessingTab() {
       {/* Recent Records */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Records - {location}</CardTitle>
+          <CardTitle>Recent Records</CardTitle>
           <CardDescription>
-            {isLoadingRecords ? "Loading..." : `${recentRecords.length} record(s) found`}
+            {isLoadingRecords
+              ? "Loading..."
+              : recordsTotalCount > recentRecords.length
+                ? `Showing ${recentRecords.length} of ${recordsTotalCount} record(s)`
+                : `${recentRecords.length} record(s) found`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1197,7 +1387,7 @@ export default function ProcessingTab() {
             </div>
           ) : recentRecords.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No records found for {location}</p>
+              <p>No records found yet</p>
               <p className="text-sm mt-2">Add your first record above to get started</p>
             </div>
           ) : (
@@ -1213,13 +1403,23 @@ export default function ProcessingTab() {
                   }}
                 >
                   <div className="flex justify-between w-full">
-                    <span>{format(new Date(rec.process_date), "PPP")}</span>
+                    <span>{formatDateOnly(rec.process_date)}</span>
                     <span className="text-muted-foreground">
+                      {rec.lot_id ? `Lot: ${rec.lot_id} | ` : ""}
                       Crop: {rec.crop_today ?? 0}kg | Bags: {rec.dry_p_bags}
+                      {rec.quality_grade ? ` | Grade: ${rec.quality_grade}` : ""}
+                      {rec.moisture_pct ? ` | Moisture: ${rec.moisture_pct}%` : ""}
                     </span>
                   </div>
                 </Button>
               ))}
+              {hasMoreRecords && (
+                <div className="flex justify-center pt-2">
+                  <Button variant="outline" size="sm" onClick={loadMoreRecords} disabled={isLoadingMoreRecords}>
+                    {isLoadingMoreRecords ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

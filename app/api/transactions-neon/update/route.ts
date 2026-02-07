@@ -1,11 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { inventorySql } from "@/lib/neon-connections"
+import { requireModuleAccess, isModuleAccessError } from "@/lib/module-access"
+import { normalizeTenantContext, runTenantQuery } from "@/lib/tenant-db"
+import { recalculateInventoryForItem } from "@/lib/inventory-recalc"
 
 export const dynamic = "force-dynamic"
 
 export async function PUT(request: NextRequest) {
   try {
     console.log("[SERVER] 📥 PUT /api/transactions-neon/update")
+    const sessionUser = await requireModuleAccess("transactions")
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
     const body = await request.json()
     console.log("[SERVER] Request body:", JSON.stringify(body, null, 2))
 
@@ -18,6 +23,28 @@ export async function PUT(request: NextRequest) {
           message: "Missing required fields: id, item_type, quantity, transaction_type",
         },
         { status: 400 },
+      )
+    }
+
+    const existing = await runTenantQuery(
+      inventorySql,
+      tenantContext,
+      inventorySql`
+        SELECT id, item_type
+        FROM transaction_history
+        WHERE id = ${Number(id)}
+          AND tenant_id = ${tenantContext.tenantId}
+        LIMIT 1
+      `,
+    )
+
+    if (!existing || existing.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Transaction not found",
+        },
+        { status: 404 },
       )
     }
 
@@ -43,36 +70,39 @@ export async function PUT(request: NextRequest) {
       total_cost,
     })
 
-    const result = await inventorySql`
-      UPDATE transaction_history
-      SET
-        item_type = ${item_type},
-        quantity = ${quantityValue},
-        transaction_type = ${normalizedType},
-        notes = ${notes || ""},
-        price = ${priceValue},
-        total_cost = ${total_cost}
-      WHERE id = ${Number(id)}
-      RETURNING
-        id,
-        item_type,
-        quantity,
-        transaction_type,
-        notes,
-        transaction_date,
-        user_id,
-        price,
-        total_cost
-    `
+    const result = await runTenantQuery(
+      inventorySql,
+      tenantContext,
+      inventorySql`
+        UPDATE transaction_history
+        SET
+          item_type = ${item_type},
+          quantity = ${quantityValue},
+          transaction_type = ${normalizedType},
+          notes = ${notes || ""},
+          price = ${priceValue},
+          total_cost = ${total_cost},
+          tenant_id = ${tenantContext.tenantId}
+        WHERE id = ${Number(id)}
+          AND tenant_id = ${tenantContext.tenantId}
+        RETURNING
+          id,
+          item_type,
+          quantity,
+          transaction_type,
+          notes,
+          transaction_date,
+          user_id,
+          price,
+          total_cost
+      `,
+    )
 
-    if (!result || result.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Transaction not found",
-        },
-        { status: 404 },
-      )
+    const affectedItems = new Set<string>([String(existing[0]?.item_type)])
+    affectedItems.add(String(item_type))
+    for (const affectedItem of affectedItems) {
+      if (!affectedItem) continue
+      await recalculateInventoryForItem(inventorySql, tenantContext, affectedItem)
     }
 
     console.log("[SERVER] ✅ Transaction updated:", result[0])
@@ -84,6 +114,9 @@ export async function PUT(request: NextRequest) {
     })
   } catch (error: any) {
     console.error("[SERVER] ❌ Error updating transaction:", error)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, message: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,

@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server"
 import { accountsSql } from "@/lib/neon-connections"
+import { requireModuleAccess, isModuleAccessError } from "@/lib/module-access"
+import { normalizeTenantContext, runTenantQuery } from "@/lib/tenant-db"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     console.log("📡 Fetching all activity codes from accounts_db...")
-
-    const result = await accountsSql`
-      SELECT code, activity as reference
-      FROM account_activities
-      ORDER BY code ASC
-    `
+    const sessionUser = await requireModuleAccess("accounts")
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
+    const result = await runTenantQuery(
+      accountsSql,
+      tenantContext,
+      accountsSql`
+        SELECT code, activity as reference
+        FROM account_activities
+        WHERE tenant_id = ${tenantContext.tenantId}
+        ORDER BY code ASC
+      `,
+    )
 
     console.log(`✅ Found ${result.length} activity codes`)
 
@@ -19,6 +27,9 @@ export async function GET() {
     })
   } catch (error: any) {
     console.error("❌ Error fetching activity codes:", error.message)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled", activities: [] }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,
@@ -32,15 +43,25 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const sessionUser = await requireModuleAccess("accounts")
+    if (!["admin", "owner"].includes(sessionUser.role)) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
+    }
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
     const body = await request.json()
     const { code, activity } = body
 
     console.log("➕ Adding new activity:", { code, activity })
 
     // Check if code already exists
-    const existing = await accountsSql`
-      SELECT code FROM account_activities WHERE code = ${code}
-    `
+    const existing = await runTenantQuery(
+      accountsSql,
+      tenantContext,
+      accountsSql`
+        SELECT code FROM account_activities
+        WHERE code = ${code} AND tenant_id = ${tenantContext.tenantId}
+      `,
+    )
 
     if (existing.length > 0) {
       return NextResponse.json(
@@ -52,10 +73,14 @@ export async function POST(request: Request) {
       )
     }
 
-    await accountsSql`
-      INSERT INTO account_activities (code, activity)
-      VALUES (${code}, ${activity})
-    `
+    await runTenantQuery(
+      accountsSql,
+      tenantContext,
+      accountsSql`
+        INSERT INTO account_activities (code, activity, tenant_id)
+        VALUES (${code}, ${activity}, ${tenantContext.tenantId})
+      `,
+    )
 
     console.log("✅ Activity added successfully")
 
@@ -64,6 +89,9 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     console.error("❌ Error adding activity:", error.message)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,

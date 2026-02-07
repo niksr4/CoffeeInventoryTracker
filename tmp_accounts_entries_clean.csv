@@ -1,0 +1,659 @@
+date_iso,Entry Type,Code,Reference,hf_laborers,hf_cost_per_laborer,outside_laborers,outside_cost_per_laborer,total_expenditure,Notes,Recorded By
+2026-02-02,Labor,163,Robusta Irrigation,1.0,475.0,6.0,450.0,3175.0,Engine shifting ,system
+2026-02-02,Labor,132,"Arabica Pruning, Handling",1.0,475.0,6.0,450.0,3175.0,,system
+2026-02-02,Labor,138,Arabica Fence,6.0,450.0,0.0,0.0,2700.0,,system
+2026-01-31,Labor,152,"Robusta Pruning, Handling",2.0,475.0,2.0,450.0,1850.0,,system
+2026-01-31,Labor,132,"Arabica Pruning, Handling",5.0,475.0,10.0,450.0,6875.0,,system
+2026-01-31,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-31,Labor,138,Arabica Fence,8.0,450.0,0.0,0.0,3600.0,,system
+2026-01-30,Labor,163,Robusta Irrigation,3.0,450.0,0.0,0.0,1350.0,Sand filling,system
+2026-01-30,Labor,152,"Robusta Pruning, Handling",3.0,475.0,1.0,450.0,1875.0,,system
+2026-01-30,Labor,132,"Arabica Pruning, Handling",6.0,475.0,7.0,450.0,6000.0,,system
+2026-01-30,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-30,Labor,138,Arabica Fence,8.0,450.0,0.0,0.0,3600.0,,system
+2026-01-29,Labor,555,Solar Fence,2.0,475.0,1.0,450.0,1400.0,Weed control ,system
+2026-01-29,Labor,160,Robust Harvesting,8.0,450.0,0.0,0.0,3600.0,Gleaning ,system
+2026-01-29,Labor,132,"Arabica Pruning, Handling",5.0,475.0,0.0,0.0,2375.0,,system
+2026-01-29,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-29,Labor,211,New Clearing,6.0,450.0,0.0,0.0,2700.0,Watering ,system
+2026-01-29,Labor,138,Arabica Fence,1.0,475.0,5.0,450.0,2725.0,,system
+2026-01-28,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,,system
+2026-01-28,Labor,160,Robust Harvesting,9.0,450.0,0.0,0.0,4050.0,Gleaning ,system
+2026-01-28,Labor,132,"Arabica Pruning, Handling",5.0,475.0,0.0,0.0,2375.0,,system
+2026-01-28,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-28,Labor,211,New Clearing,6.0,450.0,0.0,0.0,2700.0,Watering ,system
+2026-01-28,Labor,138,Arabica Fence,6.0,450.0,0.0,0.0,2700.0,Fence clearing,system
+2026-01-27,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,,system
+2026-01-27,Labor,160,Robust Harvesting,9.0,450.0,0.0,0.0,4050.0,Gleaning ,system
+2026-01-27,Labor,160,Robust Harvesting,9.0,450.0,0.0,0.0,4050.0,Gleaning ,system
+2026-01-27,Labor,132,"Arabica Pruning, Handling",5.0,475.0,0.0,0.0,2375.0,,system
+2026-01-27,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-27,Labor,211,New Clearing,6.0,450.0,0.0,0.0,2700.0,Watering ,system
+2026-01-27,Labor,138,Arabica Fence,1.5,475.0,6.0,450.0,3412.5,,system
+2026-01-26,Labor,138,Arabica Fence,1.0,475.0,4.0,450.0,2275.0,,system
+2026-01-26,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,,system
+2026-01-26,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-26,Labor,232,Lent,5.0,475.0,17.0,450.0,10025.0,To mvalli lime,system
+2026-01-24,Labor,158,Robusta Fence Maint,5.0,450.0,0.0,0.0,2250.0,,system
+2026-01-24,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,,system
+2026-01-24,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-24,Labor,232,Lent,6.0,475.0,17.0,450.0,10500.0,To pgiri lime ,system
+2026-01-23,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,,system
+2026-01-23,Labor,158,Robusta Fence Maint,2.0,475.0,5.0,450.0,3200.0,Fence,system
+2026-01-23,Labor,232,Lent,6.0,475.0,17.0,450.0,10500.0,To pgiri lime ,system
+2026-01-23,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-23,Other Expense,232,Lent,0.0,0.0,0.0,0.0,3560.0,Hsd tractor to sidhapur lime ,system
+2026-01-23,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,12510.0,Over time ,system
+2026-01-22,Labor,158,Robusta Fence Maint,1.0,475.0,5.0,450.0,2725.0,,system
+2026-01-22,Labor,232,Lent,6.0,450.0,0.0,0.0,2700.0,Lime unloading ,system
+2026-01-22,Labor,160,Robust Harvesting,10.0,450.0,0.0,0.0,4500.0,Gleaning ,system
+2026-01-22,Labor,210,Nursery,9.0,475.0,0.0,0.0,4275.0,,system
+2026-01-22,Labor,161,Robusta Processing & Drying,1.0,475.0,2.0,450.0,1375.0,,system
+2026-01-21,Labor,160,Robust Harvesting,10.0,450.0,0.0,0.0,4500.0,Gleaning ,system
+2026-01-21,Labor,158,Robusta Fence Maint,1.0,475.0,9.0,450.0,4525.0,,system
+2026-01-21,Labor,161,Robusta Processing & Drying,1.0,475.0,4.0,450.0,2275.0,,system
+2026-01-21,Labor,210,Nursery,9.0,475.0,0.0,0.0,4275.0,,system
+2026-01-20,Labor,158,Robusta Fence Maint,6.0,450.0,0.0,0.0,2700.0,,system
+2026-01-20,Labor,161,Robusta Processing & Drying,3.0,475.0,0.0,0.0,1425.0,,system
+2026-01-20,Labor,210,Nursery,8.0,475.0,0.0,0.0,3800.0,,system
+2026-01-20,Other Expense,232,Lent,0.0,0.0,0.0,0.0,5340.0,Hsd Pulpar pgiri and mvalli ,system
+2026-01-20,Other Expense,232,Lent,0.0,0.0,0.0,0.0,1040.0,Petrol for pulper ,system
+2026-01-20,Other Expense,232,Lent,0.0,0.0,0.0,0.0,1831.0,Mvalli picking incentive ,system
+2026-01-20,Other Expense,232,Lent,0.0,0.0,0.0,0.0,9651.0,Mvalli picking ,system
+2026-01-20,Other Expense,232,Lent,0.0,0.0,0.0,0.0,3560.0,Hsd tractor to pgiri and mvalli ,system
+2026-01-19,Labor,232,Lent,5.0,475.0,0.0,0.0,2375.0,,system
+2026-01-19,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-19,Other Expense,232,Lent,0.0,0.0,0.0,0.0,21685.0,Mvalli picking ,system
+2026-01-18,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,1650.0,Sunday wages ,system
+2026-01-17,Labor,210,Nursery,8.0,475.0,0.0,0.0,3800.0,,system
+2026-01-17,Labor,161,Robusta Processing & Drying,2.0,475.0,1.0,450.0,1400.0,,system
+2026-01-17,Labor,232,Lent,2.0,475.0,0.0,0.0,950.0,Picking pgiri ,system
+2026-01-17,Other Expense,232,Lent,0.0,0.0,0.0,0.0,23292.0,Mvalli picking ,system
+2026-01-16,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,,system
+2026-01-16,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-16,Labor,232,Lent,6.0,475.0,0.0,0.0,2850.0,To pgiri ,system
+2026-01-16,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,8975.0,Picking incentive 4274×2.10,system
+2026-01-16,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,11835.0,Ot 131.5×90 ,system
+2026-01-16,Other Expense,115,Machinary Maintenance,0.0,0.0,0.0,0.0,17775.0,Engine service ,system
+2026-01-16,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,8975.0,Anoop bill,system
+2026-01-16,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,1560.0,Petrol for pulper cleaning ,system
+2026-01-16,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,890.0,Tiller hsd,system
+2026-01-16,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,5340.0,Hsd tractor pgiri ,system
+2026-01-16,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,18690.0,Hsd Pulpar ,system
+2026-01-16,Other Expense,232,Lent,0.0,0.0,0.0,0.0,24254.0,Pgiri ,system
+2026-01-16,Other Expense,116,Land Tax,0.0,0.0,0.0,0.0,1500.0,Land tax,system
+2026-01-16,Other Expense,210,Nursery,0.0,0.0,0.0,0.0,1600.0,Nursery basket ,system
+2026-01-15,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-15,Labor,160,Robust Harvesting,5.0,475.0,0.0,0.0,2375.0,,system
+2026-01-15,Other Expense,232,Lent,0.0,0.0,0.0,0.0,23628.0,Pgiri ,system
+2026-01-14,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,,system
+2026-01-14,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-14,Labor,160,Robust Harvesting,6.0,475.0,0.0,0.0,2850.0,,system
+2026-01-14,Other Expense,232,Lent,0.0,0.0,0.0,0.0,20898.0,Pgiri ,system
+2026-01-13,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,,system
+2026-01-13,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-13,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,,system
+2026-01-13,Other Expense,232,Lent,0.0,0.0,0.0,0.0,20082.0,Pgiri picking ,system
+2026-01-12,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,,system
+2026-01-12,Labor,161,Robusta Processing & Drying,3.0,475.0,1.0,450.0,1875.0,,system
+2026-01-12,Labor,160,Robust Harvesting,6.0,475.0,0.0,0.0,2850.0,,system
+2026-01-12,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,22628.0,,system
+2026-01-11,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,1650.0,Sunday ,system
+2026-01-10,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,,system
+2026-01-10,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-10,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,,system
+2026-01-10,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,20073.0,,system
+2026-01-09,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,,system
+2026-01-09,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-09,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,,system
+2026-01-09,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,17800.0,Hsd Pulpar ,system
+2026-01-09,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,40000.0,Staff wages,system
+2026-01-09,Other Expense,113,Electricity,0.0,0.0,0.0,0.0,3393.0,Electric bill ,system
+2026-01-09,Other Expense,120,Water Supply,0.0,0.0,0.0,0.0,3278.0,Electric bill ,system
+2026-01-09,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,5919.0,Electric bill ,system
+2026-01-09,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,5541.0,Electric bill ,system
+2026-01-09,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,1540.0,Electric bill ,system
+2026-01-09,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,1040.0,Petrol pulpar cleaning ,system
+2026-01-09,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,890.0,Hsd tiller ,system
+2026-01-09,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Hsd tractor ,system
+2026-01-09,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,9255.0,Incentive ,system
+2026-01-09,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,3560.0,Hsd dryer,system
+2026-01-09,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,9090.0,Over time,system
+2026-01-09,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,18454.0,,system
+2026-01-08,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,,system
+2026-01-08,Labor,161,Robusta Processing & Drying,4.0,475.0,1.0,450.0,2350.0,,system
+2026-01-08,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,,system
+2026-01-08,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,22099.0,,system
+2026-01-07,Labor,161,Robusta Processing & Drying,5.0,475.0,1.0,450.0,2825.0,,system
+2026-01-07,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,,system
+2026-01-07,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,20307.0,,system
+2026-01-06,Labor,161,Robusta Processing & Drying,5.0,475.0,1.0,450.0,2825.0,,system
+2026-01-06,Labor,160,Robust Harvesting,5.0,475.0,0.0,0.0,2375.0,,system
+2026-01-06,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,18806.0,,system
+2026-01-05,Labor,161,Robusta Processing & Drying,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-05,Labor,160,Robust Harvesting,5.0,475.0,0.0,0.0,2375.0,,system
+2026-01-05,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,24067.0,,system
+2026-01-04,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,1650.0,Sunday wages,system
+2026-01-03,Labor,161,Robusta Processing & Drying,4.0,475.0,0.0,0.0,1900.0,,system
+2026-01-03,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,Picking ,system
+2026-01-03,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,21250.0,,system
+2026-01-02,Labor,161,Robusta Processing & Drying,6.0,475.0,0.0,0.0,2850.0,Processing ,system
+2026-01-02,Labor,160,Robust Harvesting,6.0,475.0,0.0,0.0,2850.0,Picking ,system
+2026-01-02,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,25946.0,,system
+2026-01-02,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Hsd 20lts tractor ,system
+2026-01-02,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,1000.0,Sunday,system
+2026-01-02,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,19893.0,,system
+2026-01-02,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,5130.0,OT,system
+2026-01-02,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,1040.0,Petrol,system
+2026-01-02,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,890.0,Hsd 10 tiller ,system
+2026-01-02,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,5340.0,Hsd 60lts Pulpar ,system
+2026-01-01,Labor,210,Nursery,6.0,475.0,0.0,0.0,2850.0,Nursery ,system
+2026-01-01,Labor,160,Robust Harvesting,6.0,475.0,0.0,0.0,2850.0,Picking ,system
+2026-01-01,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,20172.0,,system
+2025-12-31,Labor,210,Nursery,6.0,475.0,0.0,0.0,2850.0,Nursery ,system
+2025-12-31,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,Picking ,system
+2025-12-31,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,20320.0,Picking ,system
+2025-12-30,Labor,210,Nursery,6.0,475.0,0.0,0.0,2850.0,Nursery ,system
+2025-12-30,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,Picking ,system
+2025-12-30,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,23493.0,,system
+2025-12-29,Labor,160,Robust Harvesting,7.0,475.0,0.0,0.0,3325.0,Picking ,system
+2025-12-29,Labor,210,Nursery,6.0,475.0,0.0,0.0,2850.0,Nursery ,system
+2025-12-29,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,23345.4,5694×4.10=23345.4,system
+2025-12-27,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2025-12-27,Labor,160,Robust Harvesting,6.0,475.0,0.0,0.0,2850.0,Picking ,system
+2025-12-27,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,23423.0,5713×4.10=23423.3,system
+2025-12-26,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,,system
+2025-12-26,Labor,160,Robust Harvesting,7.0,475.0,24.0,450.0,14125.0,Picking ,system
+2025-12-26,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Hsd tractor ,system
+2025-12-26,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,3560.0,Hsd Pulpar ,system
+2025-12-25,Labor,117,"Maint Build, Roads, Yard",3.0,450.0,0.0,0.0,1350.0,Road work,system
+2025-12-25,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,Firewood ,system
+2025-12-25,Labor,210,Nursery,5.0,475.0,2.0,450.0,3275.0,Nursery ,system
+2025-12-25,Labor,160,Robust Harvesting,11.0,450.0,0.0,0.0,4950.0,Picking ,system
+2025-12-25,Labor,211,New Clearing,5.0,475.0,7.0,450.0,5525.0,Watering ,system
+2025-12-24,Labor,117,"Maint Build, Roads, Yard",3.0,450.0,0.0,0.0,1350.0,Road work,system
+2025-12-24,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,Fire wood ,system
+2025-12-24,Labor,210,Nursery,6.0,475.0,1.0,450.0,3300.0,Nursery ,system
+2025-12-24,Labor,160,Robust Harvesting,13.0,450.0,0.0,0.0,5850.0,Picking ,system
+2025-12-24,Labor,211,New Clearing,6.0,475.0,6.0,450.0,5550.0,Watering ,system
+2025-12-23,Labor,161,Robusta Processing & Drying,1.0,475.0,1.0,450.0,925.0,Fire wood ,system
+2025-12-23,Labor,555,Solar Fence,2.0,450.0,0.0,0.0,900.0,Weed control ,system
+2025-12-23,Labor,210,Nursery,6.0,475.0,2.0,450.0,3750.0,Nursery ,system
+2025-12-23,Labor,160,Robust Harvesting,13.0,450.0,0.0,0.0,5850.0,Picking ,system
+2025-12-23,Labor,211,New Clearing,6.0,475.0,6.0,450.0,5550.0,Watering ,system
+2025-12-22,Labor,160,Robust Harvesting,10.0,450.0,0.0,0.0,4500.0,Picking ,system
+2025-12-22,Labor,555,Solar Fence,5.0,450.0,0.0,0.0,2250.0,Weeds,system
+2025-12-22,Labor,210,Nursery,4.0,475.0,2.0,450.0,2800.0,Nursery ,system
+2025-12-22,Labor,211,New Clearing,5.0,475.0,7.0,450.0,5525.0,Watering ,system
+2025-12-21,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,475.0,Drying yard,system
+2025-12-20,Labor,232,Lent,2.0,475.0,2.0,450.0,1850.0,Mvalli fence ,system
+2025-12-20,Labor,555,Solar Fence,4.5,450.0,0.0,0.0,2025.0,Solar fence weed,system
+2025-12-20,Labor,210,Nursery,4.0,450.0,2.0,450.0,2700.0,Nursery ,system
+2025-12-20,Labor,245,Organic Compost Manure,9.0,450.0,0.0,0.0,4050.0,Compost ,system
+2025-12-20,Labor,211,New Clearing,6.0,475.0,6.0,450.0,5550.0,Watering ,system
+2025-12-19,Labor,232,Lent,2.0,475.0,2.0,450.0,1850.0,Mvalli fence ,system
+2025-12-19,Labor,555,Solar Fence,5.0,450.0,0.0,0.0,2250.0,Fence weed,system
+2025-12-19,Labor,210,Nursery,5.0,475.0,1.0,450.0,2825.0,Nursery ,system
+2025-12-19,Labor,245,Organic Compost Manure,9.0,450.0,0.0,0.0,4050.0,Compost ,system
+2025-12-19,Labor,211,New Clearing,5.0,475.0,7.0,450.0,5525.0,Watering ,system
+2025-12-19,Other Expense,211,New Clearing,0.0,0.0,0.0,0.0,1560.0,Watering ,system
+2025-12-19,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,5588.0,Picking incentive ,system
+2025-12-19,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,2670.0,Hsd tractor 20 tiller 10,system
+2025-12-18,Labor,210,Nursery,4.0,475.0,1.0,450.0,2350.0,Nursery ,system
+2025-12-18,Labor,158,Robusta Fence Maint,2.0,475.0,1.0,450.0,1400.0,Fence work,system
+2025-12-18,Labor,555,Solar Fence,4.0,450.0,0.0,0.0,1800.0,Weed control ,system
+2025-12-18,Labor,245,Organic Compost Manure,1.0,475.0,11.0,450.0,5425.0,Compost ,system
+2025-12-18,Labor,211,New Clearing,5.0,475.0,7.0,450.0,5525.0,Watering ,system
+2025-12-17,Labor,160,Robust Harvesting,6.0,475.0,8.0,450.0,6450.0,Robusta picking ,system
+2025-12-17,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,Nursery ,system
+2025-12-17,Labor,158,Robusta Fence Maint,2.0,475.0,1.0,450.0,1400.0,Fence work,system
+2025-12-17,Labor,245,Organic Compost Manure,1.0,475.0,14.0,450.0,6775.0,Compost,system
+2025-12-17,Other Expense,160,Robust Harvesting,0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos,system
+2025-12-16,Labor,141,Arabica Processing & Drying,2.0,450.0,0.0,0.0,900.0,Painting ,system
+2025-12-16,Labor,210,Nursery,4.0,475.0,0.0,0.0,1900.0,Nursery ,system
+2025-12-16,Labor,158,Robusta Fence Maint,2.0,475.0,1.0,450.0,1400.0,Fence,system
+2025-12-16,Labor,245,Organic Compost Manure,1.0,475.0,13.0,450.0,6325.0,Compost ,system
+2025-12-16,Labor,140,Arabica Harvesting,7.0,475.0,8.0,450.0,6925.0,Picking ,system
+2025-12-16,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,270.0,Ot,system
+2025-12-16,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos ,system
+2025-12-15,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-12-15,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,Nursery ,system
+2025-12-15,Labor,140,Arabica Harvesting,8.0,475.0,21.0,450.0,13250.0,Picking ,system
+2025-12-15,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos ,system
+2025-12-14,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,475.0,Sunday wage,system
+2025-12-13,Labor,141,Arabica Processing & Drying,2.0,475.0,0.0,0.0,950.0,Drying yard,system
+2025-12-13,Labor,140,Arabica Harvesting,10.0,475.0,0.0,0.0,4750.0,Picking ,system
+2025-12-13,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos ,system
+2025-12-12,Labor,106,Leave With Wages,8.0,475.0,0.0,0.0,3800.0,Puthary,system
+2025-12-12,Labor,141,Arabica Processing & Drying,3.0,475.0,0.0,0.0,1425.0,Yard,system
+2025-12-12,Labor,210,Nursery,3.0,475.0,0.0,0.0,1425.0,Nursery ,system
+2025-12-12,Labor,140,Arabica Harvesting,7.0,475.0,24.0,450.0,14125.0,Picking ,system
+2025-12-12,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,28967.0,Tractor service ,system
+2025-12-12,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,4000.0,Out side nos 4+4 Saturday ,system
+2025-12-12,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri nos 6,system
+2025-12-12,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,1170.0,O. T,system
+2025-12-12,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,450.0,Sunday wage,system
+2025-12-12,Other Expense,113,Electricity,0.0,0.0,0.0,0.0,5083.0,Current bill ,system
+2025-12-12,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,2800.0,Current bill ,system
+2025-12-12,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,2100.0,Current bill ,system
+2025-12-12,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,440.0,Current bill ,system
+2025-12-12,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,520.0,Petrol ,system
+2025-12-12,Other Expense,144,Arabica Harvesting incentive,0.0,0.0,0.0,0.0,53786.0,Topay rs 52310. Payed 1476,system
+2025-12-11,Labor,158,Robusta Fence Maint,3.0,475.0,0.0,0.0,1425.0,Fence,system
+2025-12-11,Labor,210,Nursery,3.0,475.0,0.0,0.0,1425.0,Nursery ,system
+2025-12-11,Labor,140,Arabica Harvesting,5.0,475.0,24.0,450.0,13175.0,Picking ,system
+2025-12-11,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2000.0,Out side lab,system
+2025-12-11,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos,system
+2025-12-10,Labor,232,Lent,2.0,475.0,0.0,0.0,950.0,To mvalli fence work,system
+2025-12-10,Labor,210,Nursery,3.0,475.0,0.0,0.0,1425.0,Nursery ,system
+2025-12-10,Labor,140,Arabica Harvesting,6.0,475.0,24.0,450.0,13650.0,Picking ,system
+2025-12-10,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1500.0,Out side 3nos wages 500 incentive rs12,system
+2025-12-10,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos ,system
+2025-12-09,Labor,232,Lent,8.0,450.0,0.0,0.0,3600.0,To mvalli fence,system
+2025-12-09,Labor,210,Nursery,6.0,475.0,0.0,0.0,2850.0,Nu🥳,system
+2025-12-09,Labor,160,Robust Harvesting,8.0,475.0,16.0,450.0,11000.0,Picking ,system
+2025-12-08,Labor,232,Lent,6.0,450.0,0.0,0.0,2700.0,To m valli ,system
+2025-12-08,Labor,210,Nursery,3.0,475.0,0.0,0.0,1425.0,Nursery ,system
+2025-12-08,Labor,150,Drip line Maintenance,1.0,475.0,2.0,450.0,1375.0,Drip ,system
+2025-12-08,Labor,141,Arabica Processing & Drying,5.0,450.0,0.0,0.0,2250.0,Husk transport ,system
+2025-12-08,Labor,160,Robust Harvesting,7.0,475.0,11.0,450.0,8275.0,Picking ,system
+2025-12-06,Labor,210,Nursery,3.0,475.0,0.0,0.0,1425.0,Nursery ,system
+2025-12-06,Labor,141,Arabica Processing & Drying,3.0,475.0,0.0,0.0,1425.0,Drying yard,system
+2025-12-06,Labor,140,Arabica Harvesting,8.0,475.0,24.0,450.0,14600.0,Picking ,system
+2025-12-06,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos ,system
+2025-12-05,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-12-05,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,Nursery ,system
+2025-12-05,Labor,150,Drip line Maintenance,3.0,475.0,0.0,0.0,1425.0,Drip,system
+2025-12-05,Labor,140,Arabica Harvesting,8.0,475.0,24.0,450.0,14600.0,Picking ,system
+2025-12-05,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,890.0,Hsd tiller ,system
+2025-12-05,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Hsd tractor ,system
+2025-12-05,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,1780.0,Hsd drip,system
+2025-12-05,Other Expense,104,Gratuity,0.0,0.0,0.0,0.0,67500.0,Sheela,system
+2025-12-05,Other Expense,115,Machinary Maintenance,0.0,0.0,0.0,0.0,14000.0,Generator service 2nos,system
+2025-12-05,Other Expense,233,Capital Account,0.0,0.0,0.0,0.0,85000.0,Generator auto work,system
+2025-12-05,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos ,system
+2025-12-05,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,520.0,Petrol for welding ,system
+2025-12-05,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,1780.0,Hsd Pulpar ,system
+2025-12-04,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-12-04,Labor,210,Nursery,2.0,475.0,0.0,0.0,950.0,Nursery ,system
+2025-12-04,Labor,150,Drip line Maintenance,3.0,475.0,0.0,0.0,1425.0,Drip ,system
+2025-12-04,Labor,140,Arabica Harvesting,7.0,475.0,24.0,450.0,14125.0,Picking ,system
+2025-12-04,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos ,system
+2025-12-04,Other Expense,155,"Robusta, Cost Lime, Manure",0.0,0.0,0.0,0.0,10280.0,Urea mop mgso4,system
+2025-12-03,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-12-03,Labor,210,Nursery,1.0,475.0,0.0,0.0,475.0,Nursery,system
+2025-12-03,Labor,150,Drip line Maintenance,3.0,475.0,0.0,0.0,1425.0,Drip ,system
+2025-12-03,Labor,140,Arabica Harvesting,9.0,475.0,24.0,450.0,15075.0,Picking ,system
+2025-12-03,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos ,system
+2025-12-02,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-12-02,Labor,150,Drip line Maintenance,2.0,475.0,1.0,450.0,1400.0,Drip,system
+2025-12-02,Labor,140,Arabica Harvesting,9.0,475.0,23.0,450.0,14625.0,Picking ,system
+2025-12-02,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos,system
+2025-12-01,Labor,150,Drip line Maintenance,2.0,475.0,1.0,450.0,1400.0,Drip ,system
+2025-12-01,Labor,140,Arabica Harvesting,6.0,475.0,18.0,450.0,10950.0,Picking ,system
+2025-12-01,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,40000.0,Month of nov 25,system
+2025-12-01,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1900.0,From pgiri 4nos ,system
+2025-11-29,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-11-29,Labor,150,Drip line Maintenance,1.0,475.0,2.0,450.0,1375.0,Drip ,system
+2025-11-29,Labor,140,Arabica Harvesting,8.0,475.0,22.0,450.0,13700.0,Picking ,system
+2025-11-29,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos ,system
+2025-11-28,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-11-28,Labor,150,Drip line Maintenance,3.0,475.0,0.0,0.0,1425.0,Drip ,system
+2025-11-28,Labor,140,Arabica Harvesting,9.0,475.0,23.0,450.0,14625.0,Picking ,system
+2025-11-28,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,690.0,Tyre replacing and auto charge ,system
+2025-11-28,Other Expense,155,"Robusta, Cost Lime, Manure",0.0,0.0,0.0,0.0,10280.0,Urea 190 mop 200 mgso4 200 kgs  drip,system
+2025-11-28,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Tractor ,system
+2025-11-28,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,3560.0,Hsd Pulpar ,system
+2025-11-28,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos,system
+2025-11-27,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-11-27,Labor,150,Drip line Maintenance,3.0,475.0,0.0,0.0,1425.0,Drip,system
+2025-11-27,Labor,140,Arabica Harvesting,9.0,475.0,23.0,450.0,14625.0,Picking ,system
+2025-11-27,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5 nos,system
+2025-11-26,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Yard,system
+2025-11-26,Labor,150,Drip line Maintenance,3.0,475.0,0.0,0.0,1425.0,Drip ,system
+2025-11-26,Labor,140,Arabica Harvesting,8.0,475.0,23.0,450.0,14150.0,Picking ,system
+2025-11-26,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1900.0,From pgiri 4nos ,system
+2025-11-25,Labor,141,Arabica Processing & Drying,1.0,475.0,0.0,0.0,475.0,Drying yard,system
+2025-11-25,Labor,150,Drip line Maintenance,2.0,475.0,1.0,450.0,1400.0,Drip,system
+2025-11-25,Labor,140,Arabica Harvesting,7.0,475.0,22.0,450.0,13225.0,Picking ,system
+2025-11-25,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos,system
+2025-11-24,Labor,150,Drip line Maintenance,2.0,475.0,1.0,450.0,1400.0,Drip,system
+2025-11-24,Labor,140,Arabica Harvesting,9.0,475.0,22.0,450.0,14175.0,Picking ,system
+2025-11-24,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1900.0,Picking frm pgiri 4nos,system
+2025-11-22,Labor,150,Drip line Maintenance,2.0,475.0,3.0,450.0,2300.0,Drip ,system
+2025-11-22,Labor,140,Arabica Harvesting,8.0,475.0,16.0,450.0,11000.0,Picking ,system
+2025-11-22,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos,system
+2025-11-21,Labor,150,Drip line Maintenance,1.0,475.0,2.0,450.0,1375.0,Drip ,system
+2025-11-21,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Watering ,system
+2025-11-21,Labor,139,"Arabica Supplies, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering ,system
+2025-11-21,Labor,245,Organic Compost Manure,7.0,475.0,15.0,450.0,10075.0,Compost ,system
+2025-11-21,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,1780.0,Hsd Pulpar ,system
+2025-11-21,Other Expense,245,Organic Compost Manure,0.0,0.0,0.0,0.0,1900.0,From pgiri 4nos ,system
+2025-11-21,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,475.0,From pgiri 1nos,system
+2025-11-21,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,3560.0,Hsd drip,system
+2025-11-21,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,890.0,Hsd tiller,system
+2025-11-21,Other Expense,139,"Arabica Supplies, Upkeep",0.0,0.0,0.0,0.0,3120.0,Petrol for watering ,system
+2025-11-21,Other Expense,139,"Arabica Supplies, Upkeep",0.0,0.0,0.0,0.0,4750.0,19hall ,system
+2025-11-21,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,2835.0,Current bill ,system
+2025-11-21,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,3569.0,Current bill ,system
+2025-11-21,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,3844.0,Current bill ,system
+2025-11-21,Other Expense,113,Electricity,0.0,0.0,0.0,0.0,8424.0,Current bill ,system
+2025-11-21,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,40000.0,Wages,system
+2025-11-21,Other Expense,233,Capital Account,0.0,0.0,0.0,0.0,140000.0,Building works,system
+2025-11-20,Labor,150,Drip line Maintenance,2.0,475.0,1.0,450.0,1400.0,Drip ,system
+2025-11-20,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Plants upkeep ,system
+2025-11-20,Labor,139,"Arabica Supplies, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering ,system
+2025-11-20,Labor,245,Organic Compost Manure,7.0,475.0,17.0,450.0,10975.0,Compost ,system
+2025-11-20,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-11-20,Other Expense,245,Organic Compost Manure,0.0,0.0,0.0,0.0,1900.0,From pgiri 4nos ,system
+2025-11-19,Labor,245,Organic Compost Manure,6.0,450.0,0.0,0.0,2700.0,Compost filling,system
+2025-11-19,Labor,150,Drip line Maintenance,3.0,475.0,2.0,450.0,2325.0,Drip ,system
+2025-11-19,Labor,139,"Arabica Supplies, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering ,system
+2025-11-19,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Plants upkeep ,system
+2025-11-19,Labor,140,Arabica Harvesting,6.0,475.0,10.0,450.0,7350.0,Picking ,system
+2025-11-19,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos ,system
+2025-11-18,Labor,150,Drip line Maintenance,3.0,475.0,2.0,450.0,2325.0,Drip ,system
+2025-11-18,Labor,139,"Arabica Supplies, Upkeep",3.0,475.0,0.0,0.0,1425.0,Plants upkeep ,system
+2025-11-18,Labor,140,Arabica Harvesting,6.0,475.0,20.0,450.0,11850.0,Picking ,system
+2025-11-18,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos ,system
+2025-11-17,Labor,150,Drip line Maintenance,1.0,475.0,4.0,450.0,2275.0,Drip,system
+2025-11-17,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Plants upkeep ,system
+2025-11-17,Labor,139,"Arabica Supplies, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering,system
+2025-11-17,Labor,140,Arabica Harvesting,5.0,475.0,14.0,450.0,8675.0,Picking ,system
+2025-11-17,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1900.0,From pgiri 4nos ,system
+2025-11-15,Labor,150,Drip line Maintenance,2.0,475.0,4.0,450.0,2750.0,Drip,system
+2025-11-15,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Plants upkeep ,system
+2025-11-15,Labor,139,"Arabica Supplies, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering ,system
+2025-11-15,Labor,140,Arabica Harvesting,5.0,475.0,13.0,450.0,8225.0,Picking,system
+2025-11-15,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6nos ,system
+2025-11-14,Labor,150,Drip line Maintenance,3.0,475.0,3.0,450.0,2775.0,Drip ,system
+2025-11-14,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Plants upkeep ,system
+2025-11-14,Labor,159,"Supplies Planting, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering ,system
+2025-11-14,Labor,140,Arabica Harvesting,6.0,475.0,15.0,450.0,9600.0,Picking ,system
+2025-11-14,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,3560.0,Hsd 40lts,system
+2025-11-14,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos ,system
+2025-11-14,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,3560.0,Pulpar hsd 40lts,system
+2025-11-14,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,2670.0,Hsd tractor 20 tiller 10,system
+2025-11-14,Other Expense,159,"Supplies Planting, Upkeep",0.0,0.0,0.0,0.0,10650.0,Watering 19:19:19 tricil petrol ,system
+2025-11-13,Labor,150,Drip line Maintenance,3.0,475.0,1.0,450.0,1875.0,Drip ,system
+2025-11-13,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Upkeep,system
+2025-11-13,Labor,140,Arabica Harvesting,5.0,475.0,17.0,450.0,10025.0,Picking ,system
+2025-11-13,Labor,159,"Supplies Planting, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering ,system
+2025-11-13,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,2850.0,From pgiri 6 nos,system
+2025-11-13,Other Expense,115,Machinary Maintenance,0.0,0.0,0.0,0.0,2202.0,Redbee,system
+2025-11-12,Labor,139,"Arabica Supplies, Upkeep",4.0,475.0,0.0,0.0,1900.0,Plants upkeek,system
+2025-11-12,Labor,150,Drip line Maintenance,2.0,475.0,1.0,450.0,1400.0,Drip,system
+2025-11-12,Labor,159,"Supplies Planting, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering,system
+2025-11-12,Labor,245,Organic Compost Manure,7.0,475.0,17.0,450.0,10975.0,Compost,system
+2025-11-11,Labor,152,"Robusta Pruning, Handling",10.0,450.0,0.0,0.0,4500.0,Handling ,system
+2025-11-11,Labor,150,Drip line Maintenance,3.0,475.0,0.0,0.0,1425.0,Drip,system
+2025-11-11,Labor,159,"Supplies Planting, Upkeep",5.0,450.0,0.0,0.0,2250.0,Watering,system
+2025-11-11,Labor,140,Arabica Harvesting,9.0,475.0,8.0,450.0,7875.0,Picking ,system
+2025-11-11,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,14583.0,Glycil fix urea  petrol,system
+2025-11-10,Labor,117,"Maint Build, Roads, Yard",3.0,475.0,0.0,0.0,1425.0,Drying yard,system
+2025-11-10,Labor,152,"Robusta Pruning, Handling",2.0,450.0,0.0,0.0,900.0,Handling ,system
+2025-11-10,Labor,150,Drip line Maintenance,1.0,475.0,1.0,450.0,925.0,Drip ,system
+2025-11-10,Labor,151,Robusta Weeding,12.0,450.0,0.0,0.0,5400.0,Glycil ,system
+2025-11-10,Labor,140,Arabica Harvesting,7.0,475.0,8.0,450.0,6925.0,Picking ,system
+2025-11-08,Labor,152,"Robusta Pruning, Handling",2.0,450.0,0.0,0.0,900.0,Handling ,system
+2025-11-08,Labor,150,Drip line Maintenance,3.0,475.0,1.0,450.0,1875.0,Drip,system
+2025-11-08,Labor,117,"Maint Build, Roads, Yard",3.0,475.0,0.0,0.0,1425.0,Drying yard,system
+2025-11-08,Labor,151,Robusta Weeding,12.0,450.0,0.0,0.0,5400.0,Glycil ,system
+2025-11-08,Labor,140,Arabica Harvesting,6.0,475.0,8.0,450.0,6450.0,Picking ,system
+2025-11-08,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos ,system
+2025-11-07,Labor,117,"Maint Build, Roads, Yard",3.0,475.0,0.0,0.0,1425.0,Drying yard,system
+2025-11-07,Labor,152,"Robusta Pruning, Handling",2.0,450.0,0.0,0.0,900.0,Handling ,system
+2025-11-07,Labor,150,Drip line Maintenance,3.0,475.0,1.0,450.0,1875.0,Drip,system
+2025-11-07,Labor,151,Robusta Weeding,12.0,450.0,0.0,0.0,5400.0,Glycil ,system
+2025-11-07,Labor,140,Arabica Harvesting,7.0,475.0,8.0,450.0,6925.0,Picking ,system
+2025-11-07,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,570.0,Urea weeding spray,system
+2025-11-07,Other Expense,155,"Robusta, Cost Lime, Manure",0.0,0.0,0.0,0.0,5140.0,Urea  mop mgso4,system
+2025-11-07,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,3325.0,Fix,system
+2025-11-07,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,36338.0,Glycil ,system
+2025-11-07,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,3640.0,Petrol,system
+2025-11-06,Labor,117,"Maint Build, Roads, Yard",3.0,475.0,0.0,0.0,1425.0,Drying yard,system
+2025-11-06,Labor,152,"Robusta Pruning, Handling",3.0,450.0,0.0,0.0,1350.0,Handling ,system
+2025-11-06,Labor,150,Drip line Maintenance,3.0,475.0,1.0,450.0,1875.0,Drip ,system
+2025-11-06,Labor,151,Robusta Weeding,10.0,450.0,0.0,0.0,4500.0,Glycil ,system
+2025-11-06,Labor,140,Arabica Harvesting,7.0,475.0,7.0,450.0,6475.0,Picking ,system
+2025-11-06,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,890.0,Tiller,system
+2025-11-06,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-11-06,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1900.0,From pgiri 4nos ,system
+2025-11-05,Labor,150,Drip line Maintenance,2.0,475.0,1.0,450.0,1400.0,Drip,system
+2025-11-05,Labor,117,"Maint Build, Roads, Yard",2.0,475.0,0.0,0.0,950.0,Drying yard,system
+2025-11-05,Labor,152,"Robusta Pruning, Handling",4.0,450.0,0.0,0.0,1800.0,Handling ,system
+2025-11-05,Labor,151,Robusta Weeding,10.0,450.0,0.0,0.0,4500.0,Glycil ,system
+2025-11-05,Labor,140,Arabica Harvesting,7.0,475.0,8.0,450.0,6925.0,Picking ,system
+2025-11-05,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-11-05,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Tractor,system
+2025-11-05,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,1780.0,Drip ,system
+2025-11-05,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-11-04,Labor,117,"Maint Build, Roads, Yard",2.0,475.0,0.0,0.0,950.0,Drying yard cleaning ,system
+2025-11-04,Labor,152,"Robusta Pruning, Handling",1.0,475.0,4.0,450.0,2275.0,Handling ,system
+2025-11-04,Labor,151,Robusta Weeding,1.0,475.0,11.0,450.0,5425.0,Glycil,system
+2025-11-04,Labor,140,Arabica Harvesting,8.0,475.0,8.0,450.0,7400.0,Picking ,system
+2025-11-04,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos,system
+2025-11-04,Other Expense,141,Arabica Processing & Drying,0.0,0.0,0.0,0.0,1780.0,Pulpar,system
+2025-11-03,Labor,152,"Robusta Pruning, Handling",4.0,450.0,0.0,0.0,1800.0,Handling ,system
+2025-11-03,Labor,140,Arabica Harvesting,8.0,475.0,7.0,450.0,6950.0,Picking ,system
+2025-11-03,Labor,151,Robusta Weeding,2.0,475.0,10.0,450.0,5450.0,Robusta glycil ,system
+2025-11-01,Labor,181,"Pepper Planting, Upkeep",4.0,450.0,0.0,0.0,1800.0,Rounding ,system
+2025-11-01,Labor,152,"Robusta Pruning, Handling",1.0,475.0,5.0,450.0,2725.0,Handling,system
+2025-11-01,Labor,140,Arabica Harvesting,9.0,475.0,8.0,450.0,7875.0,Picking ,system
+2025-11-01,Labor,232,Lent,2.0,475.0,6.0,450.0,3650.0,Lent to m. Valli glycil,system
+2025-11-01,Other Expense,232,Lent,0.0,0.0,0.0,0.0,1040.0,Petrol mvalli glycil,system
+2025-10-31,Labor,181,"Pepper Planting, Upkeep",4.0,450.0,0.0,0.0,1800.0,Pepper rounding ,system
+2025-10-31,Labor,152,"Robusta Pruning, Handling",2.0,475.0,5.0,450.0,3200.0,Handling ,system
+2025-10-31,Labor,140,Arabica Harvesting,10.0,475.0,8.0,450.0,8350.0,Picking ,system
+2025-10-31,Labor,232,Lent,2.0,475.0,6.0,450.0,3650.0,To pgiri,system
+2025-10-31,Other Expense,161,Robusta Processing & Drying,0.0,0.0,0.0,0.0,3800.0,Picking bags,system
+2025-10-31,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,2225.0,Tractor hsd,system
+2025-10-31,Other Expense,232,Lent,0.0,0.0,0.0,0.0,520.0,Petrol for pgiri spray,system
+2025-10-30,Labor,140,Arabica Harvesting,9.0,475.0,7.0,450.0,7425.0,Picking ,system
+2025-10-30,Labor,181,"Pepper Planting, Upkeep",1.0,475.0,5.0,450.0,2725.0,Pepper rounding ,system
+2025-10-30,Labor,152,"Robusta Pruning, Handling",3.0,475.0,10.0,450.0,5925.0,Robusta handling ,system
+2025-10-30,Other Expense,140,Arabica Harvesting,0.0,0.0,0.0,0.0,1900.0,From pgiri 4nos  picking ,system
+2025-10-29,Labor,140,Arabica Harvesting,5.0,475.0,7.0,450.0,5525.0,Picking ,system
+2025-10-29,Labor,181,"Pepper Planting, Upkeep",1.0,475.0,5.0,450.0,2725.0,Pepper rounding ,system
+2025-10-29,Labor,152,"Robusta Pruning, Handling",10.0,450.0,0.0,0.0,4500.0,Handling,system
+2025-10-29,Labor,152,"Robusta Pruning, Handling",8.0,475.0,0.0,0.0,3800.0,Pruning ,system
+2025-10-29,Other Expense,152,"Robusta Pruning, Handling",0.0,0.0,0.0,0.0,1900.0,From pgiri 4 nos pruning ,system
+2025-10-28,Labor,181,"Pepper Planting, Upkeep",1.0,475.0,5.0,450.0,2725.0,Pepper rounding ,system
+2025-10-28,Labor,152,"Robusta Pruning, Handling",1.0,475.0,17.0,450.0,8125.0,Handling,system
+2025-10-28,Labor,152,"Robusta Pruning, Handling",12.0,475.0,0.0,0.0,5700.0,Pruning ,system
+2025-10-28,Other Expense,152,"Robusta Pruning, Handling",0.0,0.0,0.0,0.0,2375.0,From pgiri 5nos pruning ,system
+2025-10-27,Labor,181,"Pepper Planting, Upkeep",5.0,450.0,0.0,0.0,2250.0,Pepper rounding ,system
+2025-10-27,Labor,245,Organic Compost Manure,1.0,475.0,5.0,450.0,2725.0,Compost mixing ,system
+2025-10-27,Labor,156,"Robusta Liming, Manuring",5.0,475.0,10.0,450.0,6875.0,Lime application ,system
+2025-10-27,Labor,159,"Supplies Planting, Upkeep",8.0,475.0,1.0,450.0,4250.0,Robusta planting ,system
+2025-10-27,Other Expense,152,"Robusta Pruning, Handling",0.0,0.0,0.0,0.0,1425.0,Robusta pruning from pgiri 3nos,system
+2025-10-25,Labor,134,Arabica Shade Work,6.0,450.0,0.0,0.0,2700.0,Palvan,system
+2025-10-25,Labor,245,Organic Compost Manure,1.0,475.0,5.0,450.0,2725.0,Compost mixing ,system
+2025-10-25,Labor,156,"Robusta Liming, Manuring",4.0,475.0,10.0,450.0,6400.0,Lime application ,system
+2025-10-25,Labor,159,"Supplies Planting, Upkeep",8.0,475.0,1.0,450.0,4250.0,Robusta planting ,system
+2025-10-24,Labor,245,Organic Compost Manure,1.0,475.0,5.0,450.0,2725.0,Compost mixing ,system
+2025-10-24,Labor,154,"Robusta Shade Temp, Perm.",6.0,450.0,0.0,0.0,2700.0,Palvan ,system
+2025-10-24,Labor,152,"Robusta Pruning, Handling",3.0,475.0,6.0,450.0,4125.0,Handling ,system
+2025-10-24,Labor,139,"Arabica Supplies, Upkeep",8.0,475.0,1.0,450.0,4250.0,Pitts and planting ,system
+2025-10-24,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Tractor,system
+2025-10-23,Labor,152,"Robusta Pruning, Handling",3.0,475.0,6.0,450.0,4125.0,Robusta handling ,system
+2025-10-23,Labor,139,"Arabica Supplies, Upkeep",8.0,475.0,1.0,450.0,4250.0,arabica pitts and plantig,system
+2025-10-23,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,10.0,450.0,4975.0,Palvan,system
+2025-10-23,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,30114.0,Wraping cloth,system
+2025-10-22,Labor,139,"Arabica Supplies, Upkeep",5.0,475.0,1.0,450.0,2825.0,Pitts and planting,system
+2025-10-22,Labor,154,"Robusta Shade Temp, Perm.",10.0,450.0,0.0,0.0,4500.0,Palvan,system
+2025-10-22,Labor,152,"Robusta Pruning, Handling",4.0,475.0,6.0,450.0,4600.0,Robusta handling ,system
+2025-10-21,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,2.5,450.0,1600.0,Palvan,system
+2025-10-21,Labor,156,"Robusta Liming, Manuring",7.0,475.0,10.0,450.0,7825.0,Lime,system
+2025-10-21,Labor,133,Arabica Borer Tracing,2.0,475.0,3.0,450.0,2300.0,Borer wraping ,system
+2025-10-20,Labor,156,"Robusta Liming, Manuring",5.0,475.0,10.0,450.0,6875.0,Lime,system
+2025-10-20,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,4.0,450.0,2275.0,Palvan,system
+2025-10-20,Labor,133,Arabica Borer Tracing,3.0,450.0,0.0,0.0,1350.0,Borer wraping ,system
+2025-10-18,Labor,132,"Arabica Pruning, Handling",8.0,475.0,7.0,450.0,6950.0,Arabica handling complete ,system
+2025-10-18,Labor,133,Arabica Borer Tracing,3.0,475.0,3.0,450.0,2775.0,Borer ,system
+2025-10-18,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,8.0,450.0,4075.0,Palvan,system
+2025-10-18,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos,system
+2025-10-18,Other Expense,132,"Arabica Pruning, Handling",0.0,0.0,0.0,0.0,950.0,From pgiri 2nos,system
+2025-10-17,Labor,137,Arabica Spraying,4.0,475.0,7.0,450.0,5050.0,Arabica spray ,system
+2025-10-17,Labor,133,Arabica Borer Tracing,3.0,475.0,2.0,450.0,2325.0,Borer wraping ,system
+2025-10-17,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,6.0,450.0,3175.0,Palvan,system
+2025-10-17,Labor,132,"Arabica Pruning, Handling",6.0,475.0,1.0,450.0,3300.0,Arabica handling ,system
+2025-10-17,Other Expense,555,Solar Fence,0.0,0.0,0.0,0.0,2150.0,Solar fence spray,system
+2025-10-17,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,520.0,Robusta glycil ,system
+2025-10-17,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,520.0,Arabica glycil,system
+2025-10-17,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,5538.0,Robusta glycil ,system
+2025-10-17,Other Expense,137,Arabica Spraying,0.0,0.0,0.0,0.0,1352.0,Petrol arabica spray ,system
+2025-10-17,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,5538.0,Glycil,system
+2025-10-17,Other Expense,132,"Arabica Pruning, Handling",0.0,0.0,0.0,0.0,475.0,From pgiri 1,system
+2025-10-17,Other Expense,137,Arabica Spraying,0.0,0.0,0.0,0.0,475.0,Arabica spray ,system
+2025-10-17,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos,system
+2025-10-17,Other Expense,156,"Robusta Liming, Manuring",0.0,0.0,0.0,0.0,45000.0,Lime,system
+2025-10-17,Other Expense,137,Arabica Spraying,0.0,0.0,0.0,0.0,23291.0,Arabica spray ,system
+2025-10-17,Other Expense,113,Electricity,0.0,0.0,0.0,0.0,9796.0,Electric bill,system
+2025-10-17,Other Expense,120,Water Supply,0.0,0.0,0.0,0.0,10498.0,Electric bill,system
+2025-10-17,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,7421.0,Electric bill,system
+2025-10-17,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,5363.0,Staff electric bill,system
+2025-10-17,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,890.0,Tiller hsd,system
+2025-10-16,Labor,137,Arabica Spraying,4.0,475.0,7.0,450.0,5050.0,Aranica spray,system
+2025-10-16,Labor,133,Arabica Borer Tracing,3.0,475.0,2.0,450.0,2325.0,Borer and wrapping ,system
+2025-10-16,Labor,151,Robusta Weeding,6.0,475.0,2.0,450.0,3750.0,Slash weeding ,system
+2025-10-16,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,4.0,450.0,2275.0,Palvan shade,system
+2025-10-16,Labor,555,Solar Fence,3.0,450.0,0.0,0.0,1350.0,Spray,system
+2025-10-16,Other Expense,137,Arabica Spraying,0.0,0.0,0.0,0.0,475.0,From pgiri 1nos,system
+2025-10-16,Other Expense,233,Capital Account,0.0,0.0,0.0,0.0,80000.0,Carpenter advance,system
+2025-10-16,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,475.0,Slash weeding ,system
+2025-10-16,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,Frm pgiri. 2nos,system
+2025-10-15,Labor,133,Arabica Borer Tracing,3.0,475.0,2.0,450.0,2325.0,Borer and wraping ,system
+2025-10-15,Labor,137,Arabica Spraying,4.0,475.0,7.0,450.0,5050.0,Arabica spray ,system
+2025-10-15,Labor,151,Robusta Weeding,6.0,475.0,2.0,450.0,3750.0,Slash weeding ,system
+2025-10-15,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,7.0,450.0,3625.0,Palvan shade,system
+2025-10-15,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-10-15,Other Expense,137,Arabica Spraying,0.0,0.0,0.0,0.0,475.0,From pgiri 1nos ,system
+2025-10-15,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,475.0,From pgiri 1nos ,system
+2025-10-14,Labor,151,Robusta Weeding,4.0,475.0,7.0,450.0,5050.0,Robusta glycil ,system
+2025-10-14,Labor,133,Arabica Borer Tracing,3.0,475.0,2.0,450.0,2325.0,Borer and wraping ,system
+2025-10-14,Labor,151,Robusta Weeding,6.0,475.0,2.0,450.0,3750.0,Slash weeding ,system
+2025-10-14,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,6.0,450.0,3175.0,Palvan shade,system
+2025-10-14,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-10-14,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,475.0,From pgiri 1nos  glycil,system
+2025-10-14,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,475.0,From pgiri 1nos,system
+2025-10-13,Labor,133,Arabica Borer Tracing,1.0,475.0,2.0,450.0,1375.0,Borer and wraping ,system
+2025-10-13,Labor,151,Robusta Weeding,5.0,475.0,1.0,450.0,2825.0,Slash weeding ,system
+2025-10-13,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,4.0,450.0,2275.0,Palvan ,system
+2025-10-13,Labor,131,"Arabica Weeding, Trenching",3.0,475.0,7.0,450.0,4575.0,Arabica glycil,system
+2025-10-13,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-10-13,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos ,system
+2025-10-11,Labor,133,Arabica Borer Tracing,4.0,475.0,2.0,450.0,2800.0,Borer and wraping ,system
+2025-10-11,Labor,151,Robusta Weeding,3.0,475.0,1.0,450.0,1875.0,Slash weeding ,system
+2025-10-11,Labor,156,"Robusta Liming, Manuring",5.0,475.0,6.0,450.0,5075.0,Lime application ,system
+2025-10-11,Labor,154,"Robusta Shade Temp, Perm.",1.0,475.0,1.0,450.0,925.0,Palvan ,system
+2025-10-11,Labor,232,Lent,4.0,450.0,0.0,0.0,1800.0,To pgiri,system
+2025-10-11,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos,system
+2025-10-11,Other Expense,156,"Robusta Liming, Manuring",0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos ,system
+2025-10-10,Labor,133,Arabica Borer Tracing,4.0,475.0,2.0,450.0,2800.0,Borer and wraping ,system
+2025-10-10,Labor,151,Robusta Weeding,3.0,475.0,1.0,450.0,1875.0,Slash weeding ,system
+2025-10-10,Labor,156,"Robusta Liming, Manuring",6.0,475.0,6.0,450.0,5550.0,Lime application ,system
+2025-10-10,Labor,232,Lent,1.0,475.0,8.0,450.0,4075.0,Lent to pgiri,system
+2025-10-10,Other Expense,156,"Robusta Liming, Manuring",0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos,system
+2025-10-10,Other Expense,122,Miscellaneous,0.0,0.0,0.0,0.0,25.0,aadjustment,system
+2025-10-10,Other Expense,112,Vehicle Running & Maint,0.0,0.0,0.0,0.0,1780.0,Tractor,system
+2025-10-10,Other Expense,156,"Robusta Liming, Manuring",0.0,0.0,0.0,0.0,890.0,Tiller lime,system
+2025-10-10,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos,system
+2025-10-10,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,1040.0,Arabica glycil ,system
+2025-10-10,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,10946.0,Glycil urea fix,system
+2025-10-09,Labor,133,Arabica Borer Tracing,5.0,475.0,2.0,450.0,3275.0,Borer and wraping ,system
+2025-10-09,Labor,151,Robusta Weeding,2.0,475.0,2.0,450.0,1850.0,Slash weeding ,system
+2025-10-09,Labor,156,"Robusta Liming, Manuring",4.0,475.0,5.0,450.0,4150.0,Lime application ,system
+2025-10-09,Labor,232,Lent,1.0,475.0,8.0,450.0,4075.0,To pgiri palvan,system
+2025-10-09,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,From pgiri 2nos,system
+2025-10-09,Other Expense,156,"Robusta Liming, Manuring",0.0,0.0,0.0,0.0,1425.0,From pgiri 3nos,system
+2025-10-08,Labor,133,Arabica Borer Tracing,4.0,475.0,2.0,450.0,2800.0,Borer and wraping ,system
+2025-10-08,Labor,232,Lent,1.0,475.0,7.0,450.0,3625.0,To pgiri palvan,system
+2025-10-08,Labor,151,Robusta Weeding,4.0,475.0,2.0,450.0,2800.0,Slash weeding,system
+2025-10-08,Labor,131,"Arabica Weeding, Trenching",5.0,475.0,5.0,450.0,4625.0,Arabica glycil ,system
+2025-10-08,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,950.0,Pgiri 2nos,system
+2025-10-08,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,475.0,Pgiri 1no,system
+2025-10-07,Labor,133,Arabica Borer Tracing,3.0,475.0,1.0,450.0,1875.0,Tracing and wraping ,system
+2025-10-07,Labor,131,"Arabica Weeding, Trenching",3.0,475.0,7.0,450.0,4575.0,Glycil arabica,system
+2025-10-07,Labor,151,Robusta Weeding,4.0,475.0,1.0,450.0,2350.0,Slash weeding ,system
+2025-10-07,Labor,232,Lent,1.0,475.0,7.0,450.0,3625.0,To pgiri,system
+2025-10-07,Other Expense,233,Capital Account,0.0,0.0,0.0,0.0,85995.0,Drip pipes,system
+2025-10-07,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,450.0,Phiri 1,system
+2025-10-07,Other Expense,155,"Robusta, Cost Lime, Manure",0.0,0.0,0.0,0.0,72408.0,Lime bill,system
+2025-10-07,Other Expense,155,"Robusta, Cost Lime, Manure",0.0,0.0,0.0,0.0,1050.0,Loading charges Tata coffee,system
+2025-10-07,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,950.0,Pgiri 2,system
+2025-10-06,Labor,133,Arabica Borer Tracing,4.0,475.0,1.0,450.0,2350.0,Borer + wraping,system
+2025-10-06,Labor,181,"Pepper Planting, Upkeep",2.0,475.0,2.0,450.0,1850.0,Pepper upkeep ,system
+2025-10-06,Labor,151,Robusta Weeding,6.0,475.0,4.0,450.0,4650.0,Slash weeding ,system
+2025-10-06,Labor,151,Robusta Weeding,2.0,450.0,0.0,0.0,900.0,M weeding ,system
+2025-10-06,Labor,232,Lent,1.0,475.0,8.0,450.0,4075.0,Lent to pgiri,system
+2025-10-06,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,950.0,Pgiri 2nos,system
+2025-10-06,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,1456.0,M.weeding,system
+2025-10-06,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,475.0,Pgiri no 1,system
+2025-10-04,Labor,151,Robusta Weeding,4.0,475.0,5.0,450.0,4150.0,Slash weeding ,system
+2025-10-04,Labor,133,Arabica Borer Tracing,4.0,475.0,2.0,450.0,2800.0,Borer and wraping ,system
+2025-10-04,Labor,181,"Pepper Planting, Upkeep",1.0,475.0,2.0,450.0,1375.0,Pepper upkeep ,system
+2025-10-04,Labor,151,Robusta Weeding,2.0,450.0,0.0,0.0,900.0,M.weeding ,system
+2025-10-04,Labor,232,Lent,6.0,450.0,0.0,0.0,2700.0,To pgiri,system
+2025-10-04,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,1425.0,Pgiri 3nos Slash weeding,system
+2025-10-04,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,475.0,Pgiri 1,system
+2025-10-03,Labor,151,Robusta Weeding,4.0,475.0,5.0,450.0,4150.0,Slash weeding ,system
+2025-10-03,Labor,133,Arabica Borer Tracing,4.0,475.0,2.0,450.0,2800.0,Tracing and wrapping ,system
+2025-10-03,Labor,181,"Pepper Planting, Upkeep",1.0,475.0,2.0,450.0,1375.0,Upkeep ,system
+2025-10-03,Labor,131,"Arabica Weeding, Trenching",2.0,450.0,0.0,0.0,900.0,Arabica weeding ,system
+2025-10-03,Labor,232,Lent,6.0,450.0,0.0,0.0,2700.0,To pgiri palvan,system
+2025-10-03,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,Pgiri 2nos,system
+2025-10-03,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,5500.0,Out side Saturday wages,system
+2025-10-03,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,1248.0,M.weeding,system
+2025-10-03,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,2496.0,M.weeding,system
+2025-10-03,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,832.0,Welding ,system
+2025-10-03,Other Expense,211,New Clearing,0.0,0.0,0.0,0.0,882.0,Drenching ,system
+2025-10-03,Other Expense,233,Capital Account,0.0,0.0,0.0,0.0,54082.0,Fertigation pump,system
+2025-10-03,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,5500.0,Out side 11nos,system
+2025-10-03,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,1425.0,Pgiri 3nos Slash weeding ,system
+2025-10-02,Labor,151,Robusta Weeding,4.0,475.0,4.0,450.0,3700.0,Slash weeding ,system
+2025-10-02,Labor,133,Arabica Borer Tracing,3.0,475.0,2.0,450.0,2325.0,Borer and wraping,system
+2025-10-02,Labor,211,New Clearing,2.0,475.0,1.0,450.0,1400.0,Drenching ,system
+2025-10-02,Labor,181,"Pepper Planting, Upkeep",2.0,475.0,2.0,450.0,1850.0,Pepper upkeep ,system
+2025-10-02,Labor,131,"Arabica Weeding, Trenching",2.0,450.0,0.0,0.0,900.0,M.weeding,system
+2025-10-02,Labor,232,Lent,6.0,450.0,0.0,0.0,2700.0,To pgiri  palvan ,system
+2025-10-02,Other Expense,150,Drip line Maintenance,0.0,0.0,0.0,0.0,3500.0,Pipe and upvc,system
+2025-10-02,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,1425.0,Pgiri 3nos,system
+2025-10-02,Other Expense,106,Leave With Wages,0.0,0.0,0.0,0.0,5700.0,Gandhi jayanthi,system
+2025-10-02,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,5000.0,Outside 10nos,system
+2025-10-02,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,Pgiri 2nos,system
+2025-10-02,Other Expense,122,Miscellaneous,0.0,0.0,0.0,0.0,2033.0,,system
+2025-10-02,Other Expense,158,Robusta Fence Maint,0.0,0.0,0.0,0.0,1600.0,Solar fence material ,system
+2025-10-01,Labor,131,"Arabica Weeding, Trenching",1.0,475.0,4.0,450.0,2275.0,Slash weeding ,system
+2025-10-01,Labor,151,Robusta Weeding,2.0,450.0,0.0,0.0,900.0,M.weeding,system
+2025-10-01,Labor,181,"Pepper Planting, Upkeep",2.0,475.0,2.0,450.0,1850.0,Pepper upkeep ,system
+2025-10-01,Labor,150,Drip line Maintenance,1.0,475.0,4.0,450.0,2275.0,Drip maintain ,system
+2025-10-01,Labor,211,New Clearing,2.0,475.0,1.0,450.0,1400.0,Drenching ,system
+2025-10-01,Labor,154,"Robusta Shade Temp, Perm.",5.0,450.0,0.0,0.0,2250.0,Palvan,system
+2025-10-01,Labor,159,"Supplies Planting, Upkeep",3.0,475.0,0.0,0.0,1425.0,Plants upkeep ,system
+2025-10-01,Labor,133,Arabica Borer Tracing,1.0,475.0,0.0,0.0,475.0,Borer ,system
+2025-10-01,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,475.0,Pgiri 1nos,system
+2025-10-01,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,5500.0,Outside 11nos,system
+2025-10-01,Other Expense,131,"Arabica Weeding, Trenching",0.0,0.0,0.0,0.0,950.0,Pgiri 2nos .Arabica Slash weeding ,system
+2025-09-30,Labor,136,"Arabica Lime, Manuring",8.0,475.0,11.0,450.0,8750.0,Arabica manure ,system
+2025-09-30,Labor,151,Robusta Weeding,2.0,450.0,0.0,0.0,900.0,M.weeding,system
+2025-09-30,Labor,150,Drip line Maintenance,2.0,475.0,4.0,450.0,2750.0,Drip maintain ,system
+2025-09-30,Labor,133,Arabica Borer Tracing,1.0,475.0,0.0,0.0,475.0,Borer tracing,system
+2025-09-30,Other Expense,101,Salaries And Allowances,0.0,0.0,0.0,0.0,80000.0,Staff salary month of August and September ,system
+2025-09-30,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,5500.0,Outside 11nos,system
+2025-09-30,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,950.0,Pgiri 2nos,system
+2025-09-30,Other Expense,136,"Arabica Lime, Manuring",0.0,0.0,0.0,0.0,1425.0,Pgiri 3nos,system
+2025-09-30,Other Expense,135,"Arabica, Cost Lime, Manure",0.0,0.0,0.0,0.0,97500.0,Arabica manure,system
+2025-09-29,Labor,136,"Arabica Lime, Manuring",7.0,475.0,10.0,450.0,7825.0,Arabica manure,system
+2025-09-29,Labor,151,Robusta Weeding,2.0,450.0,0.0,0.0,900.0,M.weeding,system
+2025-09-29,Labor,150,Drip line Maintenance,2.0,475.0,3.0,450.0,2300.0,Drip maintain ,system
+2025-09-29,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,475.0,Pgiri 1 borer ,system
+2025-09-29,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,5000.0,Outside 10nos,system
+2025-09-27,Labor,151,Robusta Weeding,3.0,475.0,4.0,450.0,3225.0,Slash weeding ,system
+2025-09-27,Labor,159,"Supplies Planting, Upkeep",3.0,475.0,0.0,0.0,1425.0,Plants upkeep ,system
+2025-09-27,Labor,181,"Pepper Planting, Upkeep",2.0,475.0,2.0,450.0,1850.0,,system
+2025-09-27,Labor,151,Robusta Weeding,2.0,450.0,0.0,0.0,900.0,M.weeding,system
+2025-09-27,Labor,150,Drip line Maintenance,1.0,475.0,7.0,450.0,3625.0,Drip maintain ,system
+2025-09-27,Other Expense,151,Robusta Weeding,0.0,0.0,0.0,0.0,950.0,Pgiri 2 Slash weeding ,system
+2025-09-27,Other Expense,133,Arabica Borer Tracing,0.0,0.0,0.0,0.0,475.0,Pgiri 1 borer ,system
+2025-09-26,Other Expense,122,Miscellaneous,0.0,0.0,0.0,0.0,5427855.0,Total expenditure till 26-9-2025. Old data on quicken,system

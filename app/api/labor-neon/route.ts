@@ -1,24 +1,69 @@
 import { NextResponse } from "next/server"
 import { accountsSql } from "@/lib/neon-connections"
+import { requireModuleAccess, isModuleAccessError } from "@/lib/module-access"
+import { normalizeTenantContext, runTenantQueries, runTenantQuery } from "@/lib/tenant-db"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     console.log("📡 Fetching all labor transactions from accounts_db...")
+    const sessionUser = await requireModuleAccess("accounts")
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
+    const { searchParams } = new URL(request.url)
+    const all = searchParams.get("all") === "true"
+    const limitParam = searchParams.get("limit")
+    const offsetParam = searchParams.get("offset")
+    const limit = !all && limitParam ? Math.min(Math.max(Number.parseInt(limitParam, 10) || 0, 1), 500) : null
+    const offset = !all && offsetParam ? Math.max(Number.parseInt(offsetParam, 10) || 0, 0) : 0
 
-    const result = await accountsSql`
-      SELECT 
-        id,
-        deployment_date as date,
-        code,
-        hf_laborers,
-        hf_cost_per_laborer,
-        outside_laborers,
-        outside_cost_per_laborer,
-        total_cost,
-        notes
-      FROM labor_transactions
-      ORDER BY deployment_date DESC
-    `
+    const queryList = [
+      accountsSql`
+        SELECT COUNT(*)::int as count
+        FROM labor_transactions
+        WHERE tenant_id = ${tenantContext.tenantId}
+      `,
+      accountsSql`
+        SELECT COALESCE(SUM(total_cost), 0) as total
+        FROM labor_transactions
+        WHERE tenant_id = ${tenantContext.tenantId}
+      `,
+      limit
+        ? accountsSql`
+            SELECT 
+              id,
+              deployment_date as date,
+              code,
+              hf_laborers,
+              hf_cost_per_laborer,
+              outside_laborers,
+              outside_cost_per_laborer,
+              total_cost,
+              notes
+            FROM labor_transactions
+            WHERE tenant_id = ${tenantContext.tenantId}
+            ORDER BY deployment_date DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `
+        : accountsSql`
+            SELECT 
+              id,
+              deployment_date as date,
+              code,
+              hf_laborers,
+              hf_cost_per_laborer,
+              outside_laborers,
+              outside_cost_per_laborer,
+              total_cost,
+              notes
+            FROM labor_transactions
+            WHERE tenant_id = ${tenantContext.tenantId}
+            ORDER BY deployment_date DESC
+          `,
+    ]
+
+    const [totalCountResult, totalCostResult, result] = await runTenantQueries(accountsSql, tenantContext, queryList)
+
+    const totalCount = Number(totalCountResult[0]?.count) || 0
+    const totalCost = Number(totalCostResult[0]?.total) || 0
 
     // Transform the data to match the expected format
     const deployments = result.map((row: any) => {
@@ -27,7 +72,7 @@ export async function GET() {
       // Add HF labor entry
       if (row.hf_laborers && row.hf_laborers > 0) {
         laborEntries.push({
-          name: "HoneyFarm",
+          name: "Estate Labor",
           laborCount: row.hf_laborers,
           costPerLabor: Number.parseFloat(row.hf_cost_per_laborer || 0),
         })
@@ -56,13 +101,18 @@ export async function GET() {
     })
 
     // Fetch references for all codes
-    const codes = [...new Set(deployments.map((d) => d.code))]
+    const codes = [...new Set(deployments.map((d) => String(d.code)))]
     if (codes.length > 0) {
-      const references = await accountsSql`
-        SELECT code, activity as reference
-        FROM account_activities
-        WHERE code = ANY(${codes})
-      `
+      const references = await runTenantQuery(
+        accountsSql,
+        tenantContext,
+        accountsSql`
+          SELECT code, activity as reference
+          FROM account_activities
+          WHERE code = ANY(${codes})
+            AND tenant_id = ${tenantContext.tenantId}
+        `,
+      )
 
       const referenceMap = new Map(references.map((r: any) => [r.code, r.reference]))
 
@@ -76,9 +126,14 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       deployments,
+      totalCount,
+      totalCost,
     })
   } catch (error: any) {
     console.error("❌ Error fetching labor deployments:", error.message)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled", deployments: [] }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,
@@ -92,37 +147,53 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const sessionUser = await requireModuleAccess("accounts")
+    if (!["admin", "owner"].includes(sessionUser.role)) {
+      return NextResponse.json({ success: false, error: "Admin role required" }, { status: 403 })
+    }
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
     const body = await request.json()
     const { date, code, reference, laborEntries, totalCost, notes, user } = body
 
     console.log("➕ Adding new labor deployment:", { code, reference, totalCost })
 
     // Extract HF and outside labor details
-    const hfEntry = laborEntries.find((e: any) => e.name === "HoneyFarm")
+    const hfEntry = laborEntries.find((e: any) => e.name === "Estate Labor")
     const outsideEntry = laborEntries.find((e: any) => e.name === "Outside Labor")
+    const hfLaborers = Number(hfEntry?.laborCount) || 0
+    const hfCostPer = Number(hfEntry?.costPerLabor) || 0
+    const outsideLaborers = Number(outsideEntry?.laborCount) || 0
+    const outsideCostPer = Number(outsideEntry?.costPerLabor) || 0
+    const computedTotalCost = hfLaborers * hfCostPer + outsideLaborers * outsideCostPer
 
-    const result = await accountsSql`
-      INSERT INTO labor_transactions (
-        deployment_date,
-        code,
-        hf_laborers,
-        hf_cost_per_laborer,
-        outside_laborers,
-        outside_cost_per_laborer,
-        total_cost,
-        notes
-      ) VALUES (
-        ${date}::timestamp,
-        ${code},
-        ${hfEntry?.laborCount || 0},
-        ${hfEntry?.costPerLabor || 0},
-        ${outsideEntry?.laborCount || 0},
-        ${outsideEntry?.costPerLabor || 0},
-        ${totalCost},
-        ${notes}
-      )
-      RETURNING id
-    `
+    const result = await runTenantQuery(
+      accountsSql,
+      tenantContext,
+      accountsSql`
+        INSERT INTO labor_transactions (
+          deployment_date,
+          code,
+          hf_laborers,
+          hf_cost_per_laborer,
+          outside_laborers,
+          outside_cost_per_laborer,
+          total_cost,
+          notes,
+          tenant_id
+        ) VALUES (
+          ${date}::timestamp,
+          ${code},
+          ${hfEntry?.laborCount || 0},
+          ${hfEntry?.costPerLabor || 0},
+          ${outsideEntry?.laborCount || 0},
+          ${outsideEntry?.costPerLabor || 0},
+          ${computedTotalCost},
+          ${notes},
+          ${tenantContext.tenantId}
+        )
+        RETURNING id
+      `,
+    )
 
     console.log("✅ Labor deployment added successfully")
 
@@ -132,6 +203,9 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     console.error("❌ Error adding labor deployment:", error.message)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,
@@ -144,28 +218,44 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const sessionUser = await requireModuleAccess("accounts")
+    if (!["admin", "owner"].includes(sessionUser.role)) {
+      return NextResponse.json({ success: false, error: "Admin role required" }, { status: 403 })
+    }
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
     const body = await request.json()
     const { id, date, code, reference, laborEntries, totalCost, notes } = body
 
     console.log("📝 Updating labor deployment:", id)
 
     // Extract HF and outside labor details
-    const hfEntry = laborEntries.find((e: any) => e.name === "HoneyFarm")
+    const hfEntry = laborEntries.find((e: any) => e.name === "Estate Labor")
     const outsideEntry = laborEntries.find((e: any) => e.name === "Outside Labor")
+    const hfLaborers = Number(hfEntry?.laborCount) || 0
+    const hfCostPer = Number(hfEntry?.costPerLabor) || 0
+    const outsideLaborers = Number(outsideEntry?.laborCount) || 0
+    const outsideCostPer = Number(outsideEntry?.costPerLabor) || 0
+    const computedTotalCost = hfLaborers * hfCostPer + outsideLaborers * outsideCostPer
 
-    await accountsSql`
-      UPDATE labor_transactions
-      SET
-        deployment_date = ${date}::timestamp,
-        code = ${code},
-        hf_laborers = ${hfEntry?.laborCount || 0},
-        hf_cost_per_laborer = ${hfEntry?.costPerLabor || 0},
-        outside_laborers = ${outsideEntry?.laborCount || 0},
-        outside_cost_per_laborer = ${outsideEntry?.costPerLabor || 0},
-        total_cost = ${totalCost},
-        notes = ${notes}
-      WHERE id = ${id}
-    `
+    await runTenantQuery(
+      accountsSql,
+      tenantContext,
+      accountsSql`
+        UPDATE labor_transactions
+        SET
+          deployment_date = ${date}::timestamp,
+          code = ${code},
+          hf_laborers = ${hfEntry?.laborCount || 0},
+          hf_cost_per_laborer = ${hfEntry?.costPerLabor || 0},
+          outside_laborers = ${outsideEntry?.laborCount || 0},
+          outside_cost_per_laborer = ${outsideEntry?.costPerLabor || 0},
+          total_cost = ${computedTotalCost},
+          notes = ${notes},
+          tenant_id = ${tenantContext.tenantId}
+        WHERE id = ${id}
+          AND tenant_id = ${tenantContext.tenantId}
+      `,
+    )
 
     console.log("✅ Labor deployment updated successfully")
 
@@ -174,6 +264,9 @@ export async function PUT(request: Request) {
     })
   } catch (error: any) {
     console.error("❌ Error updating labor deployment:", error.message)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,
@@ -188,17 +281,26 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
-
+    const sessionUser = await requireModuleAccess("accounts")
+    if (!["admin", "owner"].includes(sessionUser.role)) {
+      return NextResponse.json({ success: false, error: "Admin role required" }, { status: 403 })
+    }
+    const tenantContext = normalizeTenantContext(sessionUser.tenantId, sessionUser.role)
     if (!id) {
       return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 })
     }
 
     console.log("🗑️ Deleting labor deployment:", id)
 
-    await accountsSql`
-      DELETE FROM labor_transactions
-      WHERE id = ${id}
-    `
+    await runTenantQuery(
+      accountsSql,
+      tenantContext,
+      accountsSql`
+        DELETE FROM labor_transactions
+        WHERE id = ${id}
+          AND tenant_id = ${tenantContext.tenantId}
+      `,
+    )
 
     console.log("✅ Labor deployment deleted successfully")
 
@@ -207,6 +309,9 @@ export async function DELETE(request: Request) {
     })
   } catch (error: any) {
     console.error("❌ Error deleting labor deployment:", error.message)
+    if (isModuleAccessError(error)) {
+      return NextResponse.json({ success: false, error: "Module access disabled" }, { status: 403 })
+    }
     return NextResponse.json(
       {
         success: false,
